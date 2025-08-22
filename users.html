@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Users - Admin Panel</title>
+  <style>
+    /* General styling for the whole dashboard */
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fc;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Container for the whole dashboard */
+    .dashboard-container {
+      display: flex;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      background-color: #2c3e50;
+      color: white;
+      width: 250px;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .sidebar-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .sidebar-header h2 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .logout button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .logout button:hover {
+      background-color: #c0392b;
+    }
+
+    .sidebar-menu {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .sidebar-menu li {
+      margin: 15px 0;
+    }
+
+    .sidebar-menu li a {
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+    }
+
+    .sidebar-menu li a i {
+      margin-right: 10px;
+    }
+
+    .sidebar-menu li a:hover {
+      background-color: #34495e;
+      border-radius: 4px;
+    }
+
+    /* Main content area */
+    .main-content {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    /* Header section */
+    header {
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 32px;
+      color: #2c3e50;
+    }
+
+    /* Overview cards */
+    .overview {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background-color: #ecf0f1;
+      border-radius: 8px;
+      padding: 20px;
+      width: 30%;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h3 {
+      font-size: 22px;
+      color: #34495e;
+    }
+
+    .card p {
+      font-size: 24px;
+      font-weight: 600;
+      color: #16a085;
+    }
+
+    /* Predictions Section */
+    .predictions-summary {
+      margin-top: 40px;
+    }
+
+    .predictions-summary h2 {
+      font-size: 24px;
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+
+    .prediction {
+      background-color: #ecf0f1;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .prediction h3 {
+      font-size: 20px;
+      color: #2c3e50;
+    }
+
+    .prediction p {
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    .status {
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .status.active {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .status.completed {
+      background-color: #95a5a6;
+      color: white;
+    }
+
+    .status.upcoming {
+      background-color: #f39c12;
+      color: white;
+    }
+
+    button {
+      background-color: #2980b9;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #3498db;
+    }
+
+    /* Table for latest users */
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+
+    table th, table td {
+      padding: 12px;
+      text-align: left;
+      border: 1px solid #bdc3c7;
+    }
+
+    table th {
+      background-color: #34495e;
+      color: white;
+    }
+
+    table tbody tr:hover {
+      background-color: #ecf0f1;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>Admin Panel</h2>
+        <div class="logout">
+          <button onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li><a href="users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+        <li><a href="predictions.html"><i class="fas fa-chart-line"></i> Market Predictions</a></li>
+        <li><a href="reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+        <li><a href="setting.html"><i class="fas fa-cogs"></i> Settings</a></li>
+      </ul>
+    </div>
+    <div class="main-content">
+      <header>
+        <h1>Manage Users</h1>
+      </header>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>JohnDoe</td>
+            <td>john@example.com</td>
+            <td>User</td>
+            <td><button>Delete</button></td>
+          </tr>
+          <!-- More users go here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function logout() {
+      // Logic to log out the admin (replace with actual logout functionality)
+      alert('Logging out...');
+      window.location.href = 'login.html'; // Redirect to login page
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Portfolio - AlphaAnalytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.0.1/lightweight-charts.standalone.production.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+:root {
+    --primary-white:#fff; --primary-navy:#0b172a; --bg-dark:#0b172a; --bg-card:#0c3c01;
+    --text-primary:#e6f1ff; --text-secondary:#9aaac7; --border-color:rgba(255,255,255,0.1);
+    --hover-color:rgba(0,255,153,0.1); --active-color:#00ff99; --up-color:#00ff99; --down-color:#ff4d4d;
+}
+body.light {
+    --bg-dark:#f5f8fa; --bg-card:#fff; --text-primary:#0b172a; --text-secondary:#44607a;
+    --border-color:rgba(11,23,42,0.1);
+}
+body{
+  background:var(--bg-card);
+  color:var(--text-primary);
+  transition:background 0.4s ease, color 0.4s ease;
+}
+.container{display:flex;min-height:100vh;flex-direction:column;}
+.navbar{
+    background:var(--bg-dark);padding:10px 20px;display:flex;justify-content:space-between;
+    align-items:center;border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:1000;
+    animation: fadeDown 0.6s ease;
+}
+@keyframes fadeDown {from {opacity:0;transform:translateY(-20px);}to {opacity:1;transform:translateY(0);}}
+.logo{font-size:24px;font-weight:bold;color:var(--active-color);animation: slideInLeft 0.8s ease;}
+@keyframes slideInLeft {from {opacity:0;transform:translateX(-40px);}to {opacity:1;transform:translateX(0);}}
+.nav-items{display:flex;gap:15px;list-style:none;transition:0.3s;}
+.nav-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--primary-white);
+  border-radius: 6px;
+  transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: #000;
+  box-shadow: 0 0 10px var(--active-color);
+  transform: none;
+}
+
+/* Optional: add a subtle underline animation on hover */
+.nav-item::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 0;
+  background: var(--active-color);
+  transition: width 0.3s ease;
+  margin-top: 4px;
+  border-radius: 2px;
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+/* For anchor links inside nav-item */
+.nav-item a {
+  color: inherit;
+  text-decoration: none !important;
+  display: inline-block;
+  transition: inherit;
+}
+
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+.export-btn{background:var(--active-color);color:#000;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;margin-left:7px;transition:background 0.3s;}
+.export-btn:hover{background:#00cc7a;}
+.main-content{padding:20px;}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px;}
+.search-bar input{padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);color:var(--text-primary);font-size:16px;}
+.portfolio-overview{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:20px;
+}
+.portfolio-card{
+  background:var(--bg-dark);padding:20px;border-radius:12px;border:1px solid var(--border-color);
+  transition:transform 0.3s ease,border-color 0.3s ease;animation:fadeUp 0.6s ease;
+}
+@keyframes fadeUp {from {opacity:0;transform:translateY(20px);}to {opacity:1;transform:translateY(0);}}
+.portfolio-card:hover{transform:translateY(-4px) scale(1.02);border-color:var(--active-color);box-shadow:0 4px 20px rgba(0,255,153,0.15);}
+.portfolio-card h3{color:var(--text-secondary);margin-bottom:8px;font-size:18px;}
+.portfolio-value{font-size:24px;font-weight:bold;}
+.holdings{background:var(--bg-dark);padding:20px;border-radius:12px;margin-top:20px;border:1px solid var(--border-color);}
+.holdings-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px;}
+.holdings-list{border-top:1px solid var(--border-color);}
+.holding-item{
+  display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;padding:15px 0;border-bottom:1px solid var(--border-color);
+  align-items:center;transition:background 0.3s, transform 0.3s;animation:slideFadeIn 0.4s ease;
+}
+.holding-item:hover{background:var(--hover-color);transform:scale(1.02);}
+@keyframes slideFadeIn {from {opacity:0;transform:translateX(-10px);}to {opacity:1;transform:translateX(0);}}
+.holding-info{display:flex;flex-direction:column;}
+.holding-name{font-weight:500;}
+.holding-symbol{color:var(--text-secondary);font-size:14px;}
+.holding-price { font-weight: bold; }
+.holding-change.positive{color:var(--up-color);animation:pulseGreen 1.5s infinite;}
+.holding-change.negative{color:var(--down-color);animation:pulseRed 1.5s infinite;}
+@keyframes pulseGreen {0% {box-shadow:0 0 5px rgba(0,255,153,0.3);}50% {box-shadow:0 0 15px rgba(0,255,153,0.7);}100% {box-shadow:0 0 5px rgba(0,255,153,0.3);}}
+@keyframes pulseRed {0% {box-shadow:0 0 5px rgba(255,77,77,0.3);}50% {box-shadow:0 0 15px rgba(255,77,77,0.7);}100% {box-shadow:0 0 5px rgba(255,77,77,0.3);}}
+.highlight{animation:highlightFlash 1s ease;}
+@keyframes highlightFlash{0%{background:rgba(0,255,0,0.2);}100%{background:none;}}
+#portfolioSentiment{margin-bottom:12px;font-weight:600;}
+#aiInsightText{font-size:16px;}
+#newsTicker{padding:8px;background:var(--bg-dark);color:var(--active-color);border-radius:6px;margin-bottom:8px;font-size:15px;}
+/* shimmer placeholders */
+.shimmer{
+  position:relative;
+  background:linear-gradient(90deg,var(--bg-dark) 25%,var(--bg-card) 50%,var(--bg-dark) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.2s infinite;
+  height:18px;border-radius:4px;
+}
+@keyframes shimmer {0% {background-position:-200% 0;}100% {background-position:200% 0;}}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="navbar">
+  <div class="logo">AlphaAnalytics</div>
+  <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+    <span></span><span></span><span></span>
+  </div>
+  <nav class="nav-items">
+    <a href="jeet.html" class="nav-item">Dashboard</a>
+    <a href="portfolio.html" class="nav-item active">Portfolio</a>
+    <a href="mystock.html" class="nav-item">My Stock</a>
+    <a href="deposit.html" class="nav-item">Deposit</a>
+    <a href="insight.html" class="nav-item">Insight</a>
+    
+    <a href="prediction.html" class="nav-item">Prediction</a>
+    <a href="news.html" class="nav-item">News Update</a>
+    <a href="videos.html" class="nav-item">Videos</a>
+    <a href="help.html" class="nav-item">Help Center</a>
+    <a href="profile.html" class="nav-item">Profile</a>
+  </nav>
+</header>
+<main class="main-content">
+  <div class="header">
+    <h1>Portfolio Overview</h1>
+    <div class="search-bar">
+      <input type="text" placeholder="Search stocks..." id="searchBar" onkeyup="applyHoldingsFilter()">
+    </div>
+    <div>
+      <button class="export-btn" onclick="exportPortfolio()">Export Portfolio</button>
+      <button class="export-btn" onclick="toggleTheme()">Theme</button>
+    </div>
+  </div>
+  <div id="portfolioSentiment"></div>
+  <div id="newsTicker"></div>
+  <div style="background:var(--bg-dark);border-radius:12px;padding:15px;margin-bottom:15px;">
+    <h3>AI Portfolio Insight</h3>
+    <p id="aiInsightText"></p>
+  </div>
+  <div class="portfolio-overview" id="portfolioOverview"></div>
+  <div class="holdings">
+    <div class="holdings-header">
+      <h2>Portfolio Holdings</h2>
+      <div>
+        <select id="sortHoldings" onchange="applyHoldingsFilter()">
+          <option value="">Sort By</option>
+          <option value="name">Name</option>
+          <option value="price">Price</option>
+          <option value="change">Change %</option>
+        </select>
+        <input type="text" id="filterHolding" placeholder="Filter symbol..." onkeyup="applyHoldingsFilter()">
+      </div>
+    </div>
+    <div class="holdings-list" id="holdingsList"></div>
+  </div>
+</main>
+</div>
+<script>
+const TWELVEDATA_API_KEY = "55d0096fb3364d53bb6dc8d519aa35da";
+let portfolioData = { value: 100000, gain: 2000, invest: 500000, funds: 50000, allocation: "70% in Stocks, 30% in Bonds" };
+let holdings = [
+  { name: "Microsoft", symbol: "MSFT" },
+  { name: "Apple", symbol: "AAPL" },
+  { name: "Cisco Systems", symbol: "CSCO" },
+  { name: "Alibaba Group", symbol: "BABA" },
+  { name: "Meta Platforms", symbol: "META" },
+  { name: "NVIDIA", symbol: "NVDA" }
+];
+const wait = ms => new Promise(res => setTimeout(res, ms));
+async function fetchLiveStockDataBatch(symbols) {
+  if (!symbols.length) return [];
+  let batchSize = 8; let results = [];
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    let batch = symbols.slice(i, i + batchSize);
+    const url = `https://api.twelvedata.com/quote?symbol=${batch.join(",")}&apikey=${TWELVEDATA_API_KEY}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Network error");
+      const json = await response.json();
+      let batchResults = Object.values(json).filter(s => s && !s.code && s.close !== undefined);
+      results = results.concat(batchResults);
+    } catch (e) { console.error("Fetch error:", e); }
+    await wait(1200);
+  }
+  return results;
+}
+function getPercentChange(stock) {
+  if (!stock.open || stock.open === 0) return 0;
+  return ((stock.close - stock.open) / stock.open) * 100;
+}
+function renderPortfolioCards() {
+  document.getElementById('portfolioOverview').innerHTML = `
+    <div class="portfolio-card"><h3>Top Value</h3><div class="portfolio-value">$${portfolioData.value.toLocaleString()}</div></div>
+    <div class="portfolio-card"><h3>Today's Gain/Loss</h3><div class="portfolio-value">${portfolioData.gain>0?'+':''}${portfolioData.gain.toLocaleString()}</div></div>
+    <div class="portfolio-card"><h3>Total Investments</h3><div class="portfolio-value">$${portfolioData.invest.toLocaleString()}</div></div>
+    <div class="portfolio-card"><h3>Available Funds</h3><div class="portfolio-value">$${portfolioData.funds.toLocaleString()}</div></div>
+    <div class="portfolio-card"><h3>Portfolio Allocation</h3><div class="portfolio-value">${portfolioData.allocation}</div></div>`;
+}
+function updatePortfolioSentiment() {
+  document.getElementById('portfolioSentiment').textContent =
+    "Portfolio Sentiment: " + (portfolioData.gain > 0 ? "POSITIVE 🟢" : "NEGATIVE 🔴");
+}
+// shimmer loader for holdings
+function showLoadingPlaceholder(count=6) {
+  const el = document.getElementById('holdingsList');
+  el.innerHTML = '';
+  for (let i=0;i<count;i++) {
+    el.innerHTML += `
+    <div class="holding-item">
+      <div class="holding-info">
+        <div class="shimmer" style="width:120px;"></div>
+        <div class="shimmer" style="width:60px;margin-top:6px;"></div>
+      </div>
+      <div class="shimmer" style="width:50px;height:16px;"></div>
+      <div class="shimmer" style="width:70px;height:16px;"></div>
+    </div>`;
+  }
+}
+function renderHoldings(data) {
+  const el = document.getElementById('holdingsList');
+  el.innerHTML = '';
+  data.forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'holding-item';
+    let changeClass = (h.change ?? 0) >= 0 ? 'positive' : 'negative';
+    let changeArrow = (h.change ?? 0) >= 0 ? '↑' : '↓';
+    let priceFormatted = h.price !== undefined ? `$${parseFloat(h.price).toFixed(2)}` : 'Loading...';
+    let changeFormatted = h.change !== undefined ? `${h.change >= 0 ? '+' : ''}${parseFloat(h.change).toFixed(2)}% ${changeArrow}` : '';
+    div.innerHTML = `
+      <div class="holding-info">
+        <span class="holding-name">${h.name}</span>
+        <span class="holding-symbol">${h.symbol}</span>
+      </div>
+      <span class="holding-price">${priceFormatted}</span>
+      <span class="holding-change ${changeClass}">${changeFormatted}</span>`;
+    el.appendChild(div);
+  });
+}
+async function updateHoldingsLiveData() {
+  showLoadingPlaceholder();
+  const symbols = holdings.map(h => h.symbol);
+  const data = await fetchLiveStockDataBatch(symbols);
+  if (!data.length) return;
+  data.forEach(d => {
+    const idx = holdings.findIndex(h => h.symbol.toUpperCase() === d.symbol.toUpperCase());
+    if (idx !== -1) {
+      holdings[idx].price = parseFloat(d.close);
+      holdings[idx].change = d.percent_change !== undefined ? parseFloat(d.percent_change) : getPercentChange(d);
+    }
+  });
+  renderHoldings(holdings);
+}
+function applyHoldingsFilter() {
+  let arr = [...holdings];
+  let sort = document.getElementById('sortHoldings').value;
+  let filter = document.getElementById('filterHolding').value.toLowerCase();
+  if (filter) arr = arr.filter(h => h.symbol.toLowerCase().includes(filter));
+  if (sort === "name") arr.sort((a,b) => a.name.localeCompare(b.name));
+  if (sort === "price") arr.sort((a,b) => (b.price || 0) - (a.price || 0));
+  if (sort === "change") arr.sort((a,b) => (b.change || 0) - (a.change || 0));
+  renderHoldings(arr);
+}
+function exportPortfolio() {
+  let csv = "Name,Symbol,Price,Change%\n" + holdings.map(h => {
+    let price = h.price !== undefined ? parseFloat(h.price).toFixed(2) : '';
+    let change = h.change !== undefined ? parseFloat(h.change).toFixed(2) : '';
+    return `${h.name},${h.symbol},${price},${change}`;
+  }).join("\n");
+  let blob = new Blob([csv], {type: 'text/csv'});
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = "portfolio_report.csv";
+  a.click();
+}
+function toggleTheme() {
+  document.body.classList.toggle('light');
+}
+function updateAIInsight() {
+  let arr = [
+    "AI detects volatility in banking.",
+    "Tech stocks rally in monsoon season.",
+    "Nifty facing 25000 resistance.",
+    "Positive sentiment after fiscal update."
+  ];
+  document.getElementById('aiInsightText').textContent = arr[Math.floor(Math.random() * arr.length)];
+}
+function rotateNews() {
+  let arr = [
+    "RBI keeps rates steady.",
+    "Sensex hits new high.",
+    "Tata Motors launches AI EV.",
+    "Infosys partners with Apple AI."
+  ];
+  let i = 0;
+  setInterval(() => {
+    document.getElementById('newsTicker').textContent = arr[i % arr.length];
+    i++;
+  }, 3000);
+}
+window.onload = () => {
+  renderPortfolioCards();
+  updatePortfolioSentiment();
+  updateHoldingsLiveData();
+  rotateNews();
+  updateAIInsight();
+  setInterval(updateAIInsight, 6000);
+  document.querySelector('.menu-toggle').onclick = () => {
+    document.querySelector('.nav-items').classList.toggle('show');
+  };
+};
+</script>
+</body>
+</html>

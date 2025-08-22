@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market Videos - AlphaAnalytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+    :root {
+      --primary-white:#fff; --primary-navy:#0b172a; --bg-dark:#0b172a; --bg-card:#0c3c01;
+      --text-primary:#e6f1ff; --text-secondary:#9aaac7;
+      --border-color:rgba(255,255,255,0.1);
+      --hover-color:rgba(0,255,153,0.1);
+      --active-color:#00ff99;
+    }
+    body{background:var(--bg-card);color:var(--text-primary);}
+    .container{display:flex;flex-direction:column;min-height:100vh;}
+
+    /* NAVBAR */
+    .navbar{
+      background:var(--bg-dark);padding:12px 20px;display:flex;justify-content:space-between;
+      align-items:center;border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:1000;
+      animation: fadeDown 0.6s ease;
+    }
+    .logo{font-size:22px;font-weight:bold;color:var(--active-color);animation: slideInLeft 0.8s ease;}
+    .nav-items{display:flex;gap:15px;list-style:none;}
+    .nav-item{color:var(--primary-white);padding:8px 14px;border-radius:6px;text-decoration:none;
+      transition:0.3s;position:relative;}
+    .nav-item:hover{background:var(--hover-color);color:var(--active-color);transform:scale(1.05);}
+    .nav-item.active{background:var(--active-color);color:#000;box-shadow:0 0 10px var(--active-color);}
+    .nav-item::after{
+      content:"";height:2px;width:0;background:var(--active-color);
+      position:absolute;left:0;bottom:0;transition:width 0.3s;
+    }
+    .nav-item:hover::after{width:100%;}
+
+    /* MAIN */
+    .main-content{padding:20px;flex-grow:1;animation: fadeUp 0.8s ease;}
+    h1{margin-bottom:20px;color:var(--active-color);}
+
+    /* VIDEO GRID */
+    .video-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;}
+    .video-card{
+      background:var(--bg-dark);padding:12px;border-radius:12px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:transform 0.3s, box-shadow 0.3s;
+      animation: slideFadeIn 0.6s ease;
+    }
+    .video-card:hover{transform:translateY(-5px) scale(1.02);box-shadow:0 8px 20px rgba(0,255,153,0.2);}
+    .video-card iframe{width:100%;height:200px;border:none;border-radius:10px;}
+    .video-title{margin-top:10px;font-weight:600;font-size:16px;color:var(--text-primary);}
+    .video-desc{font-size:14px;color:var(--text-secondary);margin-top:5px;}
+
+    /* Animations borrowed from jeet.html */
+    @keyframes fadeDown {
+      from {opacity:0;transform:translateY(-20px);}
+      to {opacity:1;transform:translateY(0);}
+    }
+    @keyframes fadeUp {
+      from {opacity:0;transform:translateY(20px);}
+      to {opacity:1;transform:translateY(0);}
+    }
+    @keyframes slideInLeft {
+      from {opacity:0;transform:translateX(-40px);}
+      to {opacity:1;transform:translateX(0);}
+    }
+    @keyframes slideFadeIn {
+      from {opacity:0;transform:translateX(-15px);}
+      to {opacity:1;transform:translateX(0);}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 🔹 Navbar -->
+  <header class="navbar">
+    <div class="logo">AlphaAnalytics</div>
+    <nav class="nav-items">
+      <a href="jeet.html" class="nav-item">Dashboard</a>
+      <a href="portfolio.html" class="nav-item">Portfolio</a>
+      <a href="mystock.html" class="nav-item">My Stock</a>
+      <a href="deposit.html" class="nav-item">Deposit</a>
+      <a href="insight.html" class="nav-item">Insight</a>
+      <a href="prediction.html" class="nav-item">Prediction</a>
+      <a href="news.html" class="nav-item">News Update</a>
+      <a href="videos.html" class="nav-item active">Videos</a>
+      <a href="help.html" class="nav-item">Help Center</a>
+      <a href="profile.html" class="nav-item">Profile</a>
+    </nav>
+  </header>
+
+  <!-- 🔹 Main Content -->
+  <main class="main-content">
+    <h1>Market & World News Videos</h1>
+    <div class="video-grid" id="videoGrid"></div>
+  </main>
+
+</div>
+
+<script>
+  // ✅ Video list
+  const videos = [
+    { title: "Beginner’s Guide to Stock Market", desc: "Learn the basics of investing and how stock markets work.", embed: "https://www.youtube.com/embed/QwZT7T-TXT0" },
+    { title: "Global Market News", desc: "Latest updates on the stock market and international economy.", embed: "https://www.youtube.com/embed/yG8MbP3zEFY" },
+    { title: "Technical Analysis Explained", desc: "How to read candlestick charts and identify patterns.", embed: "https://www.youtube.com/embed/9f5_3y9w7x4" },
+    { title: "Indian Market Today", desc: "Latest Sensex, Nifty, and sectoral performance updates.", embed: "https://www.youtube.com/embed/DfvBMFZp1K8" },
+    { title: "World Economy Update", desc: "Discussion on global economic policies and their impact.", embed: "https://www.youtube.com/embed/5Uh1Jlv8Z1E" },
+    { title: "Top Business Headlines", desc: "Catch up with daily business and finance news around the world.", embed: "https://www.youtube.com/embed/XxJKnDLYZz4" }
+  ];
+
+  // ✅ Render dynamically
+  const grid = document.getElementById("videoGrid");
+  videos.forEach((v, idx) => {
+    const card = document.createElement("div");
+    card.className = "video-card";
+    card.style.animationDelay = `${idx * 0.1}s`; // cascading animation
+    card.innerHTML = `
+      <iframe src="${v.embed}" allowfullscreen></iframe>
+      <div class="video-title">${v.title}</div>
+      <div class="video-desc">${v.desc}</div>
+    `;
+    grid.appendChild(card);
+  });
+</script>
+</body>
+</html>

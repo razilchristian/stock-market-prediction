@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stockate - News</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+:root {
+ --primary-white:#fff; --primary-navy:#0b172a; --bg-dark:#0b172a; --bg-card:#0c3c01;
+ --text-primary:#e6f1ff; --text-secondary:#9aaac7; --border-color:rgba(255,255,255,0.1);
+ --hover-color:rgba(0,255,153,0.1); --active-color:#00ff99;
+}
+body.light {
+ --bg-dark:#f5f8fa; --bg-card:#fff; --text-primary:#0b172a; --text-secondary:#44607a;
+ --border-color:rgba(11,23,42,0.1);
+}
+body{background:var(--bg-dark);color:var(--text-primary);transition:background 0.4s ease,color 0.4s ease;}
+.container{display:flex;flex-direction:column;min-height:100vh;}
+
+/* Navbar */
+.navbar{
+ background:var(--bg-card);padding:10px 20px;display:flex;justify-content:space-between;
+ align-items:center;border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:100;
+ animation: fadeDown 0.6s ease;
+}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+.logo{
+ font-size:24px;font-weight:bold;color:var(--active-color);
+ animation: slideInLeft 0.8s ease;
+}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-40px);}to{opacity:1;transform:translateX(0);}}
+.nav-items{display:flex;gap:15px;list-style:none;}
+.nav-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--primary-white);
+  border-radius: 6px;
+  transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: #000;
+  box-shadow: 0 0 10px var(--active-color);
+  transform: none;
+}
+
+/* Optional: add a subtle underline animation on hover */
+.nav-item::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 0;
+  background: var(--active-color);
+  transition: width 0.3s ease;
+  margin-top: 4px;
+  border-radius: 2px;
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+/* For anchor links inside nav-item */
+.nav-item a {
+  color: inherit;
+  text-decoration: none !important;
+  display: inline-block;
+  transition: inherit;
+}
+
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+.menu-toggle span{width:22px;height:2px;background:var(--primary-white);}
+@media(max-width:900px){
+ .nav-items{display:none;flex-direction:column;position:absolute;top:60px;left:0;width:100%;background:var(--bg-card);}
+ .nav-items.show{display:flex;animation:fadeIn 0.4s ease;}
+ @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+ .menu-toggle{display:flex;}
+}
+
+/* Content */
+.main-content{padding:20px;flex:1;}
+.header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.header h1{flex:1;}
+.controls{display:flex;gap:10px;flex-wrap:wrap;}
+.search-bar input,.category-select,button{
+ padding:8px;border-radius:6px;border:1px solid var(--border-color);
+ background:var(--bg-dark);color:var(--text-primary);
+}
+button{cursor:pointer;background:var(--active-color);color:#000;border:none;transition:background 0.3s;}
+button:hover{opacity:0.85;}
+
+/* News feed */
+.news-feed{display:flex;flex-wrap:wrap;gap:20px;}
+.news-item{
+ background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;
+ width:30%;display:flex;flex-direction:column;overflow:hidden;transition:.3s;
+}
+.news-item:hover{transform:translateY(-5px) scale(1.02);border-color:var(--active-color);box-shadow:0 4px 20px rgba(0,255,153,0.15);}
+.news-image{width:100%;height:180px;object-fit:cover;transition:.3s;}
+.news-item:hover .news-image{transform:scale(1.05);}
+.news-title{font-weight:500;padding:10px;font-size:17px;}
+.news-meta{color:var(--text-secondary);font-size:13px;padding:0 10px 10px;}
+.news-item a{text-decoration:none;color:inherit;}
+@media(max-width:768px){.news-item{width:48%;}}
+@media(max-width:480px){.news-item{width:100%;}}
+
+/* Loading shimmer */
+.loading,.shimmer{margin-top:20px;}
+.shimmer{
+ background:linear-gradient(90deg,var(--bg-dark)25%,var(--bg-card)50%,var(--bg-dark)75%);
+ background-size:200% 100%;
+ animation:shimmer 1.2s infinite;
+ border-radius:6px;height:200px;width:100%;
+}
+@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="navbar">
+    <div class="logo">AlphaAnalytics</div>
+    <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+      <span></span><span></span><span></span>
+    </div>
+    <nav class="nav-items">
+      <a href="jeet.html" class="nav-item">Dashboard</a>
+      <a href="portfolio.html" class="nav-item">Portfolio</a>
+      <a href="mystock.html" class="nav-item">My Stock</a>
+      <a href="deposit.html" class="nav-item">Deposit</a>
+      <a href="insight.html" class="nav-item">Insight</a>
+      <a href="prediction.html" class="nav-item">Prediction</a>
+      <a href="news.html" class="nav-item active">News Update</a>
+      <a href="videos.html" class="nav-item">Videos</a>
+      <a href="help.html" class="nav-item">Help Center</a>
+      <a href="profile.html" class="nav-item">Profile</a>
+    </nav>
+  </header>
+
+  <main class="main-content">
+    <div class="header">
+      <h1>Latest News</h1>
+      <div class="controls">
+        <select id="category" class="category-select">
+          <option value="general">General</option>
+          <option value="business">Business</option>
+          <option value="technology">Technology</option>
+          <option value="sports">Sports</option>
+          <option value="science">Science</option>
+          <option value="health">Health</option>
+          <option value="entertainment">Entertainment</option>
+        </select>
+        <div class="search-bar"><input type="text" id="searchInput" placeholder="Search articles..."></div>
+        <button onclick="fetchNews()">Refresh</button>
+        <button onclick="toggleTheme()">Theme</button>
+      </div>
+    </div>
+
+    <div id="news-feed" class="news-feed"></div>
+    <div id="loading" class="loading" style="display:none;">Loading news…</div>
+  </main>
+</div>
+
+<script>
+const apiKey = '593e59a34ba545eeabdd4d2943998f59';
+const newsFeed = document.getElementById('news-feed');
+const loadingEl = document.getElementById('loading');
+let allArticles = [];
+
+function showShimmerPlaceholders(count=6){
+  newsFeed.innerHTML = '';
+  for(let i=0;i<count;i++){
+    newsFeed.innerHTML += `<div class="news-item"><div class="shimmer"></div></div>`;
+  }
+}
+
+async function fetchNews() {
+  loadingEl.style.display='block';
+  showShimmerPlaceholders();
+  const category = document.getElementById('category').value;
+  try {
+    const url = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=30&apiKey=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.status === 'ok') {
+      allArticles = data.articles;
+      displayArticles(allArticles);
+    } else {
+      newsFeed.innerHTML = `<p style="color:#ef5350">Failed to load news: ${data.message || ''}</p>`;
+    }
+  } catch(e) {
+    console.error(e);
+    newsFeed.innerHTML = '<p style="color:#ef5350">Error fetching news.</p>';
+  }
+  loadingEl.style.display='none';
+}
+
+function displayArticles(articles) {
+  if (!articles.length) {
+    newsFeed.innerHTML = '<p>No news found.</p>'; return;
+  }
+  newsFeed.innerHTML = articles.map(a=>`
+    <div class="news-item">
+      <a href="${a.url}" target="_blank">
+        <img src="${a.urlToImage || 'https://via.placeholder.com/400x200'}" class="news-image" alt="">
+        <div class="news-title">${a.title}</div>
+      </a>
+      <div class="news-meta">
+        ${a.author ? a.author+' • ' : ''}${new Date(a.publishedAt).toLocaleString()} • ${a.source && a.source.name || ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('category').addEventListener('change', fetchNews);
+document.getElementById('searchInput').addEventListener('input', function(){
+  const query = this.value.toLowerCase();
+  const f = allArticles.filter(a =>
+    (a.title && a.title.toLowerCase().includes(query)) ||
+    (a.description && a.description.toLowerCase().includes(query))
+  );
+  displayArticles(f);
+});
+
+function toggleTheme(){document.body.classList.toggle('light');}
+window.onload = fetchNews;
+</script>
+</body>
+</html>

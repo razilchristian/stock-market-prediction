@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Stock - AlphaAnalytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* Your original navigation and base styles - unchanged */
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+  :root{
+    --primary-white:#fff;--primary-navy:#0b172a;--bg-dark:#0b172a;--bg-card:#0c3c01;
+    --text-primary:#e6f1ff;--text-secondary:#9aaac7;--border-color:rgba(255,255,255,0.1);
+    --hover-color:rgba(0,255,153,0.1);--active-color:#00ff99;--up-color:#00ff99;--down-color:#ff4d4d;
+  }
+  body.light{ --bg-dark:#f5f8fa;--bg-card:#fff;--text-primary:#0b172a;--text-secondary:#44607a;--border-color:rgba(11,23,42,0.1);}
+  body{background:var(--bg-card);color:var(--text-primary);transition:background 0.4s ease, color 0.4s ease;margin:0; padding:0;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;}
+  .container{display:flex;flex-direction:column;flex-grow:1;width:100vw;max-width:100vw;overflow-x:hidden;}
+  .navbar{background:var(--bg-dark);padding:10px 30px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:1000;animation:fadeDown 0.6s ease;}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+  .logo{font-size:26px;font-weight:bold;color:var(--active-color);animation:slideInLeft 0.8s ease;}
+  @keyframes slideInLeft{from{opacity:0;transform:translateX(-40px);}to{opacity:1;transform:translateX(0);}}
+  .nav-items{display:flex;gap:18px;list-style:none;}
+  .nav-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    color: var(--primary-white);
+    border-radius: 6px;
+    transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .nav-item:hover {
+    background: var(--hover-color);
+    color: var(--active-color);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+  }
+  .nav-item.active {
+    background: var(--active-color);
+    color: #000;
+    box-shadow: 0 0 10px var(--active-color);
+    transform: none;
+  }
+  .nav-item::after {
+    content: '';
+    display: block;
+    height: 2px;
+    width: 0;
+    background: var(--active-color);
+    transition: width 0.3s ease;
+    margin-top: 4px;
+    border-radius: 2px;
+  }
+  .nav-item:hover::after {
+    width: 100%;
+  }
+  .nav-item a {
+    color: inherit;
+    text-decoration: none !important;
+    display: inline-block;
+    transition: inherit;
+  }
+  .menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .menu-toggle span {
+    width: 24px;
+    height: 3px;
+    background: var(--primary-white);
+    border-radius: 2px;
+  }
+  @media(max-width:900px){
+    .nav-items{
+      display:none;
+      flex-direction:column;
+      width:100%;
+      background:var(--bg-dark);
+      position:absolute;
+      top:62px;
+      left:0;
+    }
+    .nav-items.show{
+      display:flex;
+      animation:fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn{
+      from{opacity:0;}
+      to{opacity:1;}
+    }
+    .menu-toggle{
+      display:flex;
+    }
+  }
+
+  /* New styling for the interactive page content below navigation */
+  .main-content {
+    padding: 25px 30px;
+    width: 100vw;
+    max-width: 100vw;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 35px;
+  }
+
+  /* Trade Form */
+  .trade-form {
+    background: rgba(0, 255, 153, 0.12);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 30px;
+    border: 2px solid var(--active-color);
+    max-width: 600px;
+    width: 100%;
+  }
+  .trade-form h2 {
+    color: var(--active-color);
+    font-weight: 700;
+    font-size: 24px;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+  .trade-form label {
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 8px;
+    display: block;
+    user-select:none;
+  }
+  .trade-form input[type="text"],
+  .trade-form select,
+  .trade-form input[type="number"],
+  .trade-form button {
+    width: 100%;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    border-radius: 14px;
+    border: none;
+    outline: none;
+    font-weight: 600;
+    font-size: 17px;
+    background: rgba(11, 23, 42, 0.7);
+    color: #d1f7e4;
+    box-shadow: inset 0 0 8px var(--active-color);
+    transition: box-shadow 0.3s ease;
+  }
+  .trade-form input[type="text"]:focus,
+  .trade-form select:focus,
+  .trade-form input[type="number"]:focus {
+    box-shadow: 0 0 14px var(--active-color);
+  }
+  .trade-form button {
+    background-color: var(--active-color);
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 20px var(--active-color);
+    transition: background-color 0.3s ease;
+  }
+  .trade-form button:hover {
+    background-color: #14faac;
+  }
+  .live-price-container {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--active-color);
+    user-select: none;
+    margin-top: -15px;
+    margin-bottom: 16px;
+  }
+  .price-change.positive {
+    color: var(--up-color);
+    animation: pulseGreen 1.5s infinite;
+  }
+  .price-change.negative {
+    color: var(--down-color);
+    animation: pulseRed 1.5s infinite;
+  }
+  @keyframes pulseGreen {
+    0%, 100% { text-shadow: 0 0 6px var(--up-color);}
+    50% { text-shadow: 0 0 20px var(--up-color);}
+  }
+  @keyframes pulseRed {
+    0%, 100% { text-shadow: 0 0 6px var(--down-color);}
+    50% { text-shadow: 0 0 20px var(--down-color);}
+  }
+
+  /* Orders Section -- dynamic list */
+  .orders-section {
+    background: rgba(0, 255, 153, 0.1);
+    border-radius: 20px;
+    padding: 24px 32px;
+    border: 2px solid var(--active-color);
+    max-width: 700px;
+    width: 100%;
+    box-shadow: inset 0 0 15px rgba(0, 255, 153, 0.3);
+  }
+  .orders-section h2 {
+    color: var(--active-color);
+    font-weight: 700;
+    font-size: 22px;
+    margin-bottom: 20px;
+    user-select:none;
+  }
+  .orders-list {
+    list-style: none;
+    max-height: 350px;
+    overflow-y: auto;
+    border-radius: 14px;
+    padding: 10px;
+    background: rgba(0,255,153,0.15);
+  }
+  .orders-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .orders-list::-webkit-scrollbar-thumb {
+    background: var(--active-color);
+    border-radius: 10px;
+  }
+  .order-item {
+    background: rgba(0, 255, 153, 0.3);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 18px;
+    color: #000;
+    box-shadow: 0 0 15px var(--active-color);
+    cursor: default;
+    transition: background 0.3s ease;
+  }
+  .order-item.buy {
+    background: #13f9b377;
+  }
+  .order-item.sell {
+    background: #ff4d4d77;
+  }
+  .order-status {
+    font-style: italic;
+  }
+
+  /* Historical Prices Section */
+  .history-section {
+    background: rgba(0,255,153,0.12);
+    border-radius: 20px;
+    padding: 26px 32px;
+    border: 2px solid var(--active-color);
+    box-shadow: inset 0 0 20px rgba(0, 255, 153, 0.3);
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto 40px;
+  }
+  .history-section h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--active-color);
+    margin-bottom: 24px;
+    user-select:none;
+  }
+  .history-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-bottom: 28px;
+    user-select:none;
+  }
+  .history-controls label {
+    font-weight: 700;
+    font-size: 16px;
+    min-width: 56px;
+    color: var(--active-color);
+    padding-top: 6px;
+  }
+  .history-controls input[type=text], .history-controls input[type=date] {
+    background: rgba(11,23,42,0.65);
+    color: #d0f9d3;
+    font-weight: 600;
+    font-size: 16px;
+    border-radius: 14px;
+    border: none;
+    outline: none;
+    padding: 12px 16px;
+    min-width: 140px;
+  }
+  .history-button {
+    background: var(--active-color);
+    font-weight: 700;
+    font-size: 18px;
+    padding: 14px 36px;
+    color: #000;
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 0 18px var(--active-color);
+    transition: background-color 0.3s ease;
+  }
+  .history-button:hover {
+    background: #14faac;
+  }
+
+  /* Historical price items displayed as cards */
+  .history-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+    gap: 22px;
+  }
+  .history-item {
+    background: rgba(0, 255, 153, 0.18);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 0 20px rgba(0, 255, 153, 0.4);
+    user-select:none;
+    transition: transform 0.25s ease;
+  }
+  .history-item:hover {
+    transform: scale(1.04);
+    background: rgba(0, 255, 153, 0.35);
+  }
+  .history-date {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--active-color);
+    margin-bottom: 14px;
+  }
+  .history-detail {
+    font-size: 15px;
+    color: #d1f7e4;
+    margin-bottom: 10px;
+  }
+  .history-detail span {
+    display: block;
+  }
+
+  /* Responsive */
+  @media(max-width: 680px) {
+    .history-controls {
+      flex-direction: column;
+      gap: 14px 0;
+    }
+    .history-list {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+<header class="navbar">
+  <div class="logo">AlphaAnalytics</div>
+  <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+    <span></span><span></span><span></span>
+  </div>
+  <nav class="nav-items">
+    <a href="jeet.html" class="nav-item">Dashboard</a>
+    <a href="portfolio.html" class="nav-item">Portfolio</a>
+    <a href="mystock.html" class="nav-item active">My Stock</a>
+    <a href="deposit.html" class="nav-item">Deposit</a>
+    <a href="insight.html" class="nav-item">Insight</a>
+    <a href="prediction.html" class="nav-item">Prediction</a>
+    <a href="news.html" class="nav-item">News Update</a>
+    <a href="videos.html" class="nav-item">Videos</a>
+    <a href="help.html" class="nav-item">Help Center</a>
+    <a href="profile.html" class="nav-item">Profile</a>
+  </nav>
+</header>
+
+<main class="main-content">
+  <form id="tradeForm" class="trade-form" autocomplete="off" novalidate>
+    <h2>Buy / Sell Stock</h2>
+    <label for="tickerInput">Ticker Symbol</label>
+    <input type="text" id="tickerInput" name="tickerInput" placeholder="Enter stock symbol e.g. AAPL" required>
+
+    <label for="tradeType">Trade Type</label>
+    <select id="tradeType" name="tradeType" required>
+      <option value="" disabled selected>Select Buy or Sell</option>
+      <option value="buy">Buy</option>
+      <option value="sell">Sell</option>
+    </select>
+
+    <label for="quantity">Quantity</label>
+    <input type="number" id="quantity" name="quantity" min="1" placeholder="Number of shares" required>
+
+    <button type="submit" id="submitTrade">Submit Order</button>
+
+    <div class="live-price-container" aria-live="polite" aria-atomic="true">
+      <span class="live-price" id="livePrice">₹--</span>
+      <span class="price-change" id="priceChange">-</span>
+    </div>
+  </form>
+
+  <section class="orders-section" aria-label="Your trade orders">
+    <h2>Your Orders</h2>
+    <ul class="orders-list" id="ordersList"></ul>
+  </section>
+
+  <section class="history-section" aria-label="Historical price data">
+    <h2>Historical Price Data</h2>
+    <div class="history-controls">
+      <label for="histTicker">Ticker:</label>
+      <input type="text" id="histTicker" placeholder="e.g. AAPL" value="AAPL" autocomplete="off">
+
+      <label for="histFrom">From:</label>
+      <input type="date" id="histFrom">
+
+      <label for="histTo">To:</label>
+      <input type="date" id="histTo">
+
+      <button type="button" class="history-button" id="searchHistoricalBtn">Search</button>
+    </div>
+
+    <div id="historyList" class="history-list" aria-live="polite" aria-atomic="true"></div>
+  </section>
+</main>
+</div>
+
+<script>
+  const API_KEY = "5f988a8aff6b4b58848dfcf67af727d9";
+
+  const livePriceElem = document.getElementById('livePrice');
+  const priceChangeElem = document.getElementById('priceChange');
+  const tickerInput = document.getElementById('tickerInput');
+  const tradeForm = document.getElementById('tradeForm');
+  const ordersList = document.getElementById('ordersList');
+
+  const histTicker = document.getElementById('histTicker');
+  const histFrom = document.getElementById('histFrom');
+  const histTo = document.getElementById('histTo');
+  const searchHistoricalBtn = document.getElementById('searchHistoricalBtn');
+  const historyList = document.getElementById('historyList');
+
+  let buySellOrders = [];
+
+  async function fetchLivePrice(ticker) {
+    livePriceElem.textContent = "Loading...";
+    priceChangeElem.textContent = "";
+    try {
+      const res = await fetch(`https://api.twelvedata.com/quote?symbol=${ticker}&apikey=${API_KEY}`);
+      const data = await res.json();
+      if (data && data.close) {
+        const price = parseFloat(data.close);
+        const open = parseFloat(data.open);
+        livePriceElem.textContent = `₹${price.toFixed(2)}`;
+        const diff = price - open;
+        const diffPercent = (diff / open) * 100;
+        priceChangeElem.textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} (${diffPercent.toFixed(2)}%)`;
+        priceChangeElem.className = 'price-change ' + (diff >= 0 ? 'positive' : 'negative');
+      } else {
+        livePriceElem.textContent = "N/A";
+        priceChangeElem.textContent = "-";
+        priceChangeElem.className = 'price-change';
+      }
+    } catch (e) {
+      livePriceElem.textContent = "Error";
+      priceChangeElem.textContent = "-";
+      priceChangeElem.className = 'price-change';
+    }
+  }
+
+  function renderOrders() {
+    ordersList.innerHTML = "";
+    if (buySellOrders.length === 0) {
+      ordersList.innerHTML = "<li style='color:#00ff9911; font-style: italic;'>No orders placed yet.</li>";
+      return;
+    }
+    buySellOrders.forEach(o => {
+      const li = document.createElement('li');
+      li.className = 'order-item ' + o.type;
+      li.title = `Status: ${o.status}`;
+      li.textContent = `${o.type.charAt(0).toUpperCase() + o.type.slice(1)} ${o.quantity} shares of ${o.ticker.toUpperCase()} - ${o.status}`;
+      ordersList.appendChild(li);
+    });
+  }
+
+  tradeForm.addEventListener('submit', event => {
+    event.preventDefault();
+    const ticker = tickerInput.value.trim().toUpperCase();
+    const type = tradeForm.tradeType.value;
+    const quantity = parseInt(tradeForm.quantity.value, 10);
+
+    if (!ticker || !type || isNaN(quantity) || quantity <= 0) {
+      alert("Please enter valid trade details.");
+      return;
+    }
+
+    buySellOrders.push({ ticker, type, quantity, status: 'Pending' });
+    renderOrders();
+
+    setTimeout(() => {
+      const order = buySellOrders.find(o => o.ticker === ticker && o.type === type && o.quantity === quantity && o.status === 'Pending');
+      if (order) {
+        order.status = 'Completed';
+        renderOrders();
+      }
+    }, 1800);
+
+    fetchLivePrice(ticker);
+    histTicker.value = ticker;
+    loadHistoricalPrices(ticker);
+    tradeForm.reset();
+  });
+
+  tickerInput.addEventListener('change', () => {
+    const ticker = tickerInput.value.trim().toUpperCase();
+    if (ticker) {
+      fetchLivePrice(ticker);
+      histTicker.value = ticker;
+      loadHistoricalPrices(ticker);
+    }
+  });
+
+  async function loadHistoricalPrices(symbol, fromDate, toDate) {
+    if (!fromDate || !toDate) {
+      let today = new Date();
+      let prior = new Date();
+      prior.setDate(today.getDate() - 30);
+      fromDate = prior.toISOString().slice(0, 10);
+      toDate = today.toISOString().slice(0, 10);
+      histFrom.value = fromDate;
+      histTo.value = toDate;
+    }
+
+    historyList.innerHTML = "Loading historical data...";
+    const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&start_date=${fromDate}&end_date=${toDate}&apikey=${API_KEY}`;
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status === 'error' || !data.values || data.values.length === 0) {
+        historyList.textContent = "No historical data available.";
+        return;
+      }
+      historyList.innerHTML = "";
+      data.values.forEach(day => {
+        const card = document.createElement('div');
+        card.className = 'history-item';
+        card.innerHTML = `
+          <div class="history-date">${day.datetime}</div>
+          <div class="history-detail"><span>Open: ${parseFloat(day.open).toFixed(2)}</span></div>
+          <div class="history-detail"><span>High: ${parseFloat(day.high).toFixed(2)}</span></div>
+          <div class="history-detail"><span>Low: ${parseFloat(day.low).toFixed(2)}</span></div>
+          <div class="history-detail"><span>Close: ${parseFloat(day.close).toFixed(2)}</span></div>
+          <div class="history-detail"><span>Volume: ${day.volume || '-'}</span></div>
+        `;
+        historyList.appendChild(card);
+      });
+    } catch (e) {
+      console.error(e);
+      historyList.textContent = "Error loading historical data.";
+    }
+  }
+
+  searchHistoricalBtn.addEventListener('click', () => {
+    const symbol = histTicker.value.trim().toUpperCase();
+    const from = histFrom.value;
+    const to = histTo.value;
+    if (!symbol || !from || !to) {
+      alert("Please specify valid ticker and date range.");
+      return;
+    }
+    loadHistoricalPrices(symbol, from, to);
+  });
+
+  window.onload = () => {
+    fetchLivePrice(tickerInput.value.trim().toUpperCase() || 'AAPL');
+    loadHistoricalPrices(histTicker.value);
+  };
+</script>
+</body>
+</html>

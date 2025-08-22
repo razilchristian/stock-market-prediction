@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stockate - Market Insights</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+:root{
+  --primary-white:#fff;--primary-navy:#0b172a;--bg-dark:#0b172a;--bg-card:#0c3c01;
+  --text-primary:#e6f1ff;--text-secondary:#9aaac7;--border-color:rgba(255,255,255,0.1);
+  --hover-color:rgba(0,255,153,0.1);--active-color:#00ff99;
+  --up-color:#26a69a;--down-color:#ef5350;
+}
+body.light{
+  --bg-dark:#f5f8fa;--bg-card:#fff;--text-primary:#0b172a;--text-secondary:#44607a;
+  --border-color:rgba(11,23,42,0.1);
+}
+body{
+  background:var(--bg-dark);
+  color:var(--text-primary);
+  transition:background 0.4s ease, color 0.4s ease;
+}
+.container{display:flex;flex-direction:column;min-height:100vh;}
+.navbar{
+  background:var(--bg-card);padding:10px 20px;display:flex;justify-content:space-between;
+  align-items:center;border-bottom:1px solid var(--border-color);
+  animation:fadeDown 0.6s ease;
+}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+.logo{
+  font-size:24px;font-weight:bold;color:var(--active-color);
+  animation:slideInLeft 0.8s ease;
+}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-40px);}to{opacity:1;transform:translateX(0);}}
+.nav-items{display:flex;gap:15px;list-style:none;}
+.nav-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--primary-white);
+  border-radius: 6px;
+  transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: #000;
+  box-shadow: 0 0 10px var(--active-color);
+  transform: none;
+}
+
+/* Optional: add a subtle underline animation on hover */
+.nav-item::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 0;
+  background: var(--active-color);
+  transition: width 0.3s ease;
+  margin-top: 4px;
+  border-radius: 2px;
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+/* For anchor links inside nav-item */
+.nav-item a {
+  color: inherit;
+  text-decoration: none !important;
+  display: inline-block;
+  transition: inherit;
+}
+
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+.menu-toggle span{width:22px;height:2px;background:var(--primary-white);}
+@media(max-width:900px){
+  .nav-items{display:none;flex-direction:column;background:var(--bg-card);position:absolute;left:0;width:100%;top:60px;padding:10px 0;}
+  .nav-items.show{display:flex;animation:fadeIn 0.4s ease;}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  .menu-toggle{display:flex;}
+}
+.main-content{padding:20px;flex:1;}
+.header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+.search-bar input{padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);color:var(--text-primary);}
+.actions button{margin-left:5px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;transition:background 0.3s;}
+.theme-btn{background:var(--active-color);color:#000;}
+.export-btn{background:var(--primary-white);color:#000;}
+.theme-btn:hover,.export-btn:hover{opacity:0.85;}
+#newsTicker{padding:8px;background:var(--bg-dark);color:var(--active-color);border-radius:6px;margin-bottom:8px;}
+#aiInsightText{margin-bottom:15px;}
+.insights-container{display:flex;flex-wrap:wrap;gap:20px;}
+.insight-card{
+  background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;
+  padding:20px;width:calc(33% - 20px);transition:transform .3s,box-shadow .3s;
+  animation:fadeUp 0.6s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.insight-card:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 4px 15px rgba(0,255,153,0.15);}
+.insight-title{font-size:18px;font-weight:bold;margin-bottom:8px;}
+.insight-description{color:var(--text-secondary);font-size:14px;margin-bottom:10px;}
+.insight-value{font-size:24px;font-weight:bold;}
+.insight-change{margin-top:6px;font-size:16px;}
+.insight-change.up{color:var(--up-color);animation:pulseGreen 1.5s infinite;}
+.insight-change.down{color:var(--down-color);animation:pulseRed 1.5s infinite;}
+@keyframes pulseGreen{0%{box-shadow:0 0 5px rgba(0,255,153,0.3);}50%{box-shadow:0 0 15px rgba(0,255,153,0.7);}100%{box-shadow:0 0 5px rgba(0,255,153,0.3);}}
+@keyframes pulseRed{0%{box-shadow:0 0 5px rgba(255,77,77,0.3);}50%{box-shadow:0 0 15px rgba(255,77,77,0.7);}100%{box-shadow:0 0 5px rgba(255,77,77,0.3);}}
+.loading{text-align:center;color:var(--active-color);font-size:20px;margin-top:30px;}
+/* shimmer placeholder */
+.shimmer{
+  position:relative;
+  background:linear-gradient(90deg,var(--bg-dark) 25%,var(--bg-card) 50%,var(--bg-dark) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.2s infinite;
+  height:16px;border-radius:4px;
+}
+@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+@media(max-width:768px){.insight-card{width:100%;}}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="navbar">
+  <div class="logo">AlphaAnalytics</div>
+  <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+    <span></span><span></span><span></span>
+  </div>
+  <nav class="nav-items">
+    <a href="jeet.html" class="nav-item">Dashboard</a>
+    <a href="portfolio.html" class="nav-item">Portfolio</a>
+    <a href="mystock.html" class="nav-item">My Stock</a>
+    <a href="deposit.html" class="nav-item">Deposit</a>
+    <a href="insight.html" class="nav-item active">Insight</a>
+    
+    <a href="prediction.html" class="nav-item">Prediction</a>
+    <a href="news.html" class="nav-item">News Update</a>
+    <a href="videos.html" class="nav-item">Videos</a>
+    <a href="help.html" class="nav-item">Help Center</a>
+    <a href="profile.html" class="nav-item">Profile</a>
+  </nav>
+</header>
+<main class="main-content">
+  <div id="newsTicker"></div>
+  <div id="aiInsightText"></div>
+  <div class="header">
+    <div class="search-bar"><input type="text" id="searchInput" placeholder="Search..." onkeyup="searchInsights()"></div>
+    <div class="actions">
+      <button class="export-btn" onclick="exportInsights()">Export</button>
+      <button class="theme-btn" onclick="toggleTheme()">Theme</button>
+    </div>
+  </div>
+  <div class="loading" id="loading">Loading Market Data...</div>
+  <div class="insights-container" id="insights-container"></div>
+</main>
+</div>
+<script>
+const TWELVEDATA_API_KEY = '5f988a8aff6b4b58848dfcf67af727d9';
+let allInsights = [];
+function showLoadingPlaceholders(count=6){
+  const container=document.getElementById('insights-container');
+  container.innerHTML='';
+  for(let i=0;i<count;i++){
+    container.innerHTML+=`<div class="insight-card">
+      <div class="shimmer" style="width:60%;height:18px;margin-bottom:8px;"></div>
+      <div class="shimmer" style="width:40%;height:14px;margin-bottom:10px;"></div>
+      <div class="shimmer" style="width:50%;height:20px;margin-bottom:6px;"></div>
+      <div class="shimmer" style="width:30%;height:16px;"></div>
+    </div>`;
+  }
+}
+async function fetchLiveData(){
+  document.getElementById('loading').style.display='block';
+  showLoadingPlaceholders();
+  const symbols=['AAPL','GOOG','TSLA','AMZN','MSFT','META'];
+  const url = `https://api.twelvedata.com/quote?symbol=${symbols.join(',')}&apikey=${TWELVEDATA_API_KEY}`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    allInsights = [];
+    Object.values(json).forEach(stock=>{
+      if(stock.symbol && stock.close && stock.percent_change){
+        allInsights.push({
+          symbol: stock.symbol,
+          lastClose: parseFloat(stock.close),
+          change: parseFloat(stock.percent_change),
+          date: stock.datetime || 'N/A'
+        });
+      }
+    });
+    renderInsights(allInsights);
+  } catch(err){
+    console.error("Error fetching data", err);
+  }
+  document.getElementById('loading').style.display='none';
+}
+function renderInsights(data){
+  const container=document.getElementById('insights-container');
+  container.innerHTML='';
+  data.forEach(ins=>{
+    const trendClass=ins.change>0?'up':'down';
+    const card=document.createElement('div');
+    card.className='insight-card';
+    card.innerHTML=`
+      <div class="insight-title">${ins.symbol}</div>
+      <div class="insight-description">Date: ${ins.date.substring(0,10)}</div>
+      <div class="insight-value">$${ins.lastClose}</div>
+      <div class="insight-change ${trendClass}">${ins.change}%</div>
+    `;
+    container.appendChild(card);
+  });
+}
+function searchInsights(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allInsights.filter(i=>i.symbol.toLowerCase().includes(q));
+  renderInsights(filtered);
+}
+function exportInsights(){
+  let csv="Symbol,Price,Change%\n"
+    + allInsights.map(i=>`${i.symbol},${i.lastClose},${i.change}`).join("\n");
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="insights.csv";
+  a.click();
+}
+function toggleTheme(){
+  document.body.classList.toggle('light');
+}
+function updateAIInsight(){
+  const tips=[
+    "AI: Tech sector remains strong this quarter.",
+    "Energy stocks could see volatility soon.",
+    "AI: Diversify portfolio amid high inflation.",
+    "Banks might benefit from interest rate hikes."
+  ];
+  document.getElementById('aiInsightText').textContent=tips[Math.floor(Math.random()*tips.length)];
+}
+function rotateNews(){
+  const news=[
+    "Stocks rally as Fed pauses rate hikes.",
+    "Tech giants report record earnings.",
+    "Oil prices dip on lower global demand.",
+    "Markets mixed ahead of key jobs data."
+  ];
+  let i=0;
+  setInterval(()=>{
+    document.getElementById('newsTicker').textContent=news[i%news.length];
+    i++;
+  },3000);
+}
+window.onload=()=>{
+  fetchLiveData();
+  updateAIInsight();
+  rotateNews();
+  setInterval(fetchLiveData,60000);
+  setInterval(updateAIInsight,4000);
+};
+</script>
+</body>
+</html>

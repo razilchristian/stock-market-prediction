@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stockate - Help Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+:root{
+ --primary-white:#fff;--bg-dark:#0b172a;--bg-card:#0c3c01;
+ --text-primary:#e6f1ff;--text-secondary:#9aaac7;--border-color:rgba(255,255,255,0.1);
+ --hover-color:rgba(0,255,153,0.1);--active-color:#00ff99;
+}
+body.light{
+ --bg-dark:#f5f8fa;--bg-card:#fff;--text-primary:#0b172a;--text-secondary:#44607a;
+ --border-color:rgba(11,23,42,0.1);
+}
+body{
+ background:var(--bg-dark);
+ color:var(--text-primary);
+ transition:background 0.4s ease,color 0.4s ease;
+}
+.container{display:flex;flex-direction:column;min-height:100vh;}
+
+/* Navbar with animations */
+.navbar{
+ background:var(--bg-card);padding:10px 20px;display:flex;justify-content:space-between;align-items:center;
+ border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:100;
+ animation:fadeDown 0.6s ease;
+}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+.logo{font-size:22px;font-weight:bold;color:var(--active-color);animation:slideInLeft 0.8s ease;}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-40px);}to{opacity:1;transform:translateX(0);}}
+.nav-items{display:flex;gap:15px;}
+.nav-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  color: var(--primary-white);
+  border-radius: 6px;
+  transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: #000;
+  box-shadow: 0 0 10px var(--active-color);
+  transform: none;
+}
+
+/* Optional: add a subtle underline animation on hover */
+.nav-item::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 0;
+  background: var(--active-color);
+  transition: width 0.3s ease;
+  margin-top: 4px;
+  border-radius: 2px;
+}
+
+.nav-item:hover::after {
+  width: 100%;
+}
+
+/* For anchor links inside nav-item */
+.nav-item a {
+  color: inherit;
+  text-decoration: none !important;
+  display: inline-block;
+  transition: inherit;
+}
+
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+.menu-toggle span{width:22px;height:2px;background:var(--primary-white);}
+@media(max-width:900px){
+ .nav-items{display:none;flex-direction:column;position:absolute;top:60px;left:0;width:100%;background:var(--bg-card);}
+ .nav-items.show{display:flex;animation:fadeIn 0.4s ease;}
+ @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+ .menu-toggle{display:flex;}
+}
+.theme-toggle-btn{background:var(--active-color);color:#000;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;transition:background 0.3s;}
+.theme-toggle-btn:hover{opacity:0.85;}
+
+/* Main Content */
+.main-content{padding:20px;flex:1;max-width:1000px;margin:auto;width:100%;}
+h1{margin-bottom:15px;}
+.search-bar{margin-bottom:20px;}
+.search-bar input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-dark);color:var(--text-primary);}
+
+/* Help Articles */
+.help-article{
+ background:var(--bg-card);border-radius:12px;padding:16px 20px;margin-bottom:15px;border:1px solid var(--border-color);
+ transition:transform 0.3s ease,border-color 0.3s ease;
+}
+.help-article:hover{transform:translateY(-4px) scale(1.01);border-color:var(--active-color);box-shadow:0 4px 15px rgba(0,255,153,0.15);}
+.help-title{font-size:18px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.help-description{display:none;margin-top:10px;color:var(--text-secondary);}
+
+/* Action buttons */
+.action-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px;}
+.btn{padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;border:none;transition:background 0.3s;}
+.btn-contact{background:var(--active-color);color:#000;}
+.btn-contact:hover{background:#14faac;}
+.btn-faq{background:#8e24aa;color:#fff;}
+.btn-faq:hover{opacity:0.85;}
+
+/* Modal */
+.modal-backdrop{position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,.3);display:flex;justify-content:center;align-items:center;z-index:1000;}
+.modal{background:var(--bg-card);padding:20px;border-radius:10px;border:1px solid var(--border-color);width:300px;max-width:90%;}
+.modal input,.modal textarea{width:100%;margin-bottom:10px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-dark);color:var(--text-primary);}
+
+/* Chatbot */
+#chatbotToggleBtn{position:fixed;bottom:20px;right:20px;width:50px;height:50px;background:var(--active-color);border-radius:50%;border:none;cursor:pointer;color:#000;font-size:26px;display:flex;align-items:center;justify-content:center;z-index:1500;transition:background 0.3s;}
+#chatbotToggleBtn:hover{background:#14faac;}
+#chatbot{position:fixed;bottom:80px;right:20px;width:320px;max-height:420px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;display:none;flex-direction:column;overflow:hidden;z-index:1500;}
+#chatbotHeader{background:var(--bg-dark);color:var(--active-color);font-weight:700;padding:10px;display:flex;justify-content:space-between;align-items:center;}
+#chatbotMessages{flex:1;padding:10px;overflow-y:auto;}
+.message{margin-bottom:10px;padding:8px 12px;border-radius:15px;max-width:80%;line-height:1.3;}
+.message.user{background:var(--active-color);color:#000;align-self:flex-end;}
+.message.bot{background:var(--bg-dark);color:var(--text-primary);align-self:flex-start;}
+#chatbotInputArea{display:flex;border-top:1px solid var(--border-color);background:var(--bg-dark);padding:6px;}
+#chatbotInput{flex:1;border:none;border-radius:12px;padding:8px 12px;font-size:14px;color:var(--text-primary);background:var(--bg-card);}
+#chatbotSendBtn{background:var(--active-color);border:none;color:#000;font-weight:700;padding:0 14px;margin-left:6px;border-radius:12px;cursor:pointer;}
+#chatbotSendBtn:hover{background:#14faac;}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="navbar">
+  <div class="logo">AlphaAnalytics</div>
+  <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+    <span></span><span></span><span></span>
+  </div>
+  <nav class="nav-items">
+    <a href="jeet.html" class="nav-item">Dashboard</a>
+    <a href="portfolio.html" class="nav-item">Portfolio</a>
+    <a href="mystock.html" class="nav-item">My Stock</a>
+    <a href="deposit.html" class="nav-item">Deposit</a>
+    <a href="insight.html" class="nav-item">Insight</a>
+    <a href="prediction.html" class="nav-item">Prediction</a>
+    <a href="news.html" class="nav-item">News Update</a>
+    <a href="videos.html" class="nav-item">Videos</a>
+    <a href="help.html" class="nav-item active">Help Center</a>
+    <a href="profile.html" class="nav-item">Profile</a>
+  </nav>
+  
+</header>
+
+<main class="main-content">
+  <h1>Help Center</h1>
+  <div class="search-bar"><input type="text" id="searchInput" placeholder="Search help topics..."></div>
+
+  <div class="help-article">
+    <div class="help-title">How to buy stocks? <span>+</span></div>
+    <div class="help-description">
+      To buy stocks, go to the "Market Stock" section, search for the stock you want to buy, and click the "Buy" button.
+      <div class="action-buttons">
+        <button class="btn btn-contact" onclick="openContactForm()">Contact Support</button>
+        <button class="btn btn-faq" onclick="window.location.href='FAQ.html'">See FAQs</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="help-article">
+    <div class="help-title">How to track your portfolio? <span>+</span></div>
+    <div class="help-description">
+      Navigate to "Portfolio" to view all holdings and performance in real-time.
+      <div class="action-buttons">
+        <button class="btn btn-contact" onclick="openContactForm()">Contact Support</button>
+        <button class="btn btn-faq" onclick="window.location.href='FAQ.html'">See FAQs</button>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Contact Modal -->
+<div id="contactModal" style="display:none;">
+  <div class="modal-backdrop" onclick="closeContactForm(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>Contact Support</h3>
+      <input type="text" placeholder="Your Name" id="contactName">
+      <input type="email" placeholder="Your Email" id="contactEmail">
+      <textarea placeholder="Describe your issue..." rows="4" id="contactMessage"></textarea>
+      <button class="btn btn-contact" onclick="submitContactForm()">Send</button>
+      <button class="btn" style="background:gray;color:#fff;" onclick="closeContactForm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chatbot Toggle Button -->
+<button id="chatbotToggleBtn" title="Chat with us">💬</button>
+
+<!-- Chatbot -->
+<div id="chatbot">
+  <div id="chatbotHeader">Help Chat <span id="chatbotCloseBtn" style="cursor:pointer;">×</span></div>
+  <div id="chatbotMessages"></div>
+  <div id="chatbotInputArea">
+    <input type="text" id="chatbotInput" placeholder="Type your question...">
+    <button id="chatbotSendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){ document.body.classList.toggle('light'); }
+// Accordion
+document.querySelectorAll('.help-title').forEach(title=>{
+  title.addEventListener('click',()=>{
+    const desc=title.nextElementSibling;
+    const open = desc.style.display==='block';
+    document.querySelectorAll('.help-description').forEach(d=>d.style.display='none');
+    document.querySelectorAll('.help-title span').forEach(s=>s.textContent='+');
+    if(!open){desc.style.display='block';title.querySelector('span').textContent='−';}
+  });
+});
+// Search filter
+document.getElementById('searchInput').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.help-article').forEach(a=>{
+    a.style.display = a.querySelector('.help-title').textContent.toLowerCase().includes(q) ? 'block' : 'none';
+  });
+});
+function openContactForm(){document.getElementById('contactModal').style.display='block';}
+function closeContactForm(e){if(!e || e.target.classList.contains('modal-backdrop'))document.getElementById('contactModal').style.display='none';}
+function submitContactForm(){
+  alert(`Thank you ${contactName.value}, our team will reply to ${contactEmail.value}.`);
+  closeContactForm();
+}
+// Chatbot Logic
+const chatbotBtn=document.getElementById('chatbotToggleBtn');
+const chatbot=document.getElementById('chatbot');
+const chatbotClose=document.getElementById('chatbotCloseBtn');
+const msgBox=document.getElementById('chatbotMessages');
+const input=document.getElementById('chatbotInput');
+
+chatbotBtn.onclick=()=>{chatbot.style.display='flex';chatbotBtn.style.display='none';input.focus();};
+chatbotClose.onclick=()=>{chatbot.style.display='none';chatbotBtn.style.display='flex';};
+
+const faq=[
+ {keys:['buy stock','purchase shares','how to buy'],answer:"Go to Market Stock ➜ Search ➜ Click 'Buy' ➜ Enter amount."},
+ {keys:['track portfolio','view portfolio'],answer:"Go to Portfolio page to track holdings and performance."},
+ {keys:['deposit','add funds','fund account'],answer:"Visit Deposit section, pick method, and follow steps."},
+ {keys:['faq'],'answer':"You can view all frequently asked questions here: (Redirecting...) ➜ opening FAQ page", link:"FAQ.html"},
+ {keys:['contact','support'],answer:"Use 'Contact Support' button or message us here anytime for help."}
+];
+
+function addMsg(text,sender='bot'){
+  const div=document.createElement('div');
+  div.className='message '+sender;
+  div.textContent=text;
+  msgBox.appendChild(div);
+  msgBox.scrollTop=msgBox.scrollHeight;
+}
+function findAnswer(q){
+  q=q.toLowerCase();
+  for(const f of faq){
+    if(f.keys.some(k=>q.includes(k))){
+       if(f.link){ window.location.href=f.link; }
+       return f.answer;
+    }
+  }
+  return "I may not understand fully — try asking about buying, tracking, deposits, or say 'contact'.";
+}
+document.getElementById('chatbotSendBtn').onclick=()=>{
+  const txt=input.value.trim();
+  if(!txt) return;
+  addMsg(txt,'user');
+  input.value='';
+  setTimeout(()=>addMsg(findAnswer(txt),'bot'),400);
+};
+input.addEventListener('keypress',e=>{if(e.key==='Enter')document.getElementById('chatbotSendBtn').click();});
+</script>
+</body>
+</html>

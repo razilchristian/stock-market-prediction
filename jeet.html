@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stockate - Indian & International Market Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.0.1/lightweight-charts.standalone.production.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Roboto',sans-serif;}
+    :root {
+      --primary-white:#fff; --primary-navy:#0b172a; --bg-dark:#0b172a; --bg-card:#0c3c01;
+      --text-primary:#e6f1ff; --text-secondary:#9aaac7; --border-color:rgba(255,255,255,0.1);
+      --hover-color:rgba(0,255,153,0.1); --active-color:#00ff99; --up-color:#00ff99; --down-color:#ff4d4d;
+      --positive-gradient: linear-gradient(90deg, rgba(0,255,153,0.2), rgba(0,255,153,0.05));
+      --negative-gradient: linear-gradient(90deg, rgba(255,77,77,0.2), rgba(255,77,77,0.05));
+    }
+    body.light {
+      --bg-dark:#f5f8fa; --bg-card:#fff; --text-primary:#0b172a; --text-secondary:#44607a;
+      --border-color:rgba(11,23,42,0.1);
+    }
+    body{
+      background:var(--bg-card);
+      color:var(--text-primary);
+      transition:background 0.4s ease, color 0.4s ease;
+    }
+    .container{display:flex;min-height:100vh;flex-direction:column;}
+    .navbar{
+      background:var(--bg-dark);padding:10px 20px;display:flex;justify-content:space-between;
+      align-items:center;border-bottom:1px solid var(--border-color);position:sticky;top:0;z-index:1000;
+      animation: fadeDown 0.6s ease;
+    }
+    @keyframes fadeDown {
+      from {opacity:0;transform:translateY(-20px);}
+      to {opacity:1;transform:translateY(0);}
+    }
+    .logo{
+      font-size:24px;font-weight:bold;color:var(--active-color);
+      animation: slideInLeft 0.8s ease;
+    }
+    @keyframes slideInLeft {
+      from {opacity:0;transform:translateX(-40px);}
+      to {opacity:1;transform:translateX(0);}
+    }
+    .nav-items {
+      display: flex;
+      gap: 15px;
+      list-style: none;
+      transition: 0.3s;
+      padding: 0;
+      margin: 0;
+    }
+    .nav-item {
+      padding: 8px 14px;
+      cursor: pointer;
+      color: var(--primary-white);
+      border-radius: 6px;
+      transition: color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .nav-item:hover {
+      background: var(--hover-color);
+      color: var(--active-color);
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 6px 15px rgba(0, 255, 153, 0.45);
+    }
+    .nav-item.active {
+      background: var(--active-color);
+      color: #000;
+      box-shadow: 0 0 10px var(--active-color);
+      transform: none;
+    }
+    .nav-item::after {
+      content: '';
+      display: block;
+      height: 2px;
+      width: 0;
+      background: var(--active-color);
+      transition: width 0.3s ease;
+      margin-top: 4px;
+      border-radius: 2px;
+    }
+    .nav-item:hover::after {
+      width: 100%;
+    }
+    .nav-item a {
+      color: inherit;
+      text-decoration: none !important;
+      display: inline-block;
+      transition: inherit;
+    }
+    .menu-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .menu-toggle span {
+      width: 25px;
+      height: 2px;
+      background: var(--primary-white);
+    }
+    @media (max-width: 900px) {
+      .nav-items {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        background: var(--bg-dark);
+        position: absolute;
+        top: 60px;
+        left: 0;
+        padding: 0;
+        margin: 0;
+      }
+      .nav-items.show {
+        display: flex;
+        animation: fadeIn 0.4s ease;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .menu-toggle {
+        display: flex;
+      }
+    }
+    .main-content{padding:20px;}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px;}
+    .search-bar input{
+      padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-dark);
+      color:var(--text-primary);font-size:16px;min-width:200px;
+    }
+    .export-btn{
+      background:var(--active-color);color:#000;padding:8px 16px;border-radius:8px;border:none;
+      cursor:pointer;transition:background-color 0.3s;
+    }
+    .export-btn:hover{background:#00cc7a;}
+    .market-overview{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:20px;
+    }
+    .market-card{
+      background:var(--bg-dark);padding:20px;border-radius:12px;border:1px solid var(--border-color);
+      transition:transform 0.3s ease,border-color 0.3s ease;animation:fadeUp 0.6s ease;
+    }
+    @keyframes fadeUp {
+      from {opacity:0;transform:translateY(20px);}
+      to {opacity:1;transform:translateY(0);}
+    }
+    .market-card:hover{
+      transform:translateY(-4px) scale(1.02);
+      border-color:var(--active-color);
+      box-shadow:0 4px 20px rgba(0,255,153,0.15);
+    }
+    .market-card h3{
+      color:var(--text-secondary);margin-bottom:8px;font-size:18px;
+    }
+    .market-value{
+      font-size:24px;font-weight:bold;
+    }
+    .stock-change.positive{
+      color:var(--up-color);background:var(--positive-gradient);
+      padding:5px 10px;border-radius:50px;font-weight:600;
+      animation: pulseGreen 1.5s infinite;
+    }
+    .stock-change.negative{
+      color:var(--down-color);background:var(--negative-gradient);
+      padding: 5px 10px;border-radius:50px;font-weight:600;
+      animation: pulseRed 1.5s infinite;
+    }
+    @keyframes pulseGreen {
+      0% {box-shadow: 0 0 5px rgba(0,255,153,0.3);}
+      50% {box-shadow: 0 0 15px rgba(0,255,153,0.7);}
+      100% {box-shadow: 0 0 5px rgba(0,255,153,0.3);}
+    }
+    @keyframes pulseRed {
+      0% {box-shadow: 0 0 5px rgba(255,77,77,0.3);}
+      50% {box-shadow: 0 0 15px rgba(255,77,77,0.7);}
+      100% {box-shadow: 0 0 5px rgba(255,77,77,0.3);}
+    }
+    .chart-container{
+      background:var(--bg-dark);border-radius:12px;padding:20px;margin:20px 0;height:500px;border:1px solid var(--border-color);
+    }
+    #chartContainer{height:100%;}
+    .watchlist{
+      background:var(--bg-dark);padding:20px;border-radius:12px;margin-top:20px;border:1px solid var(--border-color);
+      transition: background 0.4s ease;
+    }
+    .watchlist-header{
+      display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px;
+    }
+    .watchlist-header h2{
+      margin:0;
+      font-weight:700;
+      color:var(--active-color);
+    }
+    .sort-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    .sort-buttons button {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: background-color 0.3s;
+    }
+    .sort-buttons button:hover {
+      background: var(--active-color);
+      color: #000;
+    }
+    .stock-list{border-top:1px solid var(--border-color);max-height:350px;overflow-y:auto;}
+    .stock-item{
+      display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;padding:12px 0;border-bottom:1px solid var(--border-color);
+      align-items:center;transition:background 0.3s, transform 0.3s;cursor:pointer;border-radius:8px;
+      animation: slideFadeIn 0.4s ease;
+    }
+    @keyframes slideFadeIn {
+      from {opacity:0;transform:translateX(-10px);}
+      to {opacity:1;transform:translateX(0);}
+    }
+    .stock-item:hover{background:var(--hover-color);transform:scale(1.02);}
+    .stock-info{display:flex;flex-direction:column;}
+    .stock-name{font-weight:600;font-size:16px;color:#00ff99;}
+    .stock-symbol{color:var(--text-secondary);font-size:14px;font-style: italic;}
+    @media(max-width: 680px) {
+      .stock-item {
+        grid-template-columns: 1fr auto auto;
+        gap:10px;
+      }
+      .stock-info {
+        flex-direction: row;
+        gap: 12px;
+        align-items: center;
+      }
+    }
+    .shimmer {
+      position: relative;
+      background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      height: 18px;
+      border-radius: 4px;
+    }
+    @keyframes shimmer {
+      0% {background-position:-200% 0;}
+      100% {background-position:200% 0;}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header class="navbar">
+    <div class="logo">AlphaAnalytics</div>
+    <div class="menu-toggle" onclick="document.querySelector('.nav-items').classList.toggle('show')">
+      <span></span><span></span><span></span>
+    </div>
+    <nav class="nav-items">
+      <a href="jeet.html" class="nav-item active">Dashboard</a>
+      <a href="portfolio.html" class="nav-item">Portfolio</a>
+      <a href="mystock.html" class="nav-item">My Stock</a>
+      <a href="deposit.html" class="nav-item">Deposit</a>
+      <a href="insight.html" class="nav-item">Insight</a>
+      <a href="prediction.html" class="nav-item">Prediction</a>
+      <a href="news.html" class="nav-item">News Update</a>
+      <a href="videos.html" class="nav-item">Videos</a>
+      <a href="help.html" class="nav-item">Help Center</a>
+      <a href="profile.html" class="nav-item">Profile</a>
+    </nav>
+  </header>
+  <main class="main-content">
+    <div class="header">
+      <h1>International & Indian Market Dashboard</h1>
+      <div class="search-bar"><input type="text" placeholder="Search stocks..." id="searchBar"></div>
+      <div>
+        <button class="export-btn" onclick="exportReport()">Export Report</button>
+        <button class="export-btn" onclick="toggleTheme()">Theme</button>
+      </div>
+    </div>
+    <div id="marketSentiment" style="margin-bottom:15px;font-weight:600;"></div>
+    <div class="market-overview" id="marketOverview"></div>
+    <div class="chart-container">
+      <div class="chart-header"><h2>Charts</h2></div>
+      <div class="tradingview-widget-container" style="height:100%;width:100%">
+        <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "autosize": true,
+          "symbol": "NASDAQ:AAPL",
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "allow_symbol_change": true,
+          "calendar": false
+        }
+        </script>
+      </div>
+    </div>
+    <div style="background:var(--bg-dark);border-radius:12px;padding:15px;margin-bottom:15px;">
+      <h3>AI Market Insight</h3>
+      <p id="aiInsightText"></p>
+    </div>
+    <div id="newsTicker" style="padding:8px;background:var(--bg-dark);color:var(--active-color);border-radius:6px;margin-bottom:8px;font-size:15px;"></div>
+    <div class="watchlist">
+      <div class="watchlist-header">
+        <h2>Top Movers - Indian Market</h2>
+        <div class="sort-buttons">
+          <button onclick="sortStockList('topMoversIndian', 'name')">Sort by Name</button>
+          <button onclick="sortStockList('topMoversIndian', 'changeDesc')">Sort by % Change ↓</button>
+          <button onclick="sortStockList('topMoversIndian', 'changeAsc')">Sort by % Change ↑</button>
+        </div>
+      </div>
+      <div class="stock-list" id="topMoversIndian"></div>
+    </div>
+    <div class="watchlist">
+      <div class="watchlist-header">
+        <h2>Top Losers - Indian Market</h2>
+        <div class="sort-buttons">
+          <button onclick="sortStockList('topLosersIndian', 'name')">Sort by Name</button>
+          <button onclick="sortStockList('topLosersIndian', 'changeDesc')">Sort by % Change ↓</button>
+          <button onclick="sortStockList('topLosersIndian', 'changeAsc')">Sort by % Change ↑</button>
+        </div>
+      </div>
+      <div class="stock-list" id="topLosersIndian"></div>
+    </div>
+    <div class="watchlist">
+      <div class="watchlist-header">
+        <h2>Top Movers - International Market</h2>
+        <div class="sort-buttons">
+          <button onclick="sortStockList('topMoversInternational', 'name')">Sort by Name</button>
+          <button onclick="sortStockList('topMoversInternational', 'changeDesc')">Sort by % Change ↓</button>
+          <button onclick="sortStockList('topMoversInternational', 'changeAsc')">Sort by % Change ↑</button>
+        </div>
+      </div>
+      <div class="stock-list" id="topMoversInternational"></div>
+    </div>
+    <div class="watchlist">
+      <div class="watchlist-header">
+        <h2>Top Losers - International Market</h2>
+        <div class="sort-buttons">
+          <button onclick="sortStockList('topLosersInternational', 'name')">Sort by Name</button>
+          <button onclick="sortStockList('topLosersInternational', 'changeDesc')">Sort by % Change ↓</button>
+          <button onclick="sortStockList('topLosersInternational', 'changeAsc')">Sort by % Change ↑</button>
+        </div>
+      </div>
+      <div class="stock-list" id="topLosersInternational"></div>
+    </div>
+  </main>
+</div>
+<script>
+const TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9";
+
+const NSE_TICKER_NAMES = {
+  "TCS.NSE": "Tata Consultancy Services",
+  "RELIANCE.NSE": "Reliance Industries",
+  "HDFCBANK.NSE": "HDFC Bank",
+  "HINDUNILVR.NSE": "Hindustan Unilever",
+  "ICICIBANK.NSE": "ICICI Bank",
+  "INFY.NSE": "Infosys",
+  "KOTAKBANK.NSE": "Kotak Mahindra Bank",
+  "LT.NSE": "Larsen & Toubro",
+  "SBIN.NSE": "State Bank of India",
+  "AXISBANK.NSE": "Axis Bank"
+};
+
+const INTERNATIONAL_TICKER_NAMES = {
+  "AAPL": "Apple Inc.",
+  "MSFT": "Microsoft Corporation",
+  "GOOGL": "Alphabet Inc.",
+  "AMZN": "Amazon.com Inc.",
+  "TSLA": "Tesla Inc.",
+  "META": "Meta Platforms Inc.",
+  "NVDA": "NVIDIA Corporation",
+  "BABA": "Alibaba Group",
+  "V": "Visa Inc.",
+  "JNJ": "Johnson & Johnson"
+};
+
+const NSE_TICKERS = Object.keys(NSE_TICKER_NAMES);
+const INTERNATIONAL_TICKERS = Object.keys(INTERNATIONAL_TICKER_NAMES);
+
+const stockDataStore = {
+  topMoversIndian: [],
+  topLosersIndian: [],
+  topMoversInternational: [],
+  topLosersInternational: []
+};
+
+function getStockName(symbol, isInternational = false) {
+  return isInternational ? INTERNATIONAL_TICKER_NAMES[symbol] || symbol : NSE_TICKER_NAMES[symbol] || symbol;
+}
+
+// Fetch data in batches of 5 symbols (Twelve Data free API batch limit)
+async function fetchLatestEODBatch(tickers, isInternational = false) {
+  const batchSize = 5;
+  let allData = [];
+
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const symbolsParam = batch.join(",");
+    const url = `https://api.twelvedata.com/quote?symbol=${symbolsParam}&apikey=${TWELVEDATA_API_KEY}`;
+
+    try {
+      console.log("Fetching batch:", symbolsParam);
+      const response = await fetch(url);
+      const json = await response.json();
+      console.log("API Response batch:", json);
+
+      if (json.code || json.status === "error") {
+        console.warn("API error for batch:", json);
+        continue;
+      }
+
+      const dataArray = Array.isArray(json) ? json : Object.values(json);
+      const batchData = dataArray
+        .filter(stock => stock.symbol && !stock.code)
+        .map(stock => {
+          const open = parseFloat(stock.open);
+          const close = parseFloat(stock.close);
+          const percentChange = stock.percent_change !== undefined
+            ? parseFloat(stock.percent_change)
+            : open && close ? ((close - open) / open) * 100 : 0;
+          return {
+            symbol: stock.symbol,
+            name: stock.name || getStockName(stock.symbol, isInternational),
+            open,
+            close,
+            percentChange
+          };
+        });
+      allData = allData.concat(batchData);
+    } catch (error) {
+      console.error("Fetch batch error: ", error);
+    }
+  }
+  return allData;
+}
+
+function renderStocks(containerId, stocks, isInternational = false) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+  if (stocks.length === 0) {
+    container.innerHTML = `<div style="color:#ff4d4d;padding:10px;">No data available</div>`;
+    return;
+  }
+  stocks.forEach(stock => {
+    const priceFormatted = isInternational ? `$${stock.close.toFixed(2)}` : `₹${stock.close.toFixed(2)}`;
+    const changeClass = stock.percentChange >= 0 ? "positive" : "negative";
+    const arrow = stock.percentChange >= 0 ? "↑" : "↓";
+
+    const stockDiv = document.createElement("div");
+    stockDiv.className = "stock-item";
+    stockDiv.innerHTML = `
+      <div class="stock-info">
+        <span class="stock-name">${stock.name}</span>
+        <span class="stock-symbol">${stock.symbol}</span>
+      </div>
+      <span class="stock-price">${priceFormatted}</span>
+      <span class="stock-change ${changeClass}">
+        ${stock.percentChange.toFixed(2)}% ${arrow}
+      </span>`;
+    container.appendChild(stockDiv);
+  });
+}
+
+function showLoadingPlaceholder(containerId, count = 5) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement("div");
+    row.className = "stock-item";
+    row.innerHTML = `
+      <div class="stock-info">
+        <div class="shimmer" style="width:120px;"></div>
+        <div class="shimmer" style="width:60px;"></div>
+      </div>
+      <div class="shimmer" style="width:50px;"></div>
+      <div class="shimmer" style="width:70px;"></div>`;
+    container.appendChild(row);
+  }
+}
+
+const originalUpdateMarketMoversLosers = updateMarketMoversLosers;
+updateMarketMoversLosers = async function (tickers, moversContainerId, losersContainerId, isInternational = false) {
+  showLoadingPlaceholder(moversContainerId);
+  showLoadingPlaceholder(losersContainerId);
+  await originalUpdateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational);
+};
+
+async function updateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational = false) {
+  const data = await fetchLatestEODBatch(tickers, isInternational);
+  if (!data.length) {
+    renderStocks(moversContainerId, [], isInternational);
+    renderStocks(losersContainerId, [], isInternational);
+    return;
+  }
+  const movers = data.slice().sort((a, b) => b.percentChange - a.percentChange).slice(0, 5);
+  const losers = data.slice().sort((a, b) => a.percentChange - b.percentChange).slice(0, 5);
+
+  stockDataStore[moversContainerId] = movers;
+  stockDataStore[losersContainerId] = losers;
+
+  renderStocks(moversContainerId, movers, isInternational);
+  renderStocks(losersContainerId, losers, isInternational);
+}
+
+function sortStockList(containerId, sortBy) {
+  const stocks = [...stockDataStore[containerId]];
+  if (!stocks.length) return;
+  if (sortBy === "name") {
+    stocks.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sortBy === "changeAsc") {
+    stocks.sort((a, b) => a.percentChange - b.percentChange);
+  } else if (sortBy === "changeDesc") {
+    stocks.sort((a, b) => b.percentChange - a.percentChange);
+  }
+  const isInternational = containerId.includes("International");
+  renderStocks(containerId, stocks, isInternational);
+}
+
+function exportReport() {
+  const headers = "Market,Ticker,Name,Price,Percent Change\n";
+  let csvRows = [headers];
+  [
+    { id: "topMoversIndian", label: "Indian Market Movers" },
+    { id: "topLosersIndian", label: "Indian Market Losers" },
+    { id: "topMoversInternational", label: "International Market Movers" },
+    { id: "topLosersInternational", label: "International Market Losers" }
+  ].forEach(({ id, label }) => {
+    const isIntl = id.includes("International");
+    const stocks = stockDataStore[id];
+    if (stocks && stocks.length) {
+      csvRows.push(label);
+      stocks.forEach(s => {
+        const priceStr = isIntl ? `$${s.close.toFixed(2)}` : `₹${s.close.toFixed(2)}`;
+        csvRows.push([label, s.symbol, s.name, priceStr, s.percentChange.toFixed(2) + "%"].join(","));
+      });
+      csvRows.push("");
+    }
+  });
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "market_top_movers_losers.csv";
+  a.click();
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("light");
+}
+
+function updateAIInsight() {
+  const insights = [
+    "AI detects volatility in banking.",
+    "Tech stocks rally in monsoon season.",
+    "Nifty facing 25000 resistance.",
+    "Positive sentiment after fiscal update."
+  ];
+  const idx = Math.floor(Math.random() * insights.length);
+  document.getElementById("aiInsightText").textContent = insights[idx];
+}
+
+function rotateNews() {
+  const news = [
+    "RBI keeps rates steady.",
+    "Sensex hits new high.",
+    "Tata Motors launches AI EV.",
+    "Infosys partners with Apple AI."
+  ];
+  let i = 0;
+  setInterval(() => {
+    document.getElementById("newsTicker").textContent = news[i % news.length];
+    i++;
+  }, 3000);
+}
+
+function updateMarketOverview(data) {
+  const el = document.getElementById("marketOverview");
+  el.innerHTML = `
+    <div class="market-card"><h3>Nifty 50</h3>
+      <div class="market-value">₹${data.nifty50.value}</div>
+      <span class="stock-change ${data.nifty50.change > 0 ? "positive" : "negative"}">${data.nifty50.change}%</span>
+    </div>
+    <div class="market-card"><h3>Sensex</h3>
+      <div class="market-value">₹${data.sensex.value}</div>
+      <span class="stock-change ${data.sensex.change > 0 ? "positive" : "negative"}">${data.sensex.change}%</span>
+    </div>`;
+  document.getElementById("marketSentiment").textContent =
+    "Market Sentiment: " + (data.nifty50.change + data.sensex.change > 0 ? "BULLISH 🟢" : "BEARISH 🔴");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateMarketOverview({ nifty50: { value: 24500, change: 0.85 }, sensex: { value: 82000, change: -0.55 } });
+  rotateNews();
+  updateAIInsight();
+  setInterval(updateAIInsight, 4000);
+
+  updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
+  updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
+
+  setInterval(() => {
+    updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
+    updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
+  }, 300000);
+
+  const menuToggle = document.querySelector(".menu-toggle");
+  if (menuToggle) {
+    menuToggle.onclick = () => {
+      document.querySelector(".nav-items").classList.toggle("show");
+    };
+  }
+});
+
+</script>
+</body>
+</html>
