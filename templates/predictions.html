@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Predictions - Admin Panel</title>
+  <style>
+    /* General styling for the whole dashboard */
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f7fc;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Container for the whole dashboard */
+    .dashboard-container {
+      display: flex;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      background-color: #2c3e50;
+      color: white;
+      width: 250px;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .sidebar-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .sidebar-header h2 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .logout button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .logout button:hover {
+      background-color: #c0392b;
+    }
+
+    .sidebar-menu {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .sidebar-menu li {
+      margin: 15px 0;
+    }
+
+    .sidebar-menu li a {
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+    }
+
+    .sidebar-menu li a i {
+      margin-right: 10px;
+    }
+
+    .sidebar-menu li a:hover {
+      background-color: #34495e;
+      border-radius: 4px;
+    }
+
+    /* Main content area */
+    .main-content {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    /* Header section */
+    header {
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 32px;
+      color: #2c3e50;
+    }
+
+    /* Predictions Section */
+    .prediction {
+      background-color: #ecf0f1;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .prediction h3 {
+      font-size: 24px;
+      color: #2c3e50;
+    }
+
+    .prediction p {
+      font-size: 18px;
+      color: #34495e;
+    }
+
+    .status {
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .status.active {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .status.completed {
+      background-color: #95a5a6;
+      color: white;
+    }
+
+    .status.upcoming {
+      background-color: #f39c12;
+      color: white;
+    }
+
+    button {
+      background-color: #2980b9;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #3498db;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>Admin Panel</h2>
+        <div class="logout">
+          <button onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html">Dashboard</a></li>
+        <li><a href="users.html">Manage Users</a></li>
+        <li><a href="predictions.html">Market Predictions</a></li>
+        <li><a href="reports.html">Reports</a></li>
+        <li><a href="setting.html">Settings</a></li>
+      </ul>
+    </div>
+    <div class="main-content">
+      <header>
+        <h1>Market Predictions</h1>
+      </header>
+      <div class="prediction">
+        <h3>Prediction 1: Technology Stocks</h3>
+        <p>Status: <span class="status active">Active</span></p>
+        <button>View Details</button>
+      </div>
+      <div class="prediction">
+        <h3>Prediction 2: Renewable Energy</h3>
+        <p>Status: <span class="status completed">Completed</span></p>
+        <button>View Details</button>
+      </div>
+      <div class="prediction">
+        <h3>Prediction 3: Healthcare Sector</h3>
+        <p>Status: <span class="status upcoming">Upcoming</span></p>
+        <button>View Details</button>
+      </div>
+    </div>
+  </div>
+
+  
+</body>
+</html>

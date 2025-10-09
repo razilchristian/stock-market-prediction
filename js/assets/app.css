@@ -1,0 +1,327 @@
+:root {
+  --primary-white: #fff;
+  --bg-gradient: linear-gradient(135deg, #110017 0%, #2b0745 100%);
+  --bg-dark: #1a0823;
+  --bg-card: #2b0745;
+  --text-primary: #fff;
+  --text-secondary: #b882d7;
+  --border-color: rgba(255, 255, 255, 0.12);
+  --hover-color: rgba(233, 54, 167, 0.16);
+  --active-color: #e936a7;
+  --up-color: #e936a7;
+  --down-color: #ff217b;
+  --accent-pink: #e936a7;
+  --accent-magenta: #ff217b;
+  --accent-purple: #a259ff;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  margin: 0;
+  padding: 25px 20px 50px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  animation: fadeInPage var(--animation-duration) var(--animation-ease);
+}
+
+@keyframes fadeInPage {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Filters wrapper with spacing */
+.filters-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  justify-content: center;
+  margin-bottom: 40px;
+  padding: 0 10px;
+}
+
+/* Individual containers */
+.search-bar-container,
+.dropdown-container {
+  background: var(--bg-card);
+  border-radius: 18px;
+  padding: 12px 18px;
+  box-shadow: 0 3px 18px var(--shadow-color);
+  min-width: 230px;
+  flex: 1 1 230px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: box-shadow 0.3s ease;
+  position: relative;
+}
+.search-bar-container:hover,
+.dropdown-container:hover {
+  box-shadow: 0 5px 28px var(--active-color);
+}
+
+/* Search Bar styling */
+.search-bar-container label {
+  font-weight: 600;
+  font-size: 1.18rem;
+  color: var(--active-color);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.search-bar-wrapper {
+  position: relative;
+  flex-grow: 1;
+}
+
+#search-bar {
+  font-size: 1.15rem;
+  font-weight: 500;
+  padding: 12px 16px 12px 44px;
+  border-radius: 14px;
+  border: 2px solid var(--active-color);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 12px rgba(0, 255, 153, 0.25);
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+  user-select: text;
+}
+
+#search-bar::placeholder {
+  color: var(--text-secondary);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+#search-bar:focus {
+  border-color: #14faac;
+  box-shadow:
+    0 0 18px #14faacbb,
+    inset 0 0 16px #14faacaa;
+}
+
+/* Search icon inside input */
+.search-bar-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 1.25rem;
+  color: var(--active-color);
+}
+
+/* Dropdown styling */
+#ticker-dropdown,
+#model-dropdown,
+#date-dropdown {
+  width: 100% !important;
+  font-size: 1.15rem !important;
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+  background-color: var(--bg-dark) !important;
+  border: 2.5px solid var(--active-color) !important;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  box-shadow: inset 0 0 10px rgba(0, 255, 153, 0.3);
+  cursor: pointer;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="white" viewBox="0 0 20 20" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><polygon points="6,8 10,12 14,8"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 18px 18px;
+}
+
+#ticker-dropdown:hover,
+#model-dropdown:hover,
+#date-dropdown:hover,
+#ticker-dropdown:focus,
+#model-dropdown:focus,
+#date-dropdown:focus {
+  border-color: #14faac !important;
+  box-shadow: 0 0 20px #14faacbb !important;
+  outline: none !important;
+}
+
+/* Dropdown options */
+#ticker-dropdown option,
+#model-dropdown option,
+#date-dropdown option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  user-select: none;
+}
+
+/* Export Button */
+.export-btn {
+  background-color: var(--active-color);
+  color: #000;
+  border: none;
+  border-radius: 22px;
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 16px 32px;
+  margin: 20px auto 0;
+  display: block;
+  cursor: pointer;
+  box-shadow: 0 0 30px var(--active-color);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  user-select: none;
+  width: max-content;
+  min-width: 160px;
+  text-align: center;
+}
+
+.export-btn:hover,
+.export-btn:focus {
+  background-color: #14faac;
+  box-shadow: 0 0 40px #14faac;
+}
+
+/* Crisis Table */
+#crises-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  max-height: 430px !important;
+  overflow-y: auto !important;
+  border-radius: 18px;
+  box-shadow: 0 8px 38px var(--shadow-color);
+  border: 1.5px solid var(--active-color) !important;
+  font-size: 1rem;
+  user-select: text;
+}
+
+#crises-table thead th {
+  background-color: var(--primary-navy);
+  color: var(--active-color);
+  font-weight: 700;
+  padding: 16px 14px !important;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+#crises-table tbody td {
+  background-color: var(--bg-dark);
+  color: var(--up-color);
+  padding: 16px 14px !important;
+  font-weight: 600;
+  white-space: normal !important;
+  text-align: center;
+}
+
+#crises-table tbody tr:nth-child(odd) {
+  background-color: #001f3d;
+}
+
+#crises-table tbody tr:hover {
+  background-color: var(--hover-bg);
+  transition: background-color 0.3s ease;
+}
+
+/* Predictions Table */
+#predictions-table {
+  max-width: 1120px;
+  margin: 40px auto 70px;
+}
+
+[data-dash-is-loading] {
+  background: transparent !important;
+}
+
+.DashTable .dash-spreadsheet-container {
+  border-radius: 18px;
+  box-shadow: 0 10px 38px var(--shadow-color);
+  border: 1.75px solid var(--active-color);
+  transition: box-shadow 0.3s ease;
+}
+
+.DashTable .dash-spreadsheet-container:hover {
+  box-shadow: 0 14px 48px var(--active-color);
+}
+
+.DashTable .dash-spreadsheet-container .dash-header {
+  background-color: var(--primary-navy);
+  color: var(--active-color);
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-align: center;
+  user-select: none;
+  padding: 14px 12px;
+}
+
+.DashTable .dash-spreadsheet-container .dash-cell {
+  background-color: var(--bg-dark);
+  color: var(--up-color);
+  text-align: center;
+  font-weight: 600;
+  padding: 14px 12px !important;
+  white-space: normal;
+  transition: background-color 0.3s ease, transform 0.25s ease;
+}
+
+.DashTable .dash-spreadsheet-container .dash-cell--selected {
+  background-color: var(--hover-bg) !important;
+}
+
+.DashTable .dash-spreadsheet-container tr:nth-child(odd) .dash-cell {
+  background-color: rgba(0, 255, 153, 0.12);
+}
+
+.DashTable .dash-spreadsheet-container tbody tr:hover .dash-cell {
+  background-color: var(--hover-bg);
+  transform: scale(1.05);
+  cursor: pointer;
+}
+
+/* Future Predictions Table */
+#future-table {
+  max-width: 1120px;
+  margin: 40px auto 80px;
+}
+
+/* Summary Bar */
+.summary-bar {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--active-color);
+  margin: 40px 0 60px;
+  user-select: none;
+}
+
+/* Loading Spinner Customization */
+#loading-table .dash-spinner {
+  color: var(--active-color);
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+  .filters-wrapper {
+    flex-direction: column !important;
+    align-items: stretch;
+    gap: 24px !important;
+  }
+  .filters-wrapper > div {
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+    margin-bottom: 20px !important;
+  }
+  .export-btn {
+    width: 100%;
+  }
+}

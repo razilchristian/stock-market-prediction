@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaAnalytics - Help Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+:root {
+  --primary-white: #fff;
+  --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  --bg-dark: #0f0f23;
+  --bg-card: rgba(30, 30, 46, 0.8);
+  --bg-card-hover: rgba(40, 40, 62, 0.9);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0c0;
+  --text-muted: #707090;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --hover-color: rgba(0, 230, 255, 0.15);
+  --active-color: #00e6ff;
+  --up-color: #00ff9d;
+  --down-color: #ff4d7c;
+  --accent-blue: #00e6ff;
+  --accent-teal: #00ff9d;
+  --accent-purple: #8a2be2;
+  --accent-pink: #ff4d7c;
+  --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+body.light {
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --bg-dark: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --hover-color: rgba(0, 230, 255, 0.1);
+  --active-color: #0077cc;
+  --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  transition: all 0.4s ease;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Enhanced Navbar */
+.navbar {
+  background: rgba(15, 15, 35, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 0;
+}
+
+.nav-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.logo {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo i {
+  font-size: 24px;
+}
+
+.nav-items {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+}
+
+.nav-item {
+  padding: 10px 16px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-2px);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: var(--bg-dark);
+  box-shadow: var(--shadow-glow);
+}
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.menu-toggle span {
+  width: 24px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Header Section */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.header h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Search Bar */
+.search-container {
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+}
+
+.search-bar {
+  width: 100%;
+  padding: 14px 20px 14px 48px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--active-color);
+  color: var(--bg-dark);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(0, 230, 255, 0.5);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--active-color);
+}
+
+/* Help Categories */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.category-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.category-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+}
+
+.category-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-card);
+  border-color: var(--active-color);
+}
+
+.category-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--active-color);
+}
+
+.category-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.category-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.category-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* FAQ Section */
+.faq-section {
+  margin-bottom: 32px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.faq-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faq-item {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.faq-item:hover {
+  border-color: var(--active-color);
+}
+
+.faq-question {
+  padding: 20px 24px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.faq-question:hover {
+  color: var(--active-color);
+}
+
+.faq-answer {
+  padding: 0 24px 20px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: none;
+}
+
+.faq-item.active .faq-answer {
+  display: block;
+}
+
+.faq-item.active .faq-question {
+  color: var(--active-color);
+}
+
+.faq-toggle {
+  font-size: 20px;
+  transition: transform 0.3s ease;
+}
+
+.faq-item.active .faq-toggle {
+  transform: rotate(180deg);
+}
+
+/* Contact Section */
+.contact-section {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 32px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  margin-bottom: 32px;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.contact-method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--bg-dark);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.contact-method:hover {
+  border-color: var(--active-color);
+  transform: translateY(-2px);
+}
+
+.contact-icon {
+  font-size: 32px;
+  color: var(--active-color);
+}
+
+.contact-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.contact-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.contact-link {
+  color: var(--active-color);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.contact-link:hover {
+  text-decoration: underline;
+}
+
+/* Contact Form */
+.contact-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input, .form-textarea {
+  padding: 14px 16px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Chatbot */
+.chatbot-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  background: var(--active-color);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: var(--bg-dark);
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  box-shadow: var(--shadow-glow);
+  transition: all 0.3s ease;
+}
+
+.chatbot-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(0, 230, 255, 0.5);
+}
+
+.chatbot-container {
+  position: fixed;
+  bottom: 100px;
+  right: 24px;
+  width: 380px;
+  height: 500px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000;
+  box-shadow: var(--shadow-card);
+}
+
+.chatbot-header {
+  background: var(--bg-dark);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chatbot-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.chatbot-close {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.chatbot-close:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+}
+
+.chatbot-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-message {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.chat-message.user {
+  background: var(--active-color);
+  color: var(--bg-dark);
+  align-self: flex-end;
+  border-bottom-right-radius: 6px;
+}
+
+.chat-message.bot {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  align-self: flex-start;
+  border-bottom-left-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.chatbot-input {
+  display: flex;
+  padding: 16px;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.chatbot-input-field {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.chatbot-input-field:focus {
+  outline: none;
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+
+.chatbot-send {
+  background: var(--active-color);
+  border: none;
+  border-radius: 12px;
+  color: var(--bg-dark);
+  padding: 0 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chatbot-send:hover {
+  background: #00ff9d;
+  transform: scale(1.05);
+}
+
+/* Loading States */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.loading i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 16px;
+  }
+  
+  .nav-row {
+    flex-wrap: wrap;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
+  
+  .nav-items {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .main-content {
+    padding: 16px;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .search-container {
+    width: 100%;
+  }
+  
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .contact-form {
+    grid-template-columns: 1fr;
+  }
+  
+  .chatbot-container {
+    width: calc(100vw - 48px);
+    right: 24px;
+    left: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .category-card {
+    padding: 20px;
+  }
+  
+  .contact-section {
+    padding: 24px;
+  }
+  
+  .faq-question {
+    padding: 16px 20px;
+  }
+  
+  .faq-answer {
+    padding: 0 20px 16px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Enhanced Navbar -->
+  <header class="navbar">
+    <div class="nav-wrap">
+      <div class="nav-row">
+        <div class="logo">
+          <i class="fas fa-chart-line"></i>
+          AlphaAnalytics
+        </div>
+        
+        <button class="menu-toggle" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="nav-items">
+          <a href="jeet.html" class="nav-item">
+            <i class="fas fa-home"></i>Dashboard
+          </a>
+          <a href="portfolio.html" class="nav-item">
+            <i class="fas fa-briefcase"></i>Portfolio
+          </a>
+          <a href="mystock.html" class="nav-item">
+            <i class="fas fa-star"></i>My Stock
+          </a>
+          <a href="deposit.html" class="nav-item">
+            <i class="fas fa-wallet"></i>Deposit
+          </a>
+          <a href="insight.html" class="nav-item">
+            <i class="fas fa-brain"></i>Insight
+          </a>
+          <a href="prediction.html" class="nav-item">
+            <i class="fas fa-crystal-ball"></i>Prediction
+          </a>
+          <a href="news.html" class="nav-item">
+            <i class="fas fa-newspaper"></i>News
+          </a>
+          <a href="videos.html" class="nav-item">
+            <i class="fas fa-play-circle"></i>Videos
+          </a>
+          <a href="Superstars.html" class="nav-item">
+            <i class="fas fa-trophy"></i>Superstars
+          </a>
+          <a href="alerts.html" class="nav-item">
+            <i class="fas fa-bell"></i>Alerts
+          </a>
+          <a href="help.html" class="nav-item active">
+            <i class="fas fa-question-circle"></i>Help
+          </a>
+          <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>Profile
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Header -->
+    <div class="header">
+      <h1>Help Center</h1>
+      <div class="header-controls">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" class="search-bar" placeholder="Search for help..." id="searchInput">
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-primary" onclick="contactSupport()">
+            <i class="fas fa-headset"></i>Contact Support
+          </button>
+          <button class="btn btn-secondary" onclick="toggleTheme()">
+            <i class="fas fa-palette"></i>Theme
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Categories -->
+    <div class="categories-grid">
+      <div class="category-card">
+        <div class="category-icon"><i class="fas fa-chart-line"></i></div>
+        <h3 class="category-title">Trading & Investing</h3>
+        <p class="category-description">Learn how to buy, sell, and manage your investments</p>
+        <div class="category-count">12 articles</div>
+      </div>
+      
+      <div class="category-card">
+        <div class="category-icon"><i class="fas fa-wallet"></i></div>
+        <h3 class="category-title">Account & Billing</h3>
+        <p class="category-description">Manage your account, deposits, and subscription</p>
+        <div class="category-count">8 articles</div>
+      </div>
+      
+      <div class="category-card">
+        <div class="category-icon"><i class="fas fa-mobile-alt"></i></div>
+        <h3 class="category-title">Platform Guide</h3>
+        <p class="category-description">Navigate and use all platform features effectively</p>
+        <div class="category-count">15 articles</div>
+      </div>
+      
+      <div class="category-card">
+        <div class="category-icon"><i class="fas fa-shield-alt"></i></div>
+        <h3 class="category-title">Security & Privacy</h3>
+        <p class="category-description">Keep your account secure and understand our policies</p>
+        <div class="category-count">6 articles</div>
+      </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="faq-section">
+      <div class="section-header">
+        <i class="fas fa-question-circle"></i>
+        <h2>Frequently Asked Questions</h2>
+      </div>
+      
+      <div class="faq-grid" id="faqGrid">
+        <!-- FAQ items will be populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div class="contact-section">
+      <div class="section-header">
+        <i class="fas fa-headset"></i>
+        <h2>Get in Touch</h2>
+      </div>
+      
+      <div class="contact-grid">
+        <div class="contact-method">
+          <div class="contact-icon"><i class="fas fa-envelope"></i></div>
+          <h3 class="contact-title">Email Support</h3>
+          <p class="contact-description">Get help via email with detailed responses</p>
+          <a href="mailto:support@alphaanalytics.com" class="contact-link">support@alphaanalytics.com</a>
+        </div>
+        
+        <div class="contact-method">
+          <div class="contact-icon"><i class="fas fa-comments"></i></div>
+          <h3 class="contact-title">Live Chat</h3>
+          <p class="contact-description">Instant help from our support team</p>
+          <a href="#" class="contact-link" onclick="openChatbot()">Start Chat</a>
+        </div>
+        
+        <div class="contact-method">
+          <div class="contact-icon"><i class="fas fa-phone"></i></div>
+          <h3 class="contact-title">Phone Support</h3>
+          <p class="contact-description">Speak directly with our experts</p>
+          <a href="tel:+1-800-ALPHA-01" class="contact-link">+1-800-ALPHA-01</a>
+        </div>
+        
+        <div class="contact-method">
+          <div class="contact-icon"><i class="fas fa-file-alt"></i></div>
+          <h3 class="contact-title">Documentation</h3>
+          <p class="contact-description">Comprehensive guides and tutorials</p>
+          <a href="#" class="contact-link">View Documentation</a>
+        </div>
+      </div>
+      
+      <div class="section-header">
+        <i class="fas fa-paper-plane"></i>
+        <h2>Send us a Message</h2>
+      </div>
+      
+      <form class="contact-form" id="contactForm">
+        <div class="form-group">
+          <label class="form-label" for="contactName">Full Name</label>
+          <input type="text" class="form-input" id="contactName" placeholder="Enter your name" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="contactEmail">Email Address</label>
+          <input type="email" class="form-input" id="contactEmail" placeholder="Enter your email" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="contactSubject">Subject</label>
+          <input type="text" class="form-input" id="contactSubject" placeholder="What is this regarding?" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="contactCategory">Category</label>
+          <select class="form-input" id="contactCategory" required>
+            <option value="">Select a category</option>
+            <option value="technical">Technical Issue</option>
+            <option value="billing">Billing & Account</option>
+            <option value="trading">Trading & Investing</option>
+            <option value="feature">Feature Request</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        
+        <div class="form-group full-width">
+          <label class="form-label" for="contactMessage">Message</label>
+          <textarea class="form-textarea" id="contactMessage" placeholder="Describe your issue or question in detail..." required></textarea>
+        </div>
+        
+        <div class="form-group full-width">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-paper-plane"></i>Send Message
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<!-- Chatbot -->
+<button class="chatbot-toggle" id="chatbotToggle">
+  <i class="fas fa-comment-dots"></i>
+</button>
+
+<div class="chatbot-container" id="chatbot">
+  <div class="chatbot-header">
+    <div class="chatbot-title">AlphaAnalytics Support</div>
+    <button class="chatbot-close" id="chatbotClose">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  
+  <div class="chatbot-messages" id="chatbotMessages">
+    <div class="chat-message bot">
+      Hello! I'm your AlphaAnalytics assistant. How can I help you today?
+    </div>
+  </div>
+  
+  <div class="chatbot-input">
+    <input type="text" class="chatbot-input-field" id="chatbotInput" placeholder="Type your question...">
+    <button class="chatbot-send" id="chatbotSend">
+      <i class="fas fa-paper-plane"></i>
+    </button>
+  </div>
+</div>
+
+<script>
+// FAQ Data
+const faqData = [
+  {
+    question: "How do I buy stocks on AlphaAnalytics?",
+    answer: "To buy stocks, navigate to the 'Market' section, search for the stock you're interested in, and click the 'Buy' button. You'll need to specify the quantity and review the order before confirming. Make sure you have sufficient funds in your account."
+  },
+  {
+    question: "What payment methods are accepted for deposits?",
+    answer: "We accept various payment methods including bank transfers, credit/debit cards, UPI, and digital wallets. Deposit limits and processing times may vary depending on the method chosen. You can view all available options in the 'Deposit' section of your account."
+  },
+  {
+    question: "How accurate are the stock predictions?",
+    answer: "Our AI-powered predictions have an average accuracy of 87.5% based on historical backtesting. However, all investments carry risk, and past performance doesn't guarantee future results. We recommend using predictions as one of several tools in your investment decision process."
+  },
+  {
+    question: "Can I set up price alerts for specific stocks?",
+    answer: "Yes! You can set custom price alerts in the 'Alerts' section. Simply search for the stock, set your desired price threshold, and choose how you'd like to be notified (push notification, email, or both)."
+  },
+  {
+    question: "How do I track superstar investor portfolios?",
+    answer: "Visit the 'Superstars' section to see portfolios of major investors. You can filter by investor type (individual, institutional, FII) and see their latest holdings, changes, and performance metrics."
+  },
+  {
+    question: "Is my personal and financial information secure?",
+    answer: "Absolutely. We use bank-level encryption and security protocols to protect your data. All sensitive information is encrypted, and we comply with global financial security standards. You can enable two-factor authentication for additional security."
+  },
+  {
+    question: "What happens if I encounter technical issues?",
+    answer: "If you experience any technical problems, you can contact our support team via live chat, email, or phone. For faster resolution, please include details about your device, browser, and steps to reproduce the issue."
+  },
+  {
+    question: "How do I withdraw funds from my account?",
+    answer: "To withdraw funds, go to the 'Deposit' section and select 'Withdraw'. Choose your preferred withdrawal method, enter the amount, and follow the verification steps. Withdrawals typically process within 1-3 business days."
+  }
+];
+
+// Initialize the page
+function initializePage() {
+  loadFAQ();
+  setupEventListeners();
+}
+
+// Load FAQ items
+function loadFAQ() {
+  const faqGrid = document.getElementById('faqGrid');
+  
+  faqGrid.innerHTML = faqData.map((faq, index) => `
+    <div class="faq-item" id="faq-${index}">
+      <div class="faq-question" onclick="toggleFAQ(${index})">
+        ${faq.question}
+        <span class="faq-toggle"><i class="fas fa-chevron-down"></i></span>
+      </div>
+      <div class="faq-answer">
+        ${faq.answer}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Toggle FAQ item
+function toggleFAQ(index) {
+  const faqItem = document.getElementById(`faq-${index}`);
+  const isActive = faqItem.classList.contains('active');
+  
+  // Close all FAQ items
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  
+  // Open clicked item if it wasn't active
+  if (!isActive) {
+    faqItem.classList.add('active');
+  }
+}
+
+// Contact form submission
+function setupContactForm() {
+  const contactForm = document.getElementById('contactForm');
+  
+  contactForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('contactName').value;
+    const email = document.getElementById('contactEmail').value;
+    const subject = document.getElementById('contactSubject').value;
+    const category = document.getElementById('contactCategory').value;
+    const message = document.getElementById('contactMessage').value;
+    
+    // In a real application, this would send the data to a server
+    alert(`Thank you, ${name}! Your message has been sent. We'll respond to ${email} within 24 hours.`);
+    
+    // Reset form
+    contactForm.reset();
+  });
+}
+
+// Chatbot functionality
+function setupChatbot() {
+  const chatbotToggle = document.getElementById('chatbotToggle');
+  const chatbot = document.getElementById('chatbot');
+  const chatbotClose = document.getElementById('chatbotClose');
+  const chatbotSend = document.getElementById('chatbotSend');
+  const chatbotInput = document.getElementById('chatbotInput');
+  const chatbotMessages = document.getElementById('chatbotMessages');
+  
+  // Chatbot responses
+  const chatbotResponses = {
+    'hello': 'Hello! How can I help you with AlphaAnalytics today?',
+    'hi': 'Hi there! What can I assist you with?',
+    'help': 'I can help you with account issues, trading questions, technical problems, or general inquiries. What do you need help with?',
+    'buy stock': 'To buy stocks: 1) Go to Market section 2) Search for your stock 3) Click Buy 4) Enter quantity 5) Confirm order. Do you need more details?',
+    'deposit': 'You can deposit funds via bank transfer, card, UPI, or digital wallets in the Deposit section. Is there a specific method you\'re having trouble with?',
+    'withdraw': 'Withdrawals are processed in the Deposit section. Choose your method, enter amount, and complete verification. Processing takes 1-3 business days.',
+    'prediction': 'Our AI predictions analyze 100+ indicators with 87.5% historical accuracy. Remember: all investments carry risk.',
+    'contact support': 'You can reach our support team at support@alphaanalytics.com or +1-800-ALPHA-01. Live chat is also available!',
+    'thank you': 'You\'re welcome! Is there anything else I can help with?',
+    'default': 'I understand you\'re asking about "${input}". For detailed assistance, would you like me to connect you with our support team?'
+  };
+  
+  // Toggle chatbot
+  chatbotToggle.addEventListener('click', () => {
+    chatbot.style.display = 'flex';
+    chatbotToggle.style.display = 'none';
+    chatbotInput.focus();
+  });
+  
+  chatbotClose.addEventListener('click', () => {
+    chatbot.style.display = 'none';
+    chatbotToggle.style.display = 'flex';
+  });
+  
+  // Send message
+  function sendMessage() {
+    const message = chatbotInput.value.trim();
+    if (!message) return;
+    
+    // Add user message
+    addChatMessage(message, 'user');
+    chatbotInput.value = '';
+    
+    // Generate bot response
+    setTimeout(() => {
+      let response = 'default';
+      const lowerMessage = message.toLowerCase();
+      
+      for (const [key, value] of Object.entries(chatbotResponses)) {
+        if (lowerMessage.includes(key)) {
+          response = value;
+          break;
+        }
+      }
+      
+      if (response === 'default') {
+        response = chatbotResponses.default.replace('${input}', message);
+      }
+      
+      addChatMessage(response, 'bot');
+    }, 1000);
+  }
+  
+  // Add chat message
+  function addChatMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${sender}`;
+    messageDiv.textContent = text;
+    chatbotMessages.appendChild(messageDiv);
+    chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+  }
+  
+  // Event listeners
+  chatbotSend.addEventListener('click', sendMessage);
+  chatbotInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+}
+
+// Search functionality
+function setupSearch() {
+  const searchInput = document.getElementById('searchInput');
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const question = item.querySelector('.faq-question').textContent.toLowerCase();
+      const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
+      
+      if (question.includes(query) || answer.includes(query)) {
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  });
+}
+
+// Contact support
+function contactSupport() {
+  document.getElementById('contactName').focus();
+  document.getElementById('contactForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Open chatbot
+function openChatbot() {
+  document.getElementById('chatbotToggle').click();
+}
+
+// Toggle theme
+function toggleTheme() {
+  document.body.classList.toggle('light');
+}
+
+// Setup event listeners
+function setupEventListeners() {
+  setupContactForm();
+  setupChatbot();
+  setupSearch();
+  
+  // Mobile menu toggle
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  menuToggle.addEventListener('click', () => {
+    navItems.classList.toggle('show');
+  });
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', initializePage);
+</script>
+</body>
+</html>
