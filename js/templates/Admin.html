@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Stock Market Predictions</title>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Google Fonts for design -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <!-- External Stylesheet -->
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>Admin Panel</h2>
+        <div class="logout">
+          <button onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="admin.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li><a href="users.html"><i class="fas fa-users"></i> Manage Users</a></li>
+        <li><a href="predictions.html"><i class="fas fa-chart-line"></i> Market Predictions</a></li>
+        <li><a href="reports.html"><i class="fas fa-file-alt"></i> Reports</a></li>
+        <li><a href="setting.html"><i class="fas fa-cogs"></i> Settings</a></li>
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <header>
+        <h1>Welcome, Admin!</h1>
+      </header>
+
+      <div class="overview">
+        <div class="card">
+          <h3>Total Users</h3>
+          <p id="total-users">0</p>
+        </div>
+        <div class="card">
+          <h3>Active Predictions</h3>
+          <p id="active-predictions">0</p>
+        </div>
+        <div class="card">
+          <h3>Reports Generated</h3>
+          <p id="total-reports">0</p>
+        </div>
+      </div>
+
+      <section>
+        <h2>Latest User Signups</h2>
+        <table id="latest-users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Signup Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Dynamic Content Goes Here -->
+          </tbody>
+        </table>
+      </section>
+
+      <section class="predictions-summary">
+        <h2>Market Predictions Overview</h2>
+        <div id="predictions-summary">
+          <div class="prediction">
+            <h3>Prediction 1: Tech Stocks</h3>
+            <p>Status: <span class="status active">Active</span></p>
+            <button onclick="viewPredictionDetails(1)">View Details</button>
+          </div>
+          <div class="prediction">
+            <h3>Prediction 2: Healthcare Sector</h3>
+            <p>Status: <span class="status completed">Completed</span></p>
+            <button onclick="viewPredictionDetails(2)">View Details</button>
+          </div>
+          <div class="prediction">
+            <h3>Prediction 3: Green Energy</h3>
+            <p>Status: <span class="status upcoming">Upcoming</span></p>
+            <button onclick="viewPredictionDetails(3)">View Details</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Example to load dynamic data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Fetch data dynamically for overview (users, predictions, reports)
+      fetchDashboardData();
+
+      // Fetch the latest users (you can replace this with actual data)
+      fetchLatestUsers();
+    });
+
+    // Fetch Dashboard Data
+    async function fetchDashboardData() {
+      try {
+        const response = await fetch('http://localhost:3000/dashboard');
+        const data = await response.json();
+        
+        // Update dashboard overview
+        document.getElementById('total-users').textContent = data.totalUsers;
+        document.getElementById('active-predictions').textContent = data.activePredictions;
+        document.getElementById('total-reports').textContent = data.totalReports;
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    }
+
+    // Fetch Latest Users for the table
+    async function fetchLatestUsers() {
+      try {
+        const response = await fetch('http://localhost:3000/latest-users');
+        const users = await response.json();
+        
+        const tableBody = document.querySelector('#latest-users-table tbody');
+        users.forEach(user => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${user.username}</td>
+            <td>${user.email}</td>
+            <td>${user.signupDate}</td>
+            <td><button onclick="viewUserDetails(${user.id})">View</button></td>
+          `;
+          tableBody.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error fetching latest users:', error);
+      }
+    }
+
+    // View details of a prediction
+    function viewPredictionDetails(predictionId) {
+      // Navigate to prediction detail page (update URL as needed)
+      window.location.href = `prediction_details.html?id=${predictionId}`;
+    }
+
+    // View details of a user
+    function viewUserDetails(userId) {
+      // Navigate to user detail page (update URL as needed)
+      window.location.href = `user_details.html?id=${userId}`;
+    }
+
+    // Logout function
+    function logout() {
+      // Call logout endpoint (replace with actual logout logic)
+      fetch('http://localhost:3000/logout', { method: 'POST' })
+        .then(response => {
+          if (response.ok) {
+            window.location.href = 'login.html'; // Redirect to login page
+          } else {
+            alert('Error logging out');
+          }
+        });
+    }
+  </script>
+  <script>
+    fetch('http://localhost:3000/admin/users')
+      .then(response => response.json())
+      .then(data => {
+        const usersTable = document.getElementById('users-table');
+        data.users.forEach(user => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${user.username}</td>
+            <td>${user.email}</td>
+            <td>${user.role}</td>
+            <td><button onclick="deleteUser(${user.id})">Delete</button></td>
+            <td><button onclick="changeRole(${user.id})">Change Role</button></td>
+          `;
+          usersTable.appendChild(row);
+        });
+      })
+      .catch(error => console.error('Error fetching users:', error));
+  
+    // Function to delete a user
+    function deleteUser(id) {
+      fetch(`http://localhost:3000/admin/users/${id}`, {
+        method: 'DELETE',
+      })
+      .then(response => response.json())
+      .then(data => alert(data.message))
+      .catch(error => console.error('Error deleting user:', error));
+    }
+  
+    // Function to change user role
+    function changeRole(id) {
+      const newRole = prompt('Enter new role (user/admin):');
+      if (newRole) {
+        fetch(`http://localhost:3000/admin/users/${id}/role`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: newRole }),
+        })
+        .then(response => response.json())
+        .then(data => alert(data.message))
+        .catch(error => console.error('Error updating user role:', error));
+      }
+    }
+  </script>
+  
+</body>
+</html>

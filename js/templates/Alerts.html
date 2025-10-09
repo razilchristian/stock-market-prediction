@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaAnalytics - Market Alerts</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+:root {
+  --primary-white: #fff;
+  --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  --bg-dark: #0f0f23;
+  --bg-card: rgba(30, 30, 46, 0.8);
+  --bg-card-hover: rgba(40, 40, 62, 0.9);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0c0;
+  --text-muted: #707090;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --hover-color: rgba(0, 230, 255, 0.15);
+  --active-color: #00e6ff;
+  --up-color: #00ff9d;
+  --down-color: #ff4d7c;
+  --accent-blue: #00e6ff;
+  --accent-teal: #00ff9d;
+  --accent-purple: #8a2be2;
+  --accent-pink: #ff4d7c;
+  --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+body.light {
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --bg-dark: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --hover-color: rgba(0, 230, 255, 0.1);
+  --active-color: #0077cc;
+  --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  transition: all 0.4s ease;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Enhanced Navbar */
+.navbar {
+  background: rgba(15, 15, 35, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 0;
+}
+
+.nav-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.logo {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo i {
+  font-size: 24px;
+}
+
+.nav-items {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+}
+
+.nav-item {
+  padding: 10px 16px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-item:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  transform: translateY(-2px);
+}
+
+.nav-item.active {
+  background: var(--active-color);
+  color: var(--bg-dark);
+  box-shadow: var(--shadow-glow);
+}
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.menu-toggle span {
+  width: 24px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Header Section */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.header h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Search Bar */
+.search-container {
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+}
+
+.search-bar {
+  width: 100%;
+  padding: 14px 20px 14px 48px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--active-color);
+  color: var(--bg-dark);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(0, 230, 255, 0.5);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--active-color);
+}
+
+/* Stats Overview */
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+  .stats-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-card);
+  border-color: var(--active-color);
+}
+
+.stat-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+  color: var(--active-color);
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Filters Section */
+.filters-section {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.filter-select {
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Alerts Grid */
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.alert-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+}
+
+.alert-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-card);
+  border-color: var(--active-color);
+}
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.alert-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.alert-symbol {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.alert-severity {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.severity-high {
+  background: rgba(255, 77, 124, 0.15);
+  color: var(--down-color);
+}
+
+.severity-medium {
+  background: rgba(255, 165, 0, 0.15);
+  color: #ffa500;
+}
+
+.severity-low {
+  background: rgba(0, 255, 157, 0.15);
+  color: var(--up-color);
+}
+
+.alert-description {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.alert-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.alert-confidence {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confidence-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.confidence-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+}
+
+.alert-time {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.alert-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.alert-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.alert-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-value-small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.alert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* Loading States */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.loading i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* Shimmer Loading */
+.shimmer {
+  background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state i {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 16px;
+  }
+  
+  .nav-row {
+    flex-wrap: wrap;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
+  
+  .nav-items {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .main-content {
+    padding: 16px;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .search-container {
+    width: 100%;
+  }
+  
+  .alerts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .filters-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .filter-select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .alert-card {
+    padding: 20px;
+  }
+  
+  .alert-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .alert-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Enhanced Navbar -->
+  <header class="navbar">
+    <div class="nav-wrap">
+      <div class="nav-row">
+        <div class="logo">
+          <i class="fas fa-chart-line"></i>
+          AlphaAnalytics
+        </div>
+        
+        <button class="menu-toggle" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="nav-items">
+          <a href="jeet.html" class="nav-item">
+            <i class="fas fa-home"></i>Dashboard
+          </a>
+          <a href="portfolio.html" class="nav-item">
+            <i class="fas fa-briefcase"></i>Portfolio
+          </a>
+          <a href="mystock.html" class="nav-item">
+            <i class="fas fa-star"></i>My Stock
+          </a>
+          <a href="deposit.html" class="nav-item">
+            <i class="fas fa-wallet"></i>Deposit
+          </a>
+          <a href="insight.html" class="nav-item">
+            <i class="fas fa-brain"></i>Insight
+          </a>
+          <a href="prediction.html" class="nav-item">
+            <i class="fas fa-crystal-ball"></i>Prediction
+          </a>
+          <a href="news.html" class="nav-item">
+            <i class="fas fa-newspaper"></i>News
+          </a>
+          <a href="videos.html" class="nav-item">
+            <i class="fas fa-play-circle"></i>Videos
+          </a>
+          <a href="Superstars.html" class="nav-item">
+            <i class="fas fa-trophy"></i>Superstars
+          </a>
+          <a href="alerts.html" class="nav-item active">
+            <i class="fas fa-bell"></i>Alerts
+          </a>
+          <a href="help.html" class="nav-item">
+            <i class="fas fa-question-circle"></i>Help
+          </a>
+          <a href="profile.html" class="nav-item">
+            <i class="fas fa-user"></i>Profile
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Header -->
+    <div class="header">
+      <h1>Market Intelligence Alerts</h1>
+      <div class="header-controls">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" class="search-bar" placeholder="Search alerts..." id="searchInput">
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-primary" onclick="loadAlerts()">
+            <i class="fas fa-sync-alt"></i>Refresh
+          </button>
+          <button class="btn btn-secondary" onclick="toggleTheme()">
+            <i class="fas fa-palette"></i>Theme
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-overview">
+      <div class="stat-card">
+        <div class="stat-icon"><i class="fas fa-bell"></i></div>
+        <div class="stat-value" id="totalAlerts">0</div>
+        <div class="stat-label">Total Alerts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-value" id="highAlerts">0</div>
+        <div class="stat-label">High Priority</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-value" id="accuracyRate">0%</div>
+        <div class="stat-label">Accuracy Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+        <div class="stat-value" id="avgResponse">0m</div>
+        <div class="stat-label">Avg. Response Time</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+      <div class="filter-group">
+        <div class="filter-label">Severity</div>
+        <select class="filter-select" id="severitySelect">
+          <option value="all">All Severities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <div class="filter-label">Alert Type</div>
+        <select class="filter-select" id="typeSelect">
+          <option value="all">All Types</option>
+          <option value="price">Price Movement</option>
+          <option value="volume">Volume Spike</option>
+          <option value="volatility">Volatility</option>
+          <option value="news">News/Sentiment</option>
+          <option value="technical">Technical Pattern</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <div class="filter-label">Time Frame</div>
+        <select class="filter-select" id="timeSelect">
+          <option value="all">All Time</option>
+          <option value="1h">Last 1 Hour</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="24h">Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Alerts Grid -->
+    <div class="section-header">
+      <i class="fas fa-bell"></i>
+      <h2>Active Market Alerts</h2>
+    </div>
+    
+    <div class="alerts-grid" id="alertsGrid">
+      <!-- Alert cards will be populated by JavaScript -->
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading" id="loadingState" style="display: none;">
+      <i class="fas fa-spinner fa-spin"></i>
+      <h3>Loading Market Alerts</h3>
+      <p>Monitoring real-time market conditions...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <i class="fas fa-check-circle"></i>
+      <h3>No Alerts Found</h3>
+      <p>No alerts match your current filters. Try adjusting your criteria or check back later.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+// Alert data
+const alerts = [
+  {
+    id: 1,
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    type: "price",
+    severity: "high",
+    title: "Significant Price Drop Detected",
+    description: "Apple shares dropped 4.2% in the last hour amid broader tech selloff. Technical indicators show potential support at $175.",
+    confidence: 85,
+    timestamp: Date.now() - 1000 * 60 * 18, // 18 minutes ago
+    stats: {
+      precision: "82%",
+      last30: "24 alerts",
+      response: "12m"
+    },
+    trigger: "Price dropped below 50-day moving average",
+    impact: "High",
+    recommendation: "Consider buying opportunity at support levels"
+  },
+  {
+    id: 2,
+    symbol: "NVDA",
+    name: "NVIDIA Corp.",
+    type: "volume",
+    severity: "high",
+    title: "Unusual Volume Activity",
+    description: "NVIDIA trading volume 3.2x above average with large block trades. Options activity suggests institutional positioning.",
+    confidence: 78,
+    timestamp: Date.now() - 1000 * 60 * 45, // 45 minutes ago
+    stats: {
+      precision: "79%",
+      last30: "18 alerts",
+      response: "8m"
+    },
+    trigger: "Volume spike with institutional block trades",
+    impact: "Medium",
+    recommendation: "Monitor for breakout above $950 resistance"
+  },
+  {
+    id: 3,
+    symbol: "TSLA",
+    name: "Tesla Inc.",
+    type: "news",
+    severity: "medium",
+    title: "Negative News Sentiment Spike",
+    description: "Social media sentiment turned negative following CEO comments. Sentiment score dropped from +0.8 to -1.2 in 2 hours.",
+    confidence: 72,
+    timestamp: Date.now() - 1000 * 60 * 120, // 2 hours ago
+    stats: {
+      precision: "75%",
+      last30: "15 alerts",
+      response: "15m"
+    },
+    trigger: "Social media sentiment decline",
+    impact: "Medium",
+    recommendation: "Watch for technical breakdown below $170"
+  },
+  {
+    id: 4,
+    symbol: "AMZN",
+    name: "Amazon.com Inc.",
+    type: "technical",
+    severity: "medium",
+    title: "Bullish Technical Pattern Forming",
+    description: "Amazon forming inverse head and shoulders pattern on 4-hour chart. Potential breakout target: $185-190 range.",
+    confidence: 68,
+    timestamp: Date.now() - 1000 * 60 * 180, // 3 hours ago
+    stats: {
+      precision: "71%",
+      last30: "22 alerts",
+      response: "20m"
+    },
+    trigger: "Inverse head and shoulders pattern detected",
+    impact: "Low",
+    recommendation: "Consider long position on breakout above $178"
+  },
+  {
+    id: 5,
+    symbol: "MSFT",
+    name: "Microsoft Corp.",
+    type: "volatility",
+    severity: "low",
+    title: "Volatility Compression Nearing End",
+    description: "MSFT volatility has compressed to 3-month lows. Historical patterns suggest imminent expansion with directional move.",
+    confidence: 65,
+    timestamp: Date.now() - 1000 * 60 * 240, // 4 hours ago
+    stats: {
+      precision: "69%",
+      last30: "12 alerts",
+      response: "25m"
+    },
+    trigger: "Volatility compression to extreme lows",
+    impact: "Low",
+    recommendation: "Prepare for volatility expansion, consider strangle options"
+  },
+  {
+    id: 6,
+    symbol: "GOOGL",
+    name: "Alphabet Inc.",
+    type: "price",
+    severity: "high",
+    title: "Breakout Above Key Resistance",
+    description: "Google broke above $175 resistance with strong volume. Next resistance levels at $180 and $185. RSI shows room for further upside.",
+    confidence: 81,
+    timestamp: Date.now() - 1000 * 60 * 30, // 30 minutes ago
+    stats: {
+      precision: "84%",
+      last30: "19 alerts",
+      response: "10m"
+    },
+    trigger: "Price breakout with volume confirmation",
+    impact: "High",
+    recommendation: "Consider adding to long positions, target $180"
+  }
+];
+
+let filteredAlerts = [...alerts];
+
+// Initialize the page
+function initializePage() {
+  updateStats();
+  loadAlertsGrid();
+  setupEventListeners();
+}
+
+// Update statistics
+function updateStats() {
+  const totalAlerts = alerts.length;
+  const highAlerts = alerts.filter(alert => alert.severity === 'high').length;
+  const accuracyRate = "83%";
+  const avgResponse = "15m";
+  
+  document.getElementById('totalAlerts').textContent = totalAlerts;
+  document.getElementById('highAlerts').textContent = highAlerts;
+  document.getElementById('accuracyRate').textContent = accuracyRate;
+  document.getElementById('avgResponse').textContent = avgResponse;
+}
+
+// Load alerts grid
+function loadAlertsGrid() {
+  const alertsGrid = document.getElementById('alertsGrid');
+  const emptyState = document.getElementById('emptyState');
+  const loadingState = document.getElementById('loadingState');
+  
+  // Hide loading state
+  loadingState.style.display = 'none';
+  
+  if (filteredAlerts.length === 0) {
+    alertsGrid.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  alertsGrid.style.display = 'grid';
+  emptyState.style.display = 'none';
+  
+  alertsGrid.innerHTML = filteredAlerts.map(alert => `
+    <div class="alert-card">
+      <div class="alert-header">
+        <div>
+          <h3 class="alert-title">${alert.title}</h3>
+          <div class="alert-symbol">${alert.symbol} · ${alert.name}</div>
+        </div>
+        <div class="alert-severity severity-${alert.severity}">
+          ${alert.severity.toUpperCase()}
+        </div>
+      </div>
+      
+      <p class="alert-description">${alert.description}</p>
+      
+      <div class="alert-meta">
+        <div class="alert-confidence">
+          <div class="confidence-label">Confidence Level</div>
+          <div class="confidence-bar">
+            <div class="confidence-fill" style="width: ${alert.confidence}%"></div>
+          </div>
+        </div>
+        <div class="alert-time">${formatTimeAgo(alert.timestamp)}</div>
+      </div>
+      
+      <div class="alert-details">
+        <div class="alert-stats">
+          <div class="alert-stat">
+            <div class="stat-label">Precision</div>
+            <div class="stat-value-small">${alert.stats.precision}</div>
+          </div>
+          <div class="alert-stat">
+            <div class="stat-label">Last 30d</div>
+            <div class="stat-value-small">${alert.stats.last30}</div>
+          </div>
+          <div class="alert-stat">
+            <div class="stat-label">Avg Response</div>
+            <div class="stat-value-small">${alert.stats.response}</div>
+          </div>
+        </div>
+        <div class="alert-actions">
+          <button class="btn btn-primary btn-small" onclick="viewAlertDetails(${alert.id})">
+            <i class="fas fa-eye"></i> Details
+          </button>
+          <button class="btn btn-secondary btn-small" onclick="dismissAlert(${alert.id})">
+            <i class="fas fa-times"></i> Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Format time ago
+function formatTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m ago`;
+  } else if (seconds < 86400) {
+    const hours = Math.floor(seconds / 3600);
+    return `${hours}h ago`;
+  } else {
+    const days = Math.floor(seconds / 86400);
+    return `${days}d ago`;
+  }
+}
+
+// Filter alerts based on selections
+function filterAlerts() {
+  const severity = document.getElementById('severitySelect').value;
+  const type = document.getElementById('typeSelect').value;
+  const time = document.getElementById('timeSelect').value;
+  const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+  
+  // Apply filters
+  filteredAlerts = alerts.filter(alert => {
+    // Severity filter
+    if (severity !== 'all' && alert.severity !== severity) {
+      return false;
+    }
+    
+    // Type filter
+    if (type !== 'all' && alert.type !== type) {
+      return false;
+    }
+    
+    // Time filter
+    if (time !== 'all') {
+      const now = Date.now();
+      const alertTime = alert.timestamp;
+      let timeThreshold;
+      
+      switch (time) {
+        case '1h': timeThreshold = now - (1000 * 60 * 60); break;
+        case '6h': timeThreshold = now - (1000 * 60 * 60 * 6); break;
+        case '24h': timeThreshold = now - (1000 * 60 * 60 * 24); break;
+        case '7d': timeThreshold = now - (1000 * 60 * 60 * 24 * 7); break;
+        default: timeThreshold = 0;
+      }
+      
+      if (alertTime < timeThreshold) {
+        return false;
+      }
+    }
+    
+    // Search filter
+    if (searchQuery && 
+        !alert.symbol.toLowerCase().includes(searchQuery) &&
+        !alert.name.toLowerCase().includes(searchQuery) &&
+        !alert.title.toLowerCase().includes(searchQuery) &&
+        !alert.description.toLowerCase().includes(searchQuery)) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  loadAlertsGrid();
+}
+
+// View alert details
+function viewAlertDetails(alertId) {
+  const alert = alerts.find(a => a.id === alertId);
+  if (alert) {
+    alert(`
+      ${alert.symbol} - ${alert.name}
+      Severity: ${alert.severity.toUpperCase()}
+      Type: ${alert.type}
+      Confidence: ${alert.confidence}%
+      
+      ${alert.description}
+      
+      Trigger: ${alert.trigger}
+      Impact: ${alert.impact}
+      Recommendation: ${alert.recommendation}
+      
+      Stats:
+      - Precision: ${alert.stats.precision}
+      - Alerts (30d): ${alert.stats.last30}
+      - Avg Response: ${alert.stats.response}
+    `);
+  }
+}
+
+// Dismiss alert
+function dismissAlert(alertId) {
+  if (confirm('Are you sure you want to dismiss this alert?')) {
+    // In a real app, this would update the backend
+    filteredAlerts = filteredAlerts.filter(alert => alert.id !== alertId);
+    loadAlertsGrid();
+    updateStats();
+  }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+  // Filter change listeners
+  document.getElementById('severitySelect').addEventListener('change', filterAlerts);
+  document.getElementById('typeSelect').addEventListener('change', filterAlerts);
+  document.getElementById('timeSelect').addEventListener('change', filterAlerts);
+  document.getElementById('searchInput').addEventListener('input', filterAlerts);
+  
+  // Mobile menu toggle
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  menuToggle.addEventListener('click', () => {
+    navItems.classList.toggle('show');
+  });
+}
+
+// Toggle theme
+function toggleTheme() {
+  document.body.classList.toggle('light');
+}
+
+// Load alerts (simulate API call)
+function loadAlerts() {
+  const loadingState = document.getElementById('loadingState');
+  loadingState.style.display = 'block';
+  
+  // Simulate API delay
+  setTimeout(() => {
+    initializePage();
+    loadingState.style.display = 'none';
+  }, 1000);
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', initializePage);
+</script>
+</body>
+</html>
