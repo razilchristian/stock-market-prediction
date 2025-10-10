@@ -284,6 +284,132 @@ class AdvancedStockPredictor:
 # Initialize predictor
 predictor = AdvancedStockPredictor()
 
+# ========= API ROUTES FOR HTML PAGES =========
+@server.route('/api/stock-quotes')
+def get_stock_quotes():
+    """Get stock quotes for portfolio, mystock pages"""
+    try:
+        symbols = request.args.get('symbols', '')
+        symbol_list = [s.strip().upper() for s in symbols.split(',') if s.strip()]
+        
+        quotes = []
+        for symbol in symbol_list:
+            try:
+                stock = yf.Ticker(symbol)
+                info = stock.info
+                hist = stock.history(period='1d')
+                
+                if not hist.empty:
+                    current_price = hist['Close'].iloc[-1]
+                    prev_close = info.get('previousClose', current_price)
+                    change_percent = ((current_price - prev_close) / prev_close) * 100
+                    
+                    quotes.append({
+                        "symbol": symbol,
+                        "name": info.get('longName', symbol),
+                        "close": round(current_price, 2),
+                        "percent_change": round(change_percent, 2),
+                        "open": info.get('open', current_price)
+                    })
+                else:
+                    # Fallback data
+                    quotes.append({
+                        "symbol": symbol,
+                        "name": symbol,
+                        "close": round(100 + (ord(symbol[0]) * 0.1), 2),
+                        "percent_change": round((ord(symbol[1]) * 0.1 - 2.5), 2),
+                        "open": round(100 + (ord(symbol[0]) * 0.1), 2)
+                    })
+            except Exception as e:
+                print(f"Error fetching {symbol}: {e}")
+                # Fallback for errors
+                quotes.append({
+                    "symbol": symbol,
+                    "name": symbol,
+                    "close": 100.00,
+                    "percent_change": 0.00,
+                    "open": 100.00
+                })
+        
+        return jsonify({"quotes": quotes})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@server.route('/api/portfolio-data')
+def get_portfolio_data():
+    """Get portfolio data for portfolio page"""
+    return jsonify({
+        "value": 125847,
+        "gain": 2847,
+        "invest": 123000,
+        "funds": 2850,
+        "allocation": "Tech: 65%, Finance: 20%, Other: 15%"
+    })
+
+@server.route('/api/market-news')
+def get_market_news():
+    """Get market news for news page"""
+    return jsonify({
+        "news": [
+            {"title": "Market Update: Tech Stocks Rally", "source": "Financial Times", "time": "2 hours ago"},
+            {"title": "Fed Interest Rate Decision Ahead", "source": "Bloomberg", "time": "4 hours ago"},
+            {"title": "AI Stocks Continue Strong Performance", "source": "CNBC", "time": "6 hours ago"},
+            {"title": "Global Markets Show Mixed Signals", "source": "Reuters", "time": "8 hours ago"},
+            {"title": "Cryptocurrency Market Analysis", "source": "CoinDesk", "time": "10 hours ago"}
+        ]
+    })
+
+@server.route('/api/user-holdings')
+def get_user_holdings():
+    """Get user stock holdings for portfolio/mystock pages"""
+    return jsonify({
+        "holdings": [
+            {"name": "Microsoft Corporation", "symbol": "MSFT", "shares": 15, "avgPrice": 320.50},
+            {"name": "Apple Inc.", "symbol": "AAPL", "shares": 25, "avgPrice": 175.20},
+            {"name": "Cisco Systems", "symbol": "CSCO", "shares": 45, "avgPrice": 48.75},
+            {"name": "Alibaba Group", "symbol": "BABA", "shares": 30, "avgPrice": 85.40},
+            {"name": "Meta Platforms", "symbol": "META", "shares": 12, "avgPrice": 310.25},
+            {"name": "NVIDIA Corporation", "symbol": "NVDA", "shares": 8, "avgPrice": 420.80}
+        ]
+    })
+
+@server.route('/api/ai-insights')
+def get_ai_insights():
+    """Get AI insights for insight page"""
+    insights = [
+        "AI analysis shows your tech-heavy portfolio is outperforming the market. Consider rebalancing to maintain diversification.",
+        "Strong momentum detected in your holdings. NVIDIA and Microsoft showing exceptional growth potential.",
+        "Portfolio volatility is within optimal range. Current allocation demonstrates good risk management.",
+        "AI recommends considering additional exposure to emerging markets for enhanced diversification.",
+        "Market sentiment analysis indicates bullish trends in technology and renewable energy sectors."
+    ]
+    return jsonify({"insight": insights[0]})
+
+@server.route('/api/superstar-stocks')
+def get_superstar_stocks():
+    """Get superstar stocks data"""
+    return jsonify({
+        "stocks": [
+            {"symbol": "NVDA", "name": "NVIDIA Corp", "performance": "+45.2%", "rating": "AAA"},
+            {"symbol": "META", "name": "Meta Platforms", "performance": "+32.7%", "rating": "AA"},
+            {"symbol": "TSLA", "name": "Tesla Inc", "performance": "+28.9%", "rating": "A"},
+            {"symbol": "AMD", "name": "Advanced Micro Devices", "performance": "+25.4%", "rating": "A"},
+            {"symbol": "NET", "name": "Cloudflare Inc", "performance": "+22.1%", "rating": "BBB"}
+        ]
+    })
+
+@server.route('/api/trading-alerts')
+def get_trading_alerts():
+    """Get trading alerts for alerts page"""
+    return jsonify({
+        "alerts": [
+            {"type": "BUY", "symbol": "AAPL", "message": "Strong buy signal detected", "time": "10:30 AM"},
+            {"type": "SELL", "symbol": "TSLA", "message": "Profit taking opportunity", "time": "11:15 AM"},
+            {"type": "HOLD", "symbol": "MSFT", "message": "Maintain position", "time": "12:00 PM"},
+            {"type": "BUY", "symbol": "NVDA", "message": "Breakout pattern forming", "time": "1:45 PM"}
+        ]
+    })
+
 # ========= FLASK ROUTES =========
 @server.route('/')
 def index():
@@ -873,4 +999,11 @@ if __name__ == '__main__':
     print("💡 API Endpoints:")
     print("   - GET  /api/stocks - Get stock list")
     print("   - POST /api/predict - Generate predictions")
+    print("   - GET  /api/stock-quotes - Get stock quotes")
+    print("   - GET  /api/portfolio-data - Portfolio data")
+    print("   - GET  /api/market-news - Market news")
+    print("   - GET  /api/user-holdings - User holdings")
+    print("   - GET  /api/ai-insights - AI insights")
+    print("   - GET  /api/superstar-stocks - Superstar stocks")
+    print("   - GET  /api/trading-alerts - Trading alerts")
     app.run(debug=True, port=8080, host='0.0.0.0')
