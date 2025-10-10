@@ -925,310 +925,801 @@ body {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+// Configuration
+const CONFIG = {
+    API_KEY: "5f988a8aff6b4b58848dfcf67af727d9",
+    API_BASE_URL: "https://api.twelvedata.com",
+    DEBOUNCE_DELAY: 500,
+    DEFAULT_SYMBOL: "AAPL",
+    MAX_ORDERS_DISPLAY: 50
+};
+
+// Application State
+const AppState = {
+    currentTradeType: 'buy',
+    orders: JSON.parse(localStorage.getItem('tradingOrders')) || [],
+    currentSymbol: CONFIG.DEFAULT_SYMBOL,
+    priceUpdateInterval: null
+};
+
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
+
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
-
-const API_KEY = "5f988a8aff6b4b58848dfcf67af727d9";
-
-// DOM Elements
-const livePriceElem = document.getElementById('livePrice');
-const priceChangeElem = document.getElementById('priceChange');
-const tickerInput = document.getElementById('tickerInput');
-const tradeForm = document.getElementById('tradeForm');
-const ordersList = document.getElementById('ordersList');
-const histTicker = document.getElementById('histTicker');
-const histFrom = document.getElementById('histFrom');
-const histTo = document.getElementById('histTo');
-const searchHistoricalBtn = document.getElementById('searchHistoricalBtn');
-const historyList = document.getElementById('historyList');
-const tradeTypeButtons = document.querySelectorAll('.trade-type-btn');
-
-let currentTradeType = 'buy';
-let orders = [];
-
-// Initialize trade type buttons
-tradeTypeButtons.forEach(btn =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- {
-  btn.addEventListener('click', () => {
-    tradeTypeButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTradeType = btn.dataset.type;
-  });
-});
-
-// Fetch live price data
-async function fetchLivePrice(ticker) {
-  if (!ticker) return;
-  
-  livePriceElem.textContent = "$--";
-  priceChangeElem.textContent = "Loading...";
-  priceChangeElem.className = 'price-change';
-  
-  try {
-    const response = await fetch(`https://api.twelvedata.com/quote?symbol=${ticker}&apikey=${API_KEY}`);
-    const data = await response.json();
-    
-    if (data && data.close) {
-      const price = parseFloat(data.close);
-      const open = parseFloat(data.open);
-      const change = price - open;
-      const changePercent = ((change / open) * 100);
-      
-      livePriceElem.textContent = `$${price.toFixed(2)}`;
-      priceChangeElem.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent.toFixed(2)}%)`;
-      priceChangeElem.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
-    } else {
-      throw new Error('Invalid data');
     }
-  } catch (error) {
-    livePriceElem.textContent = "$--";
-    priceChangeElem.textContent = "Data unavailable";
-    priceChangeElem.className = 'price-change';
-  }
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
+    }
 }
 
-// Render orders list
-function renderOrders() {
-  if (orders.length === 0) {
-    ordersList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-inbox"></i>
-        <h3>No Orders Yet</h3>
-        <p>Your trade orders will appear here</p>
-      </div>
-    `;
-    return;
-  }
-  
-  ordersList.innerHTML = orders.map(order => `
-    <div class="order-item">
-      <div class="order-info">
-        <div class="order-symbol">${order.symbol}</div>
-        <div class="order-type">${order.type.toUpperCase()} • ${order.orderType}</div>
-      </div>
-      <div class="order-quantity">${order.quantity} shares</div>
-      <div class="order-status ${order.status}">${order.status}</div>
-      <div class="order-actions">
-        <button class="action-btn" onclick="cancelOrder('${order.id}')">
-          <i class="fas fa-times"></i> Cancel
-        </button>
-      </div>
-    </div>
-  `).join('');
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('tradingNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'tradingNotification';
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <i class="notification-icon"></i>
+                    <span class="notification-message">${message}</span>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(notification);
+        }
+
+        const icon = notification.querySelector('.notification-icon');
+        notification.className = `notification ${type} show`;
+        
+        // Update icon based on type
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        icon.className = `fas ${icons[type] || icons.info} notification-icon`;
+        
+        notification.querySelector('.notification-message').textContent = message;
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
 }
 
-// Handle trade form submission
-tradeForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  
-  const symbol = tickerInput.value.trim().toUpperCase();
-  const quantity = parseInt(document.getElementById('quantity').value);
-  const orderType = document.getElementById('orderType').value;
-  
-  if (!symbol || !quantity) {
-    alert('Please fill in all required fields');
-    return;
-  }
-  
-  // Create new order
-  const newOrder = {
-    id: Date.now().toString(),
-    symbol,
-    type: currentTradeType,
-    quantity,
-    orderType,
-    status: 'pending',
-    timestamp: new Date().toISOString()
-  };
-  
-  orders.unshift(newOrder);
-  renderOrders();
-  
-  // Simulate order processing
-  setTimeout(() => {
-    const orderIndex = orders.findIndex(o => o.id === newOrder.id);
-    if (orderIndex !== -1) {
-      orders[orderIndex].status = 'completed';
-      renderOrders();
+// API Service
+class TradingAPIService {
+    static async fetchQuote(symbol) {
+        try {
+            const response = await fetch(
+                `${CONFIG.API_BASE_URL}/quote?symbol=${symbol}&apikey=${CONFIG.API_KEY}`
+            );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'error' || data.code) {
+                throw new Error(data.message || 'API error');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('API fetch error:', error);
+            throw new Error(`Failed to fetch data for ${symbol}: ${error.message}`);
+        }
     }
-  }, 2000);
-  
-  // Update live price for the traded symbol
-  fetchLivePrice(symbol);
-  
-  // Reset form
-  tradeForm.reset();
-  tradeTypeButtons[0].click(); // Reset to buy
-});
 
-// Load historical price data
-async function loadHistoricalPrices(symbol, fromDate, toDate) {
-  if (!fromDate || !toDate) {
-    const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    fromDate = thirtyDaysAgo.toISOString().split('T')[0];
-    toDate = today.toISOString().split('T')[0];
-    
-    histFrom.value = fromDate;
-    histTo.value = toDate;
-  }
-  
-  historyList.innerHTML = `
-    <div class="empty-state">
-      <i class="fas fa-spinner fa-spin"></i>
-      <p>Loading historical data...</p>
-    </div>
-  `;
-  
-  try {
-    const response = await fetch(
-      `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&start_date=${fromDate}&end_date=${toDate}&apikey=${API_KEY}`
-    );
-    const data = await response.json();
-    
-    if (data.status === 'error' || !data.values) {
-      throw new Error('No data available');
+    static async fetchHistoricalData(symbol, startDate, endDate) {
+        try {
+            const response = await fetch(
+                `${CONFIG.API_BASE_URL}/time_series?symbol=${symbol}&interval=1day&start_date=${startDate}&end_date=${endDate}&apikey=${CONFIG.API_KEY}`
+            );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'error' || !data.values) {
+                throw new Error(data.message || 'No historical data available');
+            }
+            
+            return data.values;
+        } catch (error) {
+            console.error('Historical data error:', error);
+            throw new Error(`Failed to fetch historical data: ${error.message}`);
+        }
     }
-    
-    historyList.innerHTML = data.values.slice(0, 6).map(day => `
-      <div class="history-item">
-        <div class="history-date">${new Date(day.datetime).toLocaleDateString()}</div>
-        <div class="history-details">
-          <div class="history-detail">
-            <span class="detail-label">Open</span>
-            <span class="detail-value">$${parseFloat(day.open).toFixed(2)}</span>
-          </div>
-          <div class="history-detail">
-            <span class="detail-label">High</span>
-            <span class="detail-value">$${parseFloat(day.high).toFixed(2)}</span>
-          </div>
-          <div class="history-detail">
-            <span class="detail-label">Low</span>
-            <span class="detail-value">$${parseFloat(day.low).toFixed(2)}</span>
-          </div>
-          <div class="history-detail">
-            <span class="detail-label">Close</span>
-            <span class="detail-value">$${parseFloat(day.close).toFixed(2)}</span>
-          </div>
-          <div class="history-detail">
-            <span class="detail-label">Volume</span>
-            <span class="detail-value">${parseInt(day.volume).toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
-    
-  } catch (error) {
-    historyList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-exclamation-triangle"></i>
-        <h3>Data Unavailable</h3>
-        <p>Could not load historical data for ${symbol}</p>
-      </div>
-    `;
-  }
 }
 
-// Cancel order function
+// Price Manager
+class PriceManager {
+    static async updateLivePrice(symbol) {
+        const livePriceElem = document.getElementById('livePrice');
+        const priceChangeElem = document.getElementById('priceChange');
+        
+        if (!livePriceElem || !priceChangeElem) return;
+        
+        livePriceElem.textContent = "$--";
+        priceChangeElem.textContent = "Loading...";
+        priceChangeElem.className = 'price-change loading';
+        
+        try {
+            const data = await TradingAPIService.fetchQuote(symbol);
+            
+            if (data && data.close) {
+                const price = parseFloat(data.close);
+                const open = parseFloat(data.open);
+                const change = price - open;
+                const changePercent = ((change / open) * 100);
+                
+                livePriceElem.textContent = `$${price.toFixed(2)}`;
+                priceChangeElem.textContent = 
+                    `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent.toFixed(2)}%)`;
+                priceChangeElem.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
+                
+                AppState.currentSymbol = symbol;
+                NotificationManager.show(`${symbol} price updated`, 'success');
+            } else {
+                throw new Error('Invalid price data');
+            }
+        } catch (error) {
+            livePriceElem.textContent = "$--";
+            priceChangeElem.textContent = "Data unavailable";
+            priceChangeElem.className = 'price-change error';
+            NotificationManager.show(error.message, 'error');
+        }
+    }
+
+    static startAutoRefresh(symbol, interval = 30000) {
+        // Clear existing interval
+        if (AppState.priceUpdateInterval) {
+            clearInterval(AppState.priceUpdateInterval);
+        }
+        
+        // Update immediately
+        this.updateLivePrice(symbol);
+        
+        // Set up interval
+        AppState.priceUpdateInterval = setInterval(() => {
+            this.updateLivePrice(symbol);
+        }, interval);
+    }
+
+    static stopAutoRefresh() {
+        if (AppState.priceUpdateInterval) {
+            clearInterval(AppState.priceUpdateInterval);
+            AppState.priceUpdateInterval = null;
+        }
+    }
+}
+
+// Order Manager
+class OrderManager {
+    static addOrder(orderData) {
+        const order = {
+            id: Date.now().toString(),
+            symbol: orderData.symbol,
+            type: orderData.type,
+            quantity: orderData.quantity,
+            orderType: orderData.orderType,
+            price: orderData.price || null,
+            status: 'pending',
+            timestamp: new Date().toISOString(),
+            executedPrice: null
+        };
+        
+        AppState.orders.unshift(order);
+        
+        // Keep only latest orders
+        if (AppState.orders.length > CONFIG.MAX_ORDERS_DISPLAY) {
+            AppState.orders = AppState.orders.slice(0, CONFIG.MAX_ORDERS_DISPLAY);
+        }
+        
+        this.saveOrders();
+        this.renderOrders();
+        
+        // Simulate order execution
+        this.simulateOrderExecution(order.id);
+        
+        return order;
+    }
+
+    static cancelOrder(orderId) {
+        const orderIndex = AppState.orders.findIndex(order => order.id === orderId);
+        if (orderIndex !== -1 && AppState.orders[orderIndex].status === 'pending') {
+            AppState.orders[orderIndex].status = 'cancelled';
+            this.saveOrders();
+            this.renderOrders();
+            NotificationManager.show('Order cancelled', 'warning');
+            return true;
+        }
+        return false;
+    }
+
+    static simulateOrderExecution(orderId) {
+        setTimeout(() => {
+            const orderIndex = AppState.orders.findIndex(o => o.id === orderId);
+            if (orderIndex !== -1 && AppState.orders[orderIndex].status === 'pending') {
+                AppState.orders[orderIndex].status = 'completed';
+                AppState.orders[orderIndex].executedPrice = 
+                    (Math.random() * 10 + AppState.orders[orderIndex].price) || 100;
+                this.saveOrders();
+                this.renderOrders();
+                NotificationManager.show(`Order ${orderId} executed`, 'success');
+            }
+        }, 2000 + Math.random() * 3000);
+    }
+
+    static renderOrders() {
+        const ordersList = document.getElementById('ordersList');
+        if (!ordersList) return;
+        
+        if (AppState.orders.length === 0) {
+            ordersList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No Orders Yet</h3>
+                    <p>Your trade orders will appear here</p>
+                </div>
+            `;
+            return;
+        }
+        
+        ordersList.innerHTML = AppState.orders.map(order => `
+            <div class="order-item ${order.status}">
+                <div class="order-header">
+                    <div class="order-symbol">${order.symbol}</div>
+                    <div class="order-type-badge ${order.type}">${order.type.toUpperCase()}</div>
+                </div>
+                <div class="order-details">
+                    <div class="order-info">
+                        <span class="info-label">Quantity:</span>
+                        <span class="info-value">${order.quantity} shares</span>
+                    </div>
+                    <div class="order-info">
+                        <span class="info-label">Type:</span>
+                        <span class="info-value">${order.orderType}</span>
+                    </div>
+                    ${order.executedPrice ? `
+                    <div class="order-info">
+                        <span class="info-label">Executed at:</span>
+                        <span class="info-value">$${order.executedPrice.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                <div class="order-footer">
+                    <div class="order-status ${order.status}">
+                        <i class="status-icon ${this.getStatusIcon(order.status)}"></i>
+                        ${order.status}
+                    </div>
+                    <div class="order-actions">
+                        ${order.status === 'pending' ? `
+                        <button class="action-btn cancel" onclick="OrderManager.cancelOrder('${order.id}')">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        ` : ''}
+                        <span class="order-time">${this.formatTime(order.timestamp)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    static getStatusIcon(status) {
+        const icons = {
+            pending: 'fas fa-clock',
+            completed: 'fas fa-check-circle',
+            cancelled: 'fas fa-ban',
+            rejected: 'fas fa-exclamation-circle'
+        };
+        return icons[status] || 'fas fa-question-circle';
+    }
+
+    static formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return date.toLocaleDateString();
+    }
+
+    static saveOrders() {
+        try {
+            localStorage.setItem('tradingOrders', JSON.stringify(AppState.orders));
+        } catch (error) {
+            console.error('Failed to save orders:', error);
+        }
+    }
+
+    static clearOrders() {
+        AppState.orders = [];
+        this.saveOrders();
+        this.renderOrders();
+        NotificationManager.show('All orders cleared', 'info');
+    }
+}
+
+// Historical Data Manager
+class HistoricalDataManager {
+    static async loadHistoricalData(symbol, fromDate, toDate) {
+        const historyList = document.getElementById('historyList');
+        if (!historyList) return;
+        
+        historyList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading historical data for ${symbol}...</p>
+            </div>
+        `;
+        
+        try {
+            const historicalData = await TradingAPIService.fetchHistoricalData(symbol, fromDate, toDate);
+            this.renderHistoricalData(historicalData, symbol);
+            NotificationManager.show(`Historical data loaded for ${symbol}`, 'success');
+        } catch (error) {
+            historyList.innerHTML = `
+                <div class="empty-state error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Data Unavailable</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+            NotificationManager.show(error.message, 'error');
+        }
+    }
+
+    static renderHistoricalData(data, symbol) {
+        const historyList = document.getElementById('historyList');
+        if (!historyList) return;
+        
+        if (!data || data.length === 0) {
+            historyList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>No Data Available</h3>
+                    <p>No historical data found for ${symbol}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        historyList.innerHTML = data.slice(0, 10).map(day => {
+            const open = parseFloat(day.open);
+            const high = parseFloat(day.high);
+            const low = parseFloat(day.low);
+            const close = parseFloat(day.close);
+            const volume = parseInt(day.volume);
+            const change = close - open;
+            const changePercent = ((change / open) * 100);
+            
+            return `
+                <div class="history-item">
+                    <div class="history-header">
+                        <div class="history-date">${new Date(day.datetime).toLocaleDateString()}</div>
+                        <div class="history-change ${change >= 0 ? 'positive' : 'negative'}">
+                            ${change >= 0 ? '+' : ''}${changePercent.toFixed(2)}%
+                        </div>
+                    </div>
+                    <div class="history-details">
+                        <div class="history-detail">
+                            <span class="detail-label">Open</span>
+                            <span class="detail-value">$${open.toFixed(2)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <span class="detail-label">High</span>
+                            <span class="detail-value">$${high.toFixed(2)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <span class="detail-label">Low</span>
+                            <span class="detail-value">$${low.toFixed(2)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <span class="detail-label">Close</span>
+                            <span class="detail-value">$${close.toFixed(2)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <span class="detail-label">Volume</span>
+                            <span class="detail-value">${volume.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    static setDefaultDates() {
+        const histFrom = document.getElementById('histFrom');
+        const histTo = document.getElementById('histTo');
+        
+        if (histFrom && histTo) {
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            histFrom.value = thirtyDaysAgo.toISOString().split('T')[0];
+            histTo.value = today.toISOString().split('T')[0];
+        }
+    }
+}
+
+// Trade Form Manager
+class TradeFormManager {
+    constructor() {
+        this.tradeForm = document.getElementById('tradeForm');
+        this.tickerInput = document.getElementById('tickerInput');
+        this.tradeTypeButtons = document.querySelectorAll('.trade-type-btn');
+        this.debouncedPriceUpdate = this.debounce(this.handleTickerInput.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.tradeForm) {
+            this.tradeForm.addEventListener('submit', this.handleSubmit.bind(this));
+        }
+        
+        if (this.tickerInput) {
+            this.tickerInput.addEventListener('input', this.debouncedPriceUpdate);
+        }
+        
+        this.setupTradeTypeButtons();
+    }
+
+    setupTradeTypeButtons() {
+        this.tradeTypeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.tradeTypeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                AppState.currentTradeType = btn.dataset.type;
+            });
+        });
+    }
+
+    async handleSubmit(event) {
+        event.preventDefault();
+        
+        const symbol = this.tickerInput.value.trim().toUpperCase();
+        const quantity = parseInt(document.getElementById('quantity').value);
+        const orderType = document.getElementById('orderType').value;
+        
+        if (!symbol) {
+            NotificationManager.show('Please enter a stock symbol', 'error');
+            return;
+        }
+        
+        if (!quantity || quantity <= 0) {
+            NotificationManager.show('Please enter a valid quantity', 'error');
+            return;
+        }
+        
+        try {
+            // Verify symbol exists by fetching current price
+            const quote = await TradingAPIService.fetchQuote(symbol);
+            const currentPrice = parseFloat(quote.close);
+            
+            const order = OrderManager.addOrder({
+                symbol,
+                type: AppState.currentTradeType,
+                quantity,
+                orderType,
+                price: currentPrice
+            });
+            
+            NotificationManager.show(
+                `${AppState.currentTradeType.toUpperCase()} order placed for ${quantity} shares of ${symbol}`,
+                'success'
+            );
+            
+            // Update live price display
+            PriceManager.updateLivePrice(symbol);
+            
+            // Reset form but keep symbol
+            this.tradeForm.reset();
+            this.tickerInput.value = symbol;
+            this.tradeTypeButtons[0].click();
+            
+        } catch (error) {
+            NotificationManager.show(`Invalid symbol: ${symbol}`, 'error');
+        }
+    }
+
+    handleTickerInput(event) {
+        const symbol = event.target.value.trim().toUpperCase();
+        if (symbol) {
+            PriceManager.updateLivePrice(symbol);
+            
+            // Update historical data symbol
+            const histTicker = document.getElementById('histTicker');
+            if (histTicker) {
+                histTicker.value = symbol;
+            }
+        }
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+}
+
+// Search Manager
+class SearchManager {
+    constructor() {
+        this.searchHistoricalBtn = document.getElementById('searchHistoricalBtn');
+        this.histTicker = document.getElementById('histTicker');
+        this.init();
+    }
+
+    init() {
+        if (this.searchHistoricalBtn) {
+            this.searchHistoricalBtn.addEventListener('click', this.handleSearch.bind(this));
+        }
+    }
+
+    handleSearch() {
+        const symbol = this.histTicker.value.trim().toUpperCase();
+        const fromDate = document.getElementById('histFrom').value;
+        const toDate = document.getElementById('histTo').value;
+        
+        if (!symbol) {
+            NotificationManager.show('Please enter a stock symbol', 'error');
+            return;
+        }
+        
+        HistoricalDataManager.loadHistoricalData(symbol, fromDate, toDate);
+    }
+}
+
+// Main Trading Application
+class TradingApp {
+    constructor() {
+        this.mobileMenu = null;
+        this.tradeFormManager = null;
+        this.searchManager = null;
+        this.init();
+    }
+
+    async init() {
+        console.log('🚀 Initializing Trading Application...');
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.tradeFormManager = new TradeFormManager();
+        this.searchManager = new SearchManager();
+        
+        // Load initial data
+        await this.loadInitialData();
+        
+        // Set up auto-refresh
+        PriceManager.startAutoRefresh(CONFIG.DEFAULT_SYMBOL);
+        
+        console.log('✅ Trading Application initialized successfully');
+    }
+
+    async loadInitialData() {
+        // Load initial price
+        await PriceManager.updateLivePrice(CONFIG.DEFAULT_SYMBOL);
+        
+        // Set default historical dates
+        HistoricalDataManager.setDefaultDates();
+        
+        // Load initial historical data
+        HistoricalDataManager.loadHistoricalData(CONFIG.DEFAULT_SYMBOL);
+        
+        // Render existing orders
+        OrderManager.renderOrders();
+    }
+
+    destroy() {
+        PriceManager.stopAutoRefresh();
+        console.log('📋 Trading Application destroyed');
+    }
+}
+
+// Global functions for HTML event handlers
 function cancelOrder(orderId) {
-  const orderIndex = orders.findIndex(order => order.id === orderId);
-  if (orderIndex !== -1 && orders[orderIndex].status === 'pending') {
-    orders[orderIndex].status = 'cancelled';
-    renderOrders();
-  }
+    OrderManager.cancelOrder(orderId);
 }
 
-// Event listeners
-tickerInput.addEventListener('input', (e) => {
-  const symbol = e.target.value.trim().toUpperCase();
-  if (symbol) {
-    fetchLivePrice(symbol);
-    histTicker.value = symbol;
-  }
+function clearAllOrders() {
+    if (confirm('Are you sure you want to clear all orders?')) {
+        OrderManager.clearOrders();
+    }
+}
+
+function refreshPrice() {
+    const tickerInput = document.getElementById('tickerInput');
+    const symbol = tickerInput?.value.trim().toUpperCase() || CONFIG.DEFAULT_SYMBOL;
+    PriceManager.updateLivePrice(symbol);
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', async () => {
+    window.tradingApp = new TradingApp();
 });
 
-searchHistoricalBtn.addEventListener('click', () => {
-  const symbol = histTicker.value.trim().toUpperCase();
-  const fromDate = histFrom.value;
-  const toDate = histTo.value;
-  
-  if (!symbol) {
-    alert('Please enter a stock symbol');
-    return;
-  }
-  
-  loadHistoricalPrices(symbol, fromDate, toDate);
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
 });
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize mobile menu
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
-  
-  // Load initial data
-  fetchLivePrice('AAPL');
-  loadHistoricalPrices('AAPL');
-  renderOrders();
-  
-  // Set default dates for historical data
-  const today = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(today.getDate() - 30);
-  
-  histFrom.value = thirtyDaysAgo.toISOString().split('T')[0];
-  histTo.value = today.toISOString().split('T')[0];
-});
+// Add some basic styles for notifications
+const notificationStyles = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 16px;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 10000;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .notification.success {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .notification.error {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .notification.warning {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .notification.info {
+        border-left: 4px solid #2196f3;
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .notification-icon {
+        font-size: 1.2em;
+    }
+    
+    .notification.success .notification-icon {
+        color: var(--up-color);
+    }
+    
+    .notification.error .notification-icon {
+        color: var(--down-color);
+    }
+    
+    .notification.warning .notification-icon {
+        color: #ff9800;
+    }
+    
+    .notification.info .notification-icon {
+        color: #2196f3;
+    }
+    
+    .notification-message {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+    }
+    
+    .notification-close:hover {
+        color: var(--text-primary);
+    }
+    
+    .price-change.loading {
+        color: var(--text-muted);
+    }
+    
+    .price-change.error {
+        color: var(--down-color);
+    }
+    
+    .order-item.pending {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .order-item.completed {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .order-item.cancelled {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .order-type-badge.buy {
+        background: var(--up-color);
+        color: white;
+    }
+    
+    .order-type-badge.sell {
+        background: var(--down-color);
+        color: white;
+    }
+`;
+
+// Add styles to document
+const styleSheet = document.createElement('style');
+styleSheet.textContent = notificationStyles;
+document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>

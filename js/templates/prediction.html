@@ -1271,388 +1271,660 @@ iframe {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+// Configuration
+const CONFIG = {
+    API_BASE_URL: 'http://localhost:8080',
+    DEBOUNCE_DELAY: 300,
+    NOTIFICATION_DURATION: 5000
+};
 
-const API_BASE_URL = 'http://localhost:8080';
-let allStocks = [];
-let selectedStock = null;
-let isGenerating = false;
+// Application State
+const AppState = {
+    allStocks: [],
+    selectedStock: null,
+    isGenerating: false,
+    currentPredictions: null
+};
 
-// Show notification
-function showNotification(message, type = 'success') {
-  const notification = document.getElementById('notification');
-  const messageEl = document.getElementById('notificationMessage');
-  const icon = notification.querySelector('.notification-icon');
-  
-  messageEl.textContent = message;
-  notification.className = `notification ${type}`;
-  notification.classList.add('show');
-  
-  // Update icon based on type
-  if (type === 'success') {
-    icon.className = 'fas fa-check-circle notification-icon';
-  } else {
-    icon.className = 'fas fa-exclamation-circle notification-icon';
-  }
-  
-  setTimeout(() =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
+
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        // Animate hamburger to X
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- {
-    notification.classList.remove('show');
-  }, 5000);
+    }
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
+    }
 }
 
-// Fetch stocks from API
-async function fetchStocks() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/stocks`);
-    if (!response.ok) throw new Error('Failed to fetch stocks');
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching stocks:', error);
-    // Return fallback data
-    return [
-      { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
-      { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
-      { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
-      { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
-      { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
-      { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
-      { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
-      { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 },
-      { symbol: "JNJ", name: "Johnson & Johnson", price: 151.96, change: 0.45 },
-      { symbol: "V", name: "Visa Inc.", price: 279.51, change: 0.92 }
-    ];
-  }
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'success') {
+        const notification = document.getElementById('notification');
+        const messageEl = document.getElementById('notificationMessage');
+        const icon = notification.querySelector('.notification-icon');
+        
+        if (!notification || !messageEl) {
+            console.log(`${type.toUpperCase()}: ${message}`);
+            return;
+        }
+
+        messageEl.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.classList.add('show');
+        
+        // Update icon based on type
+        icon.className = type === 'success' 
+            ? 'fas fa-check-circle notification-icon'
+            : 'fas fa-exclamation-circle notification-icon';
+        
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, CONFIG.NOTIFICATION_DURATION);
+    }
+
+    static hide() {
+        const notification = document.getElementById('notification');
+        if (notification) {
+            notification.classList.remove('show');
+        }
+    }
 }
 
-// Populate stock list
-async function populateStockList() {
-  const stockList = document.getElementById('stockList');
-  stockList.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><div>Loading stocks...</div></div>';
-  
-  try {
-    allStocks = await fetchStocks();
-    stockList.innerHTML = '';
-    
-    allStocks.forEach(stock => {
-      const stockItem = document.createElement('div');
-      stockItem.className = 'stock-item';
-      stockItem.innerHTML = `
-        <div class="stock-info">
-          <div class="stock-symbol">${stock.symbol}</div>
-          <div class="stock-name">${stock.name}</div>
-        </div>
-        <div class="stock-price ${stock.change >= 0 ? 'price-up' : 'price-down'}">
-          $${stock.price?.toFixed(2) || '0.00'} <span>${stock.change >= 0 ? '+' : ''}${stock.change?.toFixed(2) || '0.00'}%</span>
-        </div>
-      `;
-      
-      stockItem.addEventListener('click', () => {
+// API Service
+class StockAPIService {
+    static async fetchStocks() {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/api/stocks`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch stocks`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching stocks:', error);
+            NotificationManager.show('Using fallback stock data', 'error');
+            return this.getFallbackStocks();
+        }
+    }
+
+    static async generatePrediction(symbol) {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/api/predict`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ symbol })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP ${response.status}: Prediction failed`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Prediction API error:', error);
+            throw error;
+        }
+    }
+
+    static getFallbackStocks() {
+        return [
+            { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
+            { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
+            { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
+            { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
+            { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
+            { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
+            { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
+            { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 },
+            { symbol: "JNJ", name: "Johnson & Johnson", price: 151.96, change: 0.45 },
+            { symbol: "V", name: "Visa Inc.", price: 279.51, change: 0.92 }
+        ];
+    }
+}
+
+// Stock List Manager
+class StockListManager {
+    constructor() {
+        this.stockList = document.getElementById('stockList');
+        this.searchInput = document.getElementById('stockSearch');
+        this.debouncedSearch = this.debounce(this.handleSearch.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', this.debouncedSearch);
+        }
+    }
+
+    async populate() {
+        if (!this.stockList) return;
+
+        this.showLoadingState();
+        
+        try {
+            AppState.allStocks = await StockAPIService.fetchStocks();
+            this.renderStockList();
+            
+            // Select first stock by default
+            if (AppState.allStocks.length > 0) {
+                this.selectStock(AppState.allStocks[0]);
+            }
+            
+        } catch (error) {
+            this.showErrorState('Failed to load stocks');
+        }
+    }
+
+    renderStockList() {
+        if (!this.stockList) return;
+
+        this.stockList.innerHTML = '';
+        
+        AppState.allStocks.forEach(stock => {
+            const stockItem = this.createStockItem(stock);
+            this.stockList.appendChild(stockItem);
+        });
+    }
+
+    createStockItem(stock) {
+        const stockItem = document.createElement('div');
+        stockItem.className = 'stock-item';
+        if (AppState.selectedStock?.symbol === stock.symbol) {
+            stockItem.classList.add('active');
+        }
+
+        const changeClass = stock.change >= 0 ? 'price-up' : 'price-down';
+        const changeSign = stock.change >= 0 ? '+' : '';
+
+        stockItem.innerHTML = `
+            <div class="stock-info">
+                <div class="stock-symbol">${stock.symbol}</div>
+                <div class="stock-name">${stock.name}</div>
+            </div>
+            <div class="stock-price ${changeClass}">
+                $${stock.price?.toFixed(2) || '0.00'} 
+                <span>${changeSign}${stock.change?.toFixed(2) || '0.00'}%</span>
+            </div>
+        `;
+        
+        stockItem.addEventListener('click', () => this.selectStock(stock));
+        return stockItem;
+    }
+
+    selectStock(stock) {
         // Remove active class from all items
         document.querySelectorAll('.stock-item').forEach(item => {
-          item.classList.remove('active');
+            item.classList.remove('active');
         });
         
         // Add active class to clicked item
-        stockItem.classList.add('active');
+        const selectedItem = Array.from(document.querySelectorAll('.stock-item'))
+            .find(item => item.querySelector('.stock-symbol').textContent === stock.symbol);
         
-        // Update selected stock display
-        document.getElementById('selectedStock').textContent = `${stock.symbol} - ${stock.name}`;
+        if (selectedItem) {
+            selectedItem.classList.add('active');
+        }
         
-        // Store selected stock
-        selectedStock = stock;
+        // Update selected stock
+        AppState.selectedStock = stock;
+        
+        // Update display
+        this.updateSelectedStockDisplay();
         
         // Reset prediction display
-        resetPredictionDisplay();
-      });
-      
-      stockList.appendChild(stockItem);
-    });
-    
-    // Select first stock by default
-    if (stockList.firstChild) {
-      stockList.firstChild.classList.add('active');
-      selectedStock = allStocks[0];
+        PredictionDisplay.reset();
     }
-    
-  } catch (error) {
-    stockList.innerHTML = '<div class="loading" style="color: var(--down-color);"><i class="fas fa-exclamation-triangle"></i><div>Failed to load stocks</div></div>';
-  }
-}
 
-// Reset prediction display
-function resetPredictionDisplay() {
-  document.getElementById('currentPrice').textContent = `$${selectedStock.price?.toFixed(2) || '0.00'}`;
-  document.getElementById('predictedPrice').innerHTML = '$0.00 <span></span>';
-  document.getElementById('confidenceLevel').textContent = 'Not calculated';
-  document.getElementById('confidenceLevel').className = 'prediction-value';
-  document.getElementById('predictionChart').innerHTML = '<div>Select a stock and click Predict to generate AI-powered forecasts</div>';
-  document.getElementById('timeHorizon').textContent = 'Next Day';
-  
-  // Hide next day predictions
-  document.getElementById('nextDayPredictions').style.display = 'none';
-}
-
-// Generate prediction for selected stock
-async function generatePrediction() {
-  if (!selectedStock || isGenerating) return;
-  
-  isGenerating = true;
-  const predictBtn = document.getElementById('predictBtn');
-  const refreshBtn = document.getElementById('refreshBtn');
-  
-  // Disable buttons
-  predictBtn.disabled = true;
-  refreshBtn.disabled = true;
-  predictBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>Predicting...';
-  
-  // Show loading state
-  const predictionChart = document.getElementById('predictionChart');
-  predictionChart.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><div>Analyzing 10 years of data...</div></div>';
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/predict`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ symbol: selectedStock.symbol })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Prediction failed');
+    updateSelectedStockDisplay() {
+        const selectedStockEl = document.getElementById('selectedStock');
+        if (selectedStockEl && AppState.selectedStock) {
+            selectedStockEl.textContent = 
+                `${AppState.selectedStock.symbol} - ${AppState.selectedStock.name}`;
+        }
     }
-    
-    const data = await response.json();
-    
-    // Update prediction display
-    updatePredictionDisplay(data);
-    showNotification(`Successfully generated predictions for ${selectedStock.symbol}`, 'success');
-    
-  } catch (error) {
-    console.error('Prediction error:', error);
-    predictionChart.innerHTML = `<div class="loading" style="color: var(--down-color);"><i class="fas fa-exclamation-triangle"></i><div>${error.message}</div></div>`;
-    showNotification(`Prediction failed: ${error.message}`, 'error');
-  } finally {
-    // Re-enable buttons
-    predictBtn.disabled = false;
-    refreshBtn.disabled = false;
-    predictBtn.innerHTML = '<i class="fas fa-chart-line"></i>Predict';
-    isGenerating = false;
-  }
-}
 
-// Update prediction display with API data
-function updatePredictionDisplay(data) {
-  const currentPrice = data.current_price;
-  const closePrediction = data.predictions?.Close;
-  const confidence = data.confidence?.Close || 80;
-  
-  // Calculate change percentage
-  const changePercent = closePrediction ? ((closePrediction.predicted - currentPrice) / currentPrice) * 100 : 0;
-  
-  // Update basic prediction info
-  document.getElementById('currentPrice').textContent = `$${currentPrice.toFixed(2)}`;
-  document.getElementById('predictedPrice').innerHTML = 
-    `$${closePrediction?.predicted.toFixed(2) || '0.00'} <span class="${changePercent >= 0 ? 'price-up' : 'price-down'}">(${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)</span>`;
-  
-  // Update confidence
-  let confidenceText, confidenceClass;
-  if (confidence >= 85) {
-    confidenceText = `High (${confidence}%)`;
-    confidenceClass = 'confidence-high';
-  } else if (confidence >= 75) {
-    confidenceText = `Medium (${confidence}%)`;
-    confidenceClass = 'confidence-medium';
-  } else {
-    confidenceText = `Low (${confidence}%)`;
-    confidenceClass = 'confidence-low';
-  }
-  
-  document.getElementById('confidenceLevel').textContent = confidenceText;
-  document.getElementById('confidenceLevel').className = `prediction-value ${confidenceClass}`;
-  
-  // Update chart
-  document.getElementById('predictionChart').innerHTML = `
-    <div style="padding: 20px; text-align: center;">
-      <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">AI Prediction Analysis</div>
-      <div style="font-size: 16px; font-weight: bold; color: var(--active-color);">${selectedStock.symbol} Next Day Forecast</div>
-      <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
-        Based on 10 years of historical data and 100+ technical indicators
-      </div>
-    </div>
-  `;
-  
-  // Update AI insight
-  document.getElementById('aiInsightText').textContent = data.insight || 'AI analysis completed successfully.';
-  
-  // Show next day predictions if available
-  if (data.predictions) {
-    showNextDayPredictions(data.predictions, currentPrice);
-  }
-}
-
-// Show next day predictions grid
-function showNextDayPredictions(predictions, currentPrice) {
-  const predictionsGrid = document.getElementById('predictionsGrid');
-  const nextDaySection = document.getElementById('nextDayPredictions');
-  
-  predictionsGrid.innerHTML = '';
-  
-  const priceTypes = [
-    { key: 'Open', label: 'Open Price', icon: 'fa-door-open' },
-    { key: 'High', label: 'High Price', icon: 'fa-arrow-up' },
-    { key: 'Low', label: 'Low Price', icon: 'fa-arrow-down' },
-    { key: 'Close', label: 'Close Price', icon: 'fa-door-closed' }
-  ];
-  
-  priceTypes.forEach(type => {
-    const prediction = predictions[type.key];
-    if (prediction) {
-      const changePercent = ((prediction.predicted - currentPrice) / currentPrice) * 100;
-      const predictionEl = document.createElement('div');
-      predictionEl.className = 'prediction-type';
-      predictionEl.innerHTML = `
-        <div class="prediction-type-label">
-          <i class="fas ${type.icon}"></i> ${type.label}
-        </div>
-        <div class="prediction-type-value">$${prediction.predicted.toFixed(2)}</div>
-        <div class="prediction-type-change ${changePercent >= 0 ? 'price-up' : 'price-down'}">
-          ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%
-        </div>
-      `;
-      predictionsGrid.appendChild(predictionEl);
+    handleSearch(event) {
+        const query = event.target.value.toLowerCase().trim();
+        const stockItems = document.querySelectorAll('.stock-item');
+        
+        stockItems.forEach(item => {
+            const symbol = item.querySelector('.stock-symbol').textContent.toLowerCase();
+            const name = item.querySelector('.stock-name').textContent.toLowerCase();
+            const isVisible = symbol.includes(query) || name.includes(query);
+            item.style.display = isVisible ? 'flex' : 'none';
+        });
     }
-  });
-  
-  nextDaySection.style.display = 'block';
+
+    showLoadingState() {
+        if (this.stockList) {
+            this.stockList.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <div>Loading stocks...</div>
+                </div>`;
+        }
+    }
+
+    showErrorState(message) {
+        if (this.stockList) {
+            this.stockList.innerHTML = `
+                <div class="loading" style="color: var(--down-color);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>${message}</div>
+                </div>`;
+        }
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 }
 
-// Refresh prediction
-function refreshPrediction() {
-  if (selectedStock) {
-    generatePrediction();
-  }
+// Prediction Display Manager
+class PredictionDisplay {
+    static reset() {
+        if (!AppState.selectedStock) return;
+
+        document.getElementById('currentPrice').textContent = 
+            `$${AppState.selectedStock.price?.toFixed(2) || '0.00'}`;
+        
+        document.getElementById('predictedPrice').innerHTML = 
+            '$0.00 <span></span>';
+        
+        document.getElementById('confidenceLevel').textContent = 'Not calculated';
+        document.getElementById('confidenceLevel').className = 'prediction-value';
+        
+        const chart = document.getElementById('predictionChart');
+        if (chart) {
+            chart.innerHTML = '<div>Select a stock and click Predict to generate AI-powered forecasts</div>';
+        }
+        
+        document.getElementById('timeHorizon').textContent = 'Next Day';
+        this.hideNextDayPredictions();
+    }
+
+    static update(data) {
+        if (!data || !AppState.selectedStock) return;
+
+        const currentPrice = data.current_price;
+        const closePrediction = data.predictions?.Close;
+        const confidence = data.confidence?.Close || 80;
+        
+        // Calculate change percentage
+        const changePercent = closePrediction ? 
+            ((closePrediction.predicted - currentPrice) / currentPrice) * 100 : 0;
+        
+        // Update basic prediction info
+        document.getElementById('currentPrice').textContent = `$${currentPrice.toFixed(2)}`;
+        document.getElementById('predictedPrice').innerHTML = 
+            `$${closePrediction?.predicted.toFixed(2) || '0.00'} 
+            <span class="${changePercent >= 0 ? 'price-up' : 'price-down'}">
+                (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+            </span>`;
+        
+        // Update confidence
+        this.updateConfidence(confidence);
+        
+        // Update chart
+        this.updateChart(data);
+        
+        // Update AI insight
+        this.updateAIInsight(data);
+        
+        // Show next day predictions if available
+        if (data.predictions) {
+            this.showNextDayPredictions(data.predictions, currentPrice);
+        }
+
+        AppState.currentPredictions = data;
+    }
+
+    static updateConfidence(confidence) {
+        let confidenceText, confidenceClass;
+        
+        if (confidence >= 85) {
+            confidenceText = `High (${confidence}%)`;
+            confidenceClass = 'confidence-high';
+        } else if (confidence >= 75) {
+            confidenceText = `Medium (${confidence}%)`;
+            confidenceClass = 'confidence-medium';
+        } else {
+            confidenceText = `Low (${confidence}%)`;
+            confidenceClass = 'confidence-low';
+        }
+        
+        document.getElementById('confidenceLevel').textContent = confidenceText;
+        document.getElementById('confidenceLevel').className = `prediction-value ${confidenceClass}`;
+    }
+
+    static updateChart(data) {
+        const chart = document.getElementById('predictionChart');
+        if (!chart) return;
+
+        chart.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">
+                    AI Prediction Analysis
+                </div>
+                <div style="font-size: 16px; font-weight: bold; color: var(--active-color);">
+                    ${AppState.selectedStock.symbol} Next Day Forecast
+                </div>
+                <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted);">
+                    Based on 10 years of historical data and 100+ technical indicators
+                </div>
+                ${this.createMiniChart(data)}
+            </div>
+        `;
+    }
+
+    static createMiniChart(data) {
+        if (!data.predictions) return '';
+        
+        return `
+            <div style="margin-top: 15px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <span>Current: $${data.current_price?.toFixed(2)}</span>
+                    <span>Predicted: $${data.predictions.Close?.predicted.toFixed(2)}</span>
+                </div>
+                <div style="height: 4px; background: var(--border-color); border-radius: 2px; margin: 8px 0; overflow: hidden;">
+                    <div style="height: 100%; background: var(--up-color); width: ${Math.min(100, (data.predictions.Close?.predicted / data.current_price) * 100)}%"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    static updateAIInsight(data) {
+        const insightEl = document.getElementById('aiInsightText');
+        if (insightEl) {
+            insightEl.textContent = data.insight || 'AI analysis completed successfully.';
+        }
+    }
+
+    static showNextDayPredictions(predictions, currentPrice) {
+        const predictionsGrid = document.getElementById('predictionsGrid');
+        const nextDaySection = document.getElementById('nextDayPredictions');
+        
+        if (!predictionsGrid || !nextDaySection) return;
+
+        predictionsGrid.innerHTML = '';
+        
+        const priceTypes = [
+            { key: 'Open', label: 'Open Price', icon: 'fa-door-open' },
+            { key: 'High', label: 'High Price', icon: 'fa-arrow-up' },
+            { key: 'Low', label: 'Low Price', icon: 'fa-arrow-down' },
+            { key: 'Close', label: 'Close Price', icon: 'fa-door-closed' }
+        ];
+        
+        priceTypes.forEach(type => {
+            const prediction = predictions[type.key];
+            if (prediction) {
+                const changePercent = ((prediction.predicted - currentPrice) / currentPrice) * 100;
+                const predictionEl = document.createElement('div');
+                predictionEl.className = 'prediction-type';
+                predictionEl.innerHTML = `
+                    <div class="prediction-type-label">
+                        <i class="fas ${type.icon}"></i> ${type.label}
+                    </div>
+                    <div class="prediction-type-value">$${prediction.predicted.toFixed(2)}</div>
+                    <div class="prediction-type-change ${changePercent >= 0 ? 'price-up' : 'price-down'}">
+                        ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%
+                    </div>
+                `;
+                predictionsGrid.appendChild(predictionEl);
+            }
+        });
+        
+        nextDaySection.style.display = 'block';
+    }
+
+    static hideNextDayPredictions() {
+        const nextDaySection = document.getElementById('nextDayPredictions');
+        if (nextDaySection) {
+            nextDaySection.style.display = 'none';
+        }
+    }
+
+    static showLoadingState() {
+        const chart = document.getElementById('predictionChart');
+        if (chart) {
+            chart.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <div>Analyzing 10 years of data...</div>
+                </div>`;
+        }
+    }
+
+    static showErrorState(message) {
+        const chart = document.getElementById('predictionChart');
+        if (chart) {
+            chart.innerHTML = `
+                <div class="loading" style="color: var(--down-color);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>${message}</div>
+                </div>`;
+        }
+    }
 }
 
-// Generate predictions for all stocks
-async function generateAllPredictions() {
-  if (isGenerating) return;
-  
-  isGenerating = true;
-  const generateAllBtn = document.getElementById('generateAllBtn');
-  
-  generateAllBtn.disabled = true;
-  generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>Generating...';
-  
-  showNotification('Generating predictions for all stocks...', 'success');
-  
-  // Simulate processing time
-  setTimeout(() => {
-    generateAllBtn.disabled = false;
-    generateAllBtn.innerHTML = '<i class="fas fa-bolt"></i>Generate All';
-    isGenerating = false;
-    showNotification('All predictions generated successfully!', 'success');
-  }, 3000);
+// Prediction Manager
+class PredictionManager {
+    static async generate() {
+        if (!AppState.selectedStock || AppState.isGenerating) return;
+
+        AppState.isGenerating = true;
+        this.updateButtonStates(true);
+        PredictionDisplay.showLoadingState();
+
+        try {
+            const data = await StockAPIService.generatePrediction(AppState.selectedStock.symbol);
+            PredictionDisplay.update(data);
+            NotificationManager.show(
+                `Successfully generated predictions for ${AppState.selectedStock.symbol}`, 
+                'success'
+            );
+            
+        } catch (error) {
+            console.error('Prediction generation error:', error);
+            PredictionDisplay.showErrorState(error.message);
+            NotificationManager.show(`Prediction failed: ${error.message}`, 'error');
+        } finally {
+            AppState.isGenerating = false;
+            this.updateButtonStates(false);
+        }
+    }
+
+    static async generateAll() {
+        if (AppState.isGenerating) return;
+
+        AppState.isGenerating = true;
+        const generateAllBtn = document.getElementById('generateAllBtn');
+        
+        if (generateAllBtn) {
+            generateAllBtn.disabled = true;
+            generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>Generating...';
+        }
+
+        NotificationManager.show('Generating predictions for all stocks...', 'success');
+
+        // Simulate processing (replace with actual batch processing)
+        try {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            NotificationManager.show('All predictions generated successfully!', 'success');
+        } finally {
+            AppState.isGenerating = false;
+            if (generateAllBtn) {
+                generateAllBtn.disabled = false;
+                generateAllBtn.innerHTML = '<i class="fas fa-bolt"></i>Generate All';
+            }
+        }
+    }
+
+    static refresh() {
+        if (AppState.selectedStock && !AppState.isGenerating) {
+            this.generate();
+        }
+    }
+
+    static updateButtonStates(isLoading) {
+        const predictBtn = document.getElementById('predictBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        if (predictBtn) {
+            predictBtn.disabled = isLoading;
+            predictBtn.innerHTML = isLoading 
+                ? '<i class="fas fa-spinner fa-spin"></i>Predicting...'
+                : '<i class="fas fa-chart-line"></i>Predict';
+        }
+
+        if (refreshBtn) {
+            refreshBtn.disabled = isLoading;
+        }
+    }
 }
 
-// Search functionality for stocks
-function setupStockSearch() {
-  const stockSearch = document.getElementById('stockSearch');
-  stockSearch.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    const stockItems = document.querySelectorAll('.stock-item');
-    
-    stockItems.forEach(item => {
-      const symbol = item.querySelector('.stock-symbol').textContent.toLowerCase();
-      const name = item.querySelector('.stock-name').textContent.toLowerCase();
-      
-      if (symbol.includes(query) || name.includes(query)) {
-        item.style.display = 'flex';
-      } else {
-        item.style.display = 'none';
-      }
-    });
-  });
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
 }
 
-// Toggle theme
+// Main Application
+class StockPredictionApp {
+    constructor() {
+        this.mobileMenu = null;
+        this.stockListManager = null;
+        this.init();
+    }
+
+    async init() {
+        console.log('🚀 Initializing Stock Prediction App...');
+        
+        // Load theme
+        ThemeManager.load();
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.stockListManager = new StockListManager();
+        
+        // Load initial data
+        await this.stockListManager.populate();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        console.log('✅ Stock Prediction App initialized successfully');
+    }
+
+    setupEventListeners() {
+        // Prediction buttons
+        const predictBtn = document.getElementById('predictBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const generateAllBtn = document.getElementById('generateAllBtn');
+
+        if (predictBtn) {
+            predictBtn.addEventListener('click', () => PredictionManager.generate());
+        }
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => PredictionManager.refresh());
+        }
+        if (generateAllBtn) {
+            generateAllBtn.addEventListener('click', () => PredictionManager.generateAll());
+        }
+
+        // Search functionality for predictions
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                console.log('Searching predictions:', e.target.value);
+            });
+        }
+    }
+
+    hideLoader() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+}
+
+// Global functions for HTML event handlers
 function toggleTheme() {
-  document.body.classList.toggle('light');
+    ThemeManager.toggle();
 }
 
-// Hide loader for iframe
-function hideLoader() {
-  document.getElementById('loadingOverlay').style.display = 'none';
+function refreshPrediction() {
+    PredictionManager.refresh();
+}
+
+function generateAllPredictions() {
+    PredictionManager.generateAll();
 }
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize mobile menu
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
-  
-  // Setup search functionality
-  setupStockSearch();
-  
-  // Load initial data
-  await populateStockList();
-  
-  // Set up search for predictions
-  const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('input', (e) => {
-    console.log('Searching predictions:', e.target.value);
-  });
+    window.stockApp = new StockPredictionApp();
+});
+
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
 });
 </script>
 </body>

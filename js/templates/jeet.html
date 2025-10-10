@@ -997,32 +997,14 @@
   </main>
 </div>
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
-
-// Enhanced JavaScript with fallback data and better error handling
-const TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9";
+// Configuration and Constants
+const CONFIG = {
+    TWELVEDATA_API_KEY: "5f988a8aff6b4b58848dfcf67af727d9",
+    BATCH_SIZE: 5,
+    BATCH_DELAY: 1000,
+    REFRESH_INTERVAL: 300000, // 5 minutes
+    RATE_LIMIT_DELAY: 2000
+};
 
 const NSE_TICKER_NAMES = {
     "TCS": "Tata Consultancy Services",
@@ -1053,160 +1035,279 @@ const INTERNATIONAL_TICKER_NAMES = {
 const NSE_TICKERS = Object.keys(NSE_TICKER_NAMES);
 const INTERNATIONAL_TICKERS = Object.keys(INTERNATIONAL_TICKER_NAMES);
 
-// Fallback mock data for demonstration
-const FALLBACK_INDIAN_DATA = [
-    { symbol: "RELIANCE", name: "Reliance Industries", close: 2856.50, percentChange: 2.35 },
-    { symbol: "TCS", name: "Tata Consultancy Services", close: 3850.75, percentChange: 1.85 },
-    { symbol: "INFY", name: "Infosys", close: 1650.25, percentChange: 1.52 },
-    { symbol: "HDFCBANK", name: "HDFC Bank", close: 1658.40, percentChange: 1.23 },
-    { symbol: "ICICIBANK", name: "ICICI Bank", close: 1056.80, percentChange: 0.95 }
-];
-
-const FALLBACK_INTERNATIONAL_DATA = [
-    { symbol: "AAPL", name: "Apple Inc.", close: 218.35, percentChange: 3.25 },
-    { symbol: "NVDA", name: "NVIDIA Corporation", close: 950.02, percentChange: 2.85 },
-    { symbol: "MSFT", name: "Microsoft Corporation", close: 415.50, percentChange: 2.15 },
-    { symbol: "TSLA", name: "Tesla Inc.", close: 245.75, percentChange: 1.75 },
-    { symbol: "META", name: "Meta Platforms Inc.", close: 485.60, percentChange: 1.45 }
-];
-
-const stockDataStore = {
-    topMoversIndian: [],
-    topLosersIndian: [],
-    topMoversInternational: [],
-    topLosersInternational: []
+// Fallback mock data
+const FALLBACK_DATA = {
+    INDIAN: [
+        { symbol: "RELIANCE", name: "Reliance Industries", close: 2856.50, percentChange: 2.35 },
+        { symbol: "TCS", name: "Tata Consultancy Services", close: 3850.75, percentChange: 1.85 },
+        { symbol: "INFY", name: "Infosys", close: 1650.25, percentChange: 1.52 },
+        { symbol: "HDFCBANK", name: "HDFC Bank", close: 1658.40, percentChange: 1.23 },
+        { symbol: "ICICIBANK", name: "ICICI Bank", close: 1056.80, percentChange: 0.95 }
+    ],
+    INTERNATIONAL: [
+        { symbol: "AAPL", name: "Apple Inc.", close: 218.35, percentChange: 3.25 },
+        { symbol: "NVDA", name: "NVIDIA Corporation", close: 950.02, percentChange: 2.85 },
+        { symbol: "MSFT", name: "Microsoft Corporation", close: 415.50, percentChange: 2.15 },
+        { symbol: "TSLA", name: "Tesla Inc.", close: 245.75, percentChange: 1.75 },
+        { symbol: "META", name: "Meta Platforms Inc.", close: 485.60, percentChange: 1.45 }
+    ]
 };
 
-function getStockName(symbol, isInternational = false) {
-    return isInternational ? INTERNATIONAL_TICKER_NAMES[symbol] || symbol : NSE_TICKER_NAMES[symbol] || symbol;
+// State Management
+const AppState = {
+    stockData: {
+        topMoversIndian: [],
+        topLosersIndian: [],
+        topMoversInternational: [],
+        topLosersInternational: []
+    },
+    isInitialized: false,
+    refreshInterval: null
+};
+
+// Utility Functions
+const Utils = {
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+
+    formatCurrency(value, isInternational = false) {
+        const symbol = isInternational ? '$' : '₹';
+        return `${symbol}${value.toFixed(2)}`;
+    },
+
+    getChangeClass(percentChange) {
+        return percentChange >= 0 ? "positive" : "negative";
+    },
+
+    getChangeIcons(percentChange) {
+        return {
+            arrow: percentChange >= 0 ? "📈" : "📉",
+            icon: percentChange >= 0 ? "🟢" : "🔴"
+        };
+    },
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+};
+
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
+
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.remove('active'));
+    }
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
+    }
 }
 
-// Enhanced API fetch with better error handling
-async function fetchLatestEODBatch(tickers, isInternational = false) {
-    const batchSize = 5;
-    let allData = [];
+// API Service
+class StockAPIService {
+    static async fetchBatch(tickers, isInternational = false) {
+        const batchSize = CONFIG.BATCH_SIZE;
+        let allData = [];
 
-    try {
-        for (let i = 0; i < tickers.length; i += batchSize) {
-            const batch = tickers.slice(i, i + batchSize);
-            const symbolsParam = batch.join(",");
-            const exchange = isInternational ? "" : ":NSE";
-            const formattedSymbols = batch.map(sym =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- isInternational ? sym : sym + exchange);
-            const symbolsQuery = formattedSymbols.join(",");
-            
-            const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${TWELVEDATA_API_KEY}`;
+        try {
+            for (let i = 0; i < tickers.length; i += batchSize) {
+                const batch = tickers.slice(i, i + batchSize);
+                const batchData = await this.fetchBatchData(batch, isInternational);
+                
+                if (batchData) {
+                    allData = allData.concat(batchData);
+                }
 
-            console.log("Fetching batch:", symbolsQuery);
-            
+                // Rate limiting protection
+                if (i + batchSize < tickers.length) {
+                    await Utils.delay(CONFIG.BATCH_DELAY);
+                }
+            }
+
+            return allData.length > 0 ? allData : null;
+
+        } catch (error) {
+            console.error('Batch fetch error:', error);
+            return null;
+        }
+    }
+
+    static async fetchBatchData(batch, isInternational) {
+        const exchange = isInternational ? "" : ":NSE";
+        const formattedSymbols = batch.map(sym => isInternational ? sym : sym + exchange);
+        const symbolsQuery = formattedSymbols.join(",");
+        
+        const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
+
+        try {
             const response = await fetch(url);
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const json = await response.json();
-            console.log("API Response batch:", json);
+            const data = await response.json();
 
-            if (json.code === 429) {
-                console.warn("API rate limit exceeded, using fallback data");
-                return isInternational ? FALLBACK_INTERNATIONAL_DATA : FALLBACK_INDIAN_DATA;
+            // Handle API errors and rate limiting
+            if (data.code === 429) {
+                console.warn("API rate limit exceeded");
+                await Utils.delay(CONFIG.RATE_LIMIT_DELAY);
+                return null;
             }
 
-            if (json.status === "error" || json.code) {
-                console.warn("API error for batch:", json.message || json.code);
-                continue;
+            if (data.status === "error" || data.code) {
+                console.warn("API error:", data.message || data.code);
+                return null;
             }
 
-            // Handle both array and object responses
-            const dataArray = Array.isArray(json) ? json : Object.values(json);
-            
-            const batchData = dataArray
-                .filter(stock => stock && stock.symbol && !stock.code)
-                .map(stock => {
-                    const symbol = stock.symbol.replace('.NSE', '');
-                    const open = parseFloat(stock.open) || 0;
-                    const close = parseFloat(stock.close) || 0;
-                    let percentChange = 0;
+            return this.processBatchData(data, batch, isInternational);
 
-                    if (stock.percent_change !== undefined && stock.percent_change !== null) {
-                        percentChange = parseFloat(stock.percent_change);
-                    } else if (open && close) {
-                        percentChange = ((close - open) / open) * 100;
-                    }
-
-                    return {
-                        symbol: symbol,
-                        name: stock.name || getStockName(symbol, isInternational),
-                        open: open,
-                        close: close,
-                        percentChange: percentChange
-                    };
-                });
-
-            allData = allData.concat(batchData);
-            
-            // Add delay between batches to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+            console.error('API request failed:', error);
+            return null;
         }
+    }
 
-        // If no data from API, use fallback
-        if (allData.length === 0) {
-            console.log("No data from API, using fallback data");
-            return isInternational ? FALLBACK_INTERNATIONAL_DATA : FALLBACK_INDIAN_DATA;
-        }
+    static processBatchData(apiData, originalBatch, isInternational) {
+        const dataArray = Array.isArray(apiData) ? apiData : Object.values(apiData);
+        
+        return dataArray
+            .filter(stock => stock && stock.symbol && !stock.code)
+            .map(stock => {
+                const symbol = stock.symbol.replace('.NSE', '');
+                const open = parseFloat(stock.open) || 0;
+                const close = parseFloat(stock.close) || 0;
+                let percentChange = 0;
 
-        return allData;
+                if (stock.percent_change !== undefined && stock.percent_change !== null) {
+                    percentChange = parseFloat(stock.percent_change);
+                } else if (open && close) {
+                    percentChange = ((close - open) / open) * 100;
+                }
 
-    } catch (error) {
-        console.error("Fetch batch error: ", error);
-        // Return fallback data on error
-        return isInternational ? FALLBACK_INTERNATIONAL_DATA : FALLBACK_INDIAN_DATA;
+                return {
+                    symbol: symbol,
+                    name: stock.name || this.getStockName(symbol, isInternational),
+                    open: open,
+                    close: close,
+                    percentChange: percentChange
+                };
+            });
+    }
+
+    static getStockName(symbol, isInternational = false) {
+        return isInternational ? 
+            INTERNATIONAL_TICKER_NAMES[symbol] || symbol : 
+            NSE_TICKER_NAMES[symbol] || symbol;
     }
 }
 
-function renderStocks(containerId, stocks, isInternational = false) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    container.innerHTML = "";
-    
-    if (!stocks || stocks.length === 0) {
-        container.innerHTML = `
-            <div class="no-data">
-                <div>📊</div>
-                <span>No data available</span>
-            </div>`;
-        return;
+// Stock Data Manager
+class StockDataManager {
+    static processMarketData(data, isInternational = false) {
+        if (!data || data.length === 0) {
+            return this.generateFallbackData(isInternational);
+        }
+
+        const gainers = data
+            .filter(stock => stock.percentChange > 0)
+            .sort((a, b) => b.percentChange - a.percentChange)
+            .slice(0, 5);
+
+        const losers = data
+            .filter(stock => stock.percentChange < 0)
+            .sort((a, b) => a.percentChange - b.percentChange)
+            .slice(0, 5);
+
+        // Ensure we have some data to display
+        return {
+            gainers: gainers.length > 0 ? gainers : this.generateSampleData(data.slice(0, 3), true),
+            losers: losers.length > 0 ? losers : this.generateSampleData(data.slice(3, 6), false)
+        };
     }
 
-    stocks.forEach(stock => {
-        const priceFormatted = isInternational ? `$${stock.close.toFixed(2)}` : `₹${stock.close.toFixed(2)}`;
-        const changeClass = stock.percentChange >= 0 ? "positive" : "negative";
-        const arrow = stock.percentChange >= 0 ? "📈" : "📉";
-        const changeIcon = stock.percentChange >= 0 ? "🟢" : "🔴";
+    static generateFallbackData(isInternational) {
+        const source = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+        return {
+            gainers: source.slice(0, 3),
+            losers: source.slice(3, 5).map(stock => ({
+                ...stock,
+                percentChange: -(Math.abs(stock.percentChange))
+            }))
+        };
+    }
+
+    static generateSampleData(baseData, isPositive) {
+        return baseData.map(stock => ({
+            ...stock,
+            percentChange: isPositive ? 
+                (Math.random() * 5 + 0.5) : 
+                -(Math.random() * 3 + 0.5)
+        }));
+    }
+}
+
+// UI Renderer
+class UIRenderer {
+    static renderStocks(containerId, stocks, isInternational = false) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = "";
+        
+        if (!stocks || stocks.length === 0) {
+            this.renderNoData(container);
+            return;
+        }
+
+        stocks.forEach(stock => this.renderStockItem(container, stock, isInternational));
+    }
+
+    static renderStockItem(container, stock, isInternational) {
+        const { icon, arrow } = Utils.getChangeIcons(stock.percentChange);
+        const changeClass = Utils.getChangeClass(stock.percentChange);
+        const priceFormatted = Utils.formatCurrency(stock.close, isInternational);
 
         const stockDiv = document.createElement("div");
         stockDiv.className = "stock-item";
@@ -1218,19 +1319,31 @@ function renderStocks(containerId, stocks, isInternational = false) {
             <div class="stock-price-data">
                 <span class="stock-price">${priceFormatted}</span>
                 <span class="stock-change ${changeClass}">
-                    ${changeIcon} ${Math.abs(stock.percentChange).toFixed(2)}% ${arrow}
+                    ${icon} ${Math.abs(stock.percentChange).toFixed(2)}% ${arrow}
                 </span>
             </div>`;
         container.appendChild(stockDiv);
-    });
-}
+    }
 
-function showLoadingPlaceholder(containerId, count = 5) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    container.innerHTML = "";
-    for (let i = 0; i < count; i++) {
+    static renderNoData(container) {
+        container.innerHTML = `
+            <div class="no-data">
+                <div>📊</div>
+                <span>No data available</span>
+            </div>`;
+    }
+
+    static showLoadingState(containerId, count = 5) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = "";
+        for (let i = 0; i < count; i++) {
+            container.appendChild(this.createLoadingSkeleton());
+        }
+    }
+
+    static createLoadingSkeleton() {
         const row = document.createElement("div");
         row.className = "stock-item loading";
         row.innerHTML = `
@@ -1242,92 +1355,204 @@ function showLoadingPlaceholder(containerId, count = 5) {
                 <div class="shimmer" style="width:60px; height:16px;"></div>
                 <div class="shimmer" style="width:70px; height:14px;"></div>
             </div>`;
-        container.appendChild(row);
+        return row;
+    }
+
+    static updateMarketOverview() {
+        const data = { 
+            nifty50: { value: 24500, change: 0.85 }, 
+            sensex: { value: 82000, change: -0.55 } 
+        };
+        
+        const el = document.getElementById("marketOverview");
+        if (el) {
+            el.innerHTML = `
+                <div class="market-card">
+                    <h3>NIFTY 50</h3>
+                    <div class="market-value">₹${data.nifty50.value.toLocaleString()}</div>
+                    <span class="stock-change ${data.nifty50.change > 0 ? "positive" : "negative"}">
+                        ${data.nifty50.change > 0 ? "📈" : "📉"} ${Math.abs(data.nifty50.change)}%
+                    </span>
+                </div>
+                <div class="market-card">
+                    <h3>SENSEX</h3>
+                    <div class="market-value">₹${data.sensex.value.toLocaleString()}</div>
+                    <span class="stock-change ${data.sensex.change > 0 ? "positive" : "negative"}">
+                        ${data.sensex.change > 0 ? "📈" : "📉"} ${Math.abs(data.sensex.change)}%
+                    </span>
+                </div>`;
+        }
+        
+        const sentimentEl = document.getElementById("marketSentiment");
+        if (sentimentEl) {
+            const sentiment = (data.nifty50.change + data.sensex.change) > 0 ? "🟢 BULLISH" : "🔴 BEARISH";
+            sentimentEl.textContent = `Market Sentiment: ${sentiment}`;
+        }
+    }
+
+    static updateAIInsight() {
+        const insights = [
+            "AI detects strong institutional buying in technology stocks. Consider accumulating quality tech names.",
+            "Market showing consolidation patterns. Technical analysis suggests potential breakout above key resistance.",
+            "Banking sector fundamentals remain strong with improving asset quality and credit growth.",
+            "Global cues positive as inflation concerns ease across major economies."
+        ];
+        
+        const insightEl = document.getElementById("aiInsightText");
+        if (insightEl) {
+            const randomInsight = insights[Math.floor(Math.random() * insights.length)];
+            insightEl.textContent = randomInsight;
+        }
     }
 }
 
-async function updateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational = false) {
-    console.log(`Updating ${isInternational ? 'International' : 'Indian'} market data...`);
-    
-    showLoadingPlaceholder(moversContainerId);
-    showLoadingPlaceholder(losersContainerId);
+// Main Application Controller
+class FinancialDashboard {
+    constructor() {
+        this.mobileMenu = null;
+        this.isInitialized = false;
+    }
 
-    try {
-        const data = await fetchLatestEODBatch(tickers, isInternational);
+    async init() {
+        try {
+            console.log("🚀 Initializing Financial Dashboard...");
+            
+            // Initialize mobile menu
+            this.mobileMenu = new MobileMenu();
+            
+            // Load initial data
+            await this.loadMarketData();
+            
+            // Set up auto-refresh
+            this.setupAutoRefresh();
+            
+            // Initialize other UI components
+            this.updateUIComponents();
+            
+            this.isInitialized = true;
+            console.log("✅ Financial Dashboard initialized successfully");
+            
+        } catch (error) {
+            console.error("❌ Failed to initialize dashboard:", error);
+        }
+    }
+
+    async loadMarketData() {
+        try {
+            await Promise.all([
+                this.updateIndianMarketData(),
+                this.updateInternationalMarketData()
+            ]);
+        } catch (error) {
+            console.error("Error loading market data:", error);
+        }
+    }
+
+    async updateIndianMarketData() {
+        UIRenderer.showLoadingState("topMoversIndian");
+        UIRenderer.showLoadingState("topLosersIndian");
+
+        const data = await StockAPIService.fetchBatch(NSE_TICKERS, false);
+        const processedData = StockDataManager.processMarketData(data, false);
+
+        AppState.stockData.topMoversIndian = processedData.gainers;
+        AppState.stockData.topLosersIndian = processedData.losers;
+
+        UIRenderer.renderStocks("topMoversIndian", processedData.gainers, false);
+        UIRenderer.renderStocks("topLosersIndian", processedData.losers, false);
+    }
+
+    async updateInternationalMarketData() {
+        UIRenderer.showLoadingState("topMoversInternational");
+        UIRenderer.showLoadingState("topLosersInternational");
+
+        const data = await StockAPIService.fetchBatch(INTERNATIONAL_TICKERS, true);
+        const processedData = StockDataManager.processMarketData(data, true);
+
+        AppState.stockData.topMoversInternational = processedData.gainers;
+        AppState.stockData.topLosersInternational = processedData.losers;
+
+        UIRenderer.renderStocks("topMoversInternational", processedData.gainers, true);
+        UIRenderer.renderStocks("topLosersInternational", processedData.losers, true);
+    }
+
+    updateUIComponents() {
+        UIRenderer.updateMarketOverview();
+        UIRenderer.updateAIInsight();
+    }
+
+    setupAutoRefresh() {
+        // Clear existing interval if any
+        if (AppState.refreshInterval) {
+            clearInterval(AppState.refreshInterval);
+        }
+
+        AppState.refreshInterval = setInterval(() => {
+            console.log("🔄 Auto-refreshing market data...");
+            this.loadMarketData();
+        }, CONFIG.REFRESH_INTERVAL);
+    }
+
+    refreshData() {
+        console.log("🔄 Manual refresh triggered");
+        this.loadMarketData();
+    }
+
+    sortStocks(containerId, sortBy) {
+        const stocks = [...AppState.stockData[containerId]];
+        if (!stocks.length) return;
         
-        if (!data || data.length === 0) {
-            throw new Error("No data received");
-        }
-
-        // Create gainers (positive changes)
-        const gainers = data
-            .filter(stock => stock.percentChange > 0)
-            .sort((a, b) => b.percentChange - a.percentChange)
-            .slice(0, 5);
-
-        // Create losers (negative changes)
-        const losers = data
-            .filter(stock => stock.percentChange < 0)
-            .sort((a, b) => a.percentChange - b.percentChange)
-            .slice(0, 5);
-
-        // If no gainers/losers, show some sample data
-        if (gainers.length === 0) {
-            gainers.push(...data.slice(0, 3).map(stock => ({
-                ...stock,
-                percentChange: Math.random() * 5 + 0.5 // Random positive change
-            })));
-        }
-
-        if (losers.length === 0) {
-            losers.push(...data.slice(3, 6).map(stock => ({
-                ...stock,
-                percentChange: -(Math.random() * 3 + 0.5) // Random negative change
-            })));
-        }
-
-        stockDataStore[moversContainerId] = gainers;
-        stockDataStore[losersContainerId] = losers;
-
-        renderStocks(moversContainerId, gainers, isInternational);
-        renderStocks(losersContainerId, losers, isInternational);
-
-    } catch (error) {
-        console.error("Error updating market data:", error);
+        let sortedStocks = [...stocks];
         
-        // Use fallback data
-        const fallbackData = isInternational ? FALLBACK_INTERNATIONAL_DATA : FALLBACK_INDIAN_DATA;
-        const gainers = fallbackData.slice(0, 3);
-        const losers = fallbackData.slice(3, 5).map(stock => ({
-            ...stock,
-            percentChange: -(Math.abs(stock.percentChange))
-        }));
+        switch (sortBy) {
+            case "name":
+                sortedStocks.sort((a, b) => a.name.localeCompare(b.name));
+                break;
+            case "changeAsc":
+                sortedStocks.sort((a, b) => a.percentChange - b.percentChange);
+                break;
+            case "changeDesc":
+                sortedStocks.sort((a, b) => b.percentChange - a.percentChange);
+                break;
+        }
+        
+        const isInternational = containerId.includes("International");
+        UIRenderer.renderStocks(containerId, sortedStocks, isInternational);
+    }
 
-        renderStocks(moversContainerId, gainers, isInternational);
-        renderStocks(losersContainerId, losers, isInternational);
+    destroy() {
+        if (AppState.refreshInterval) {
+            clearInterval(AppState.refreshInterval);
+        }
+        console.log("📋 Financial Dashboard destroyed");
+    }
+}
+
+// Global functions for HTML event handlers
+function exportReport() {
+    console.log("📄 Exporting report...");
+    // Add your export functionality here
+}
+
+function toggleTheme() {
+    document.body.classList.toggle("light");
+    console.log("🎨 Theme toggled");
+}
+
+function refreshMarketData() {
+    if (window.financialDashboard) {
+        window.financialDashboard.refreshData();
     }
 }
 
 function sortStockList(containerId, sortBy) {
-    const stocks = [...stockDataStore[containerId]];
-    if (!stocks.length) return;
-    
-    let sortedStocks = [...stocks];
-    
-    if (sortBy === "name") {
-        sortedStocks.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === "changeAsc") {
-        sortedStocks.sort((a, b) => a.percentChange - b.percentChange);
-    } else if (sortBy === "changeDesc") {
-        sortedStocks.sort((a, b) => b.percentChange - a.percentChange);
+    if (window.financialDashboard) {
+        window.financialDashboard.sortStocks(containerId, sortBy);
     }
-    
-    const isInternational = containerId.includes("International");
-    renderStocks(containerId, sortedStocks, isInternational);
 }
 
-// Add some CSS for better loading states
-const additionalStyles = `
+// Add enhanced CSS styles
+const enhancedStyles = `
     .no-data {
         display: flex;
         flex-direction: column;
@@ -1345,6 +1570,7 @@ const additionalStyles = `
     
     .stock-item.loading {
         opacity: 0.7;
+        pointer-events: none;
     }
     
     .shimmer {
@@ -1365,95 +1591,40 @@ const additionalStyles = `
         align-items: flex-end;
         gap: 4px;
     }
+    
+    .market-card {
+        background: var(--card-bg);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        text-align: center;
+    }
+    
+    .market-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 8px 0;
+    }
 `;
 
-// Add the styles to the document
-const styleSheet = document.createElement("style");
-styleSheet.textContent = additionalStyles;
-document.head.appendChild(styleSheet);
+// Initialize application when DOM is loaded
+document.addEventListener('DOMContentLoaded', async function() {
+    // Add enhanced styles
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = enhancedStyles;
+    document.head.appendChild(styleSheet);
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("Initializing Financial Dashboard...");
-    
-    // Initialize market data
-    initializeMarketData();
-    
-    // Set up auto-refresh
-    setInterval(() => {
-        console.log("Auto-refreshing market data...");
-        initializeMarketData();
-    }, 300000); // 5 minutes
+    // Initialize the dashboard
+    window.financialDashboard = new FinancialDashboard();
+    await window.financialDashboard.init();
 });
 
-function initializeMarketData() {
-    // Update Indian market data
-    updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
-    
-    // Update International market data
-    updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
-    
-    // Update other components
-    updateMarketOverview();
-    updateAIInsight();
-}
-
-// Keep your existing functions for market overview, AI insights, etc.
-function updateMarketOverview() {
-    const data = { 
-        nifty50: { value: 24500, change: 0.85 }, 
-        sensex: { value: 82000, change: -0.55 } 
-    };
-    
-    const el = document.getElementById("marketOverview");
-    if (el) {
-        el.innerHTML = `
-            <div class="market-card">
-                <h3>NIFTY 50</h3>
-                <div class="market-value">₹${data.nifty50.value.toLocaleString()}</div>
-                <span class="stock-change ${data.nifty50.change > 0 ? "positive" : "negative"}">
-                    ${data.nifty50.change > 0 ? "📈" : "📉"} ${Math.abs(data.nifty50.change)}%
-                </span>
-            </div>
-            <div class="market-card">
-                <h3>SENSEX</h3>
-                <div class="market-value">₹${data.sensex.value.toLocaleString()}</div>
-                <span class="stock-change ${data.sensex.change > 0 ? "positive" : "negative"}">
-                    ${data.sensex.change > 0 ? "📈" : "📉"} ${Math.abs(data.sensex.change)}%
-                </span>
-            </div>`;
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.financialDashboard) {
+        window.financialDashboard.destroy();
     }
-    
-    const sentimentEl = document.getElementById("marketSentiment");
-    if (sentimentEl) {
-        sentimentEl.textContent = "Market Sentiment: " + 
-            (data.nifty50.change + data.sensex.change > 0 ? "🟢 BULLISH" : "🔴 BEARISH");
-    }
-}
-
-function updateAIInsight() {
-    const insights = [
-        "AI detects strong institutional buying in technology stocks. Consider accumulating quality tech names.",
-        "Market showing consolidation patterns. Technical analysis suggests potential breakout above key resistance.",
-        "Banking sector fundamentals remain strong with improving asset quality and credit growth.",
-        "Global cues positive as inflation concerns ease across major economies."
-    ];
-    const idx = Math.floor(Math.random() * insights.length);
-    const insightEl = document.getElementById("aiInsightText");
-    if (insightEl) {
-        insightEl.textContent = insights[idx];
-    }
-}
-
-// Export and theme functions (keep your existing ones)
-function exportReport() {
-    // Your existing export function
-    console.log("Exporting report...");
-}
-
-function toggleTheme() {
-    document.body.classList.toggle("light");
-}
+});
 </script>
 </body>
 </html>

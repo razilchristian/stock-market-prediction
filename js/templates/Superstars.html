@@ -906,392 +906,1080 @@ body {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+// Configuration
+const CONFIG = {
+    CACHE_DURATION: 15 * 60 * 1000, // 15 minutes
+    DEBOUNCE_DELAY: 300,
+    LOAD_DELAY: 800,
+    MAX_INVESTORS_DISPLAY: 50
+};
 
 // Investor data
-const investors = [
-  {
-    id: 1,
-    name: "Rakesh Jhunjhunwala",
-    type: "individual",
-    avatar: "RJ",
-    netWorth: "₹28,000 Cr",
-    quarterlyChange: 12.5,
-    portfolioSize: 32,
-    topHoldings: [
-      { name: "Titan Company", value: "₹10,200 Cr" },
-      { name: "Star Health", value: "₹4,500 Cr" },
-      { name: "Tata Motors", value: "₹3,800 Cr" }
-    ],
-    preferredSectors: ["Consumer Goods", "Automobile", "Insurance"]
-  },
-  {
-    id: 2,
-    name: "Radhakishan Damani",
-    type: "individual",
-    avatar: "RD",
-    netWorth: "₹16,500 Cr",
-    quarterlyChange: 8.2,
-    portfolioSize: 18,
-    topHoldings: [
-      { name: "Avenue Supermarts", value: "₹12,000 Cr" },
-      { name: "India Cements", value: "₹1,200 Cr" },
-      { name: "Apollo Hospitals", value: "₹950 Cr" }
-    ],
-    preferredSectors: ["Retail", "Cement", "Healthcare"]
-  },
-  {
-    id: 3,
-    name: "Rakesh Jhunjhunwala Family",
-    type: "individual",
-    avatar: "RJF",
-    netWorth: "₹12,800 Cr",
-    quarterlyChange: 9.7,
-    portfolioSize: 28,
-    topHoldings: [
-      { name: "CRISIL", value: "₹3,200 Cr" },
-      { name: "NCC", value: "₹1,800 Cr" },
-      { name: "Escorts Kubota", value: "₹1,500 Cr" }
-    ],
-    preferredSectors: ["Financial Services", "Construction", "Automobile"]
-  },
-  {
-    id: 4,
-    name: "Mukul Agrawal",
-    type: "individual",
-    avatar: "MA",
-    netWorth: "₹4,200 Cr",
-    quarterlyChange: 15.3,
-    portfolioSize: 45,
-    topHoldings: [
-      { name: "Tata Investment", value: "₹680 Cr" },
-      { name: "Aptus Value Housing", value: "₹520 Cr" },
-      { name: "Easy Trip Planners", value: "₹480 Cr" }
-    ],
-    preferredSectors: ["Financial Services", "Real Estate", "Travel"]
-  },
-  {
-    id: 5,
-    name: "Ashish Kacholia",
-    type: "individual",
-    avatar: "AK",
-    netWorth: "₹3,800 Cr",
-    quarterlyChange: 11.8,
-    portfolioSize: 38,
-    topHoldings: [
-      { name: "Happiest Minds", value: "₹420 Cr" },
-      { name: "Bajaj Electricals", value: "₹380 Cr" },
-      { name: "Tasty Bite", value: "₹320 Cr" }
-    ],
-    preferredSectors: ["Technology", "Consumer Goods", "FMCG"]
-  },
-  {
-    id: 6,
-    name: "Dolly Khanna",
-    type: "individual",
-    avatar: "DK",
-    netWorth: "₹2,900 Cr",
-    quarterlyChange: 7.4,
-    portfolioSize: 22,
-    topHoldings: [
-      { name: "Rain Industries", value: "₹520 Cr" },
-      { name: "Nocil", value: "₹480 Cr" },
-      { name: "Balaji Amines", value: "₹420 Cr" }
-    ],
-    preferredSectors: ["Chemicals", "Manufacturing", "Specialty Chemicals"]
-  },
-  {
-    id: 7,
-    name: "HDFC Mutual Fund",
-    type: "institutional",
-    avatar: "HDFC",
-    netWorth: "₹4,85,000 Cr",
-    quarterlyChange: 6.8,
-    portfolioSize: 210,
-    topHoldings: [
-      { name: "Reliance Industries", value: "₹32,000 Cr" },
-      { name: "Infosys", value: "₹28,500 Cr" },
-      { name: "ICICI Bank", value: "₹25,800 Cr" }
-    ],
-    preferredSectors: ["Technology", "Banking", "Energy"]
-  },
-  {
-    id: 8,
-    name: "ICICI Prudential MF",
-    type: "institutional",
-    avatar: "ICICI",
-    netWorth: "₹3,92,000 Cr",
-    quarterlyChange: 5.9,
-    portfolioSize: 195,
-    topHoldings: [
-      { name: "HDFC Bank", value: "₹29,200 Cr" },
-      { name: "Reliance Industries", value: "₹24,800 Cr" },
-      { name: "TCS", value: "₹21,500 Cr" }
-    ],
-    preferredSectors: ["Banking", "Energy", "Technology"]
-  },
-  {
-    id: 9,
-    name: "Foreign Portfolio Investors",
-    type: "fii",
-    avatar: "FPI",
-    netWorth: "₹52,00,000 Cr",
-    quarterlyChange: 8.7,
-    portfolioSize: 450,
-    topHoldings: [
-      { name: "Reliance Industries", value: "₹1,85,000 Cr" },
-      { name: "Infosys", value: "₹1,42,000 Cr" },
-      { name: "HDFC Bank", value: "₹1,28,000 Cr" }
-    ],
-    preferredSectors: ["Technology", "Energy", "Banking"]
-  }
+const INVESTORS_DATA = [
+    {
+        id: 1,
+        name: "Rakesh Jhunjhunwala",
+        type: "individual",
+        avatar: "RJ",
+        netWorth: "₹28,000 Cr",
+        quarterlyChange: 12.5,
+        portfolioSize: 32,
+        topHoldings: [
+            { name: "Titan Company", value: "₹10,200 Cr" },
+            { name: "Star Health", value: "₹4,500 Cr" },
+            { name: "Tata Motors", value: "₹3,800 Cr" }
+        ],
+        preferredSectors: ["Consumer Goods", "Automobile", "Insurance"],
+        riskProfile: "High",
+        investmentStyle: "Long-term Growth",
+        since: "1985"
+    },
+    {
+        id: 2,
+        name: "Radhakishan Damani",
+        type: "individual",
+        avatar: "RD",
+        netWorth: "₹16,500 Cr",
+        quarterlyChange: 8.2,
+        portfolioSize: 18,
+        topHoldings: [
+            { name: "Avenue Supermarts", value: "₹12,000 Cr" },
+            { name: "India Cements", value: "₹1,200 Cr" },
+            { name: "Apollo Hospitals", value: "₹950 Cr" }
+        ],
+        preferredSectors: ["Retail", "Cement", "Healthcare"],
+        riskProfile: "Medium",
+        investmentStyle: "Value Investing",
+        since: "1990"
+    },
+    {
+        id: 3,
+        name: "Rakesh Jhunjhunwala Family",
+        type: "individual",
+        avatar: "RJF",
+        netWorth: "₹12,800 Cr",
+        quarterlyChange: 9.7,
+        portfolioSize: 28,
+        topHoldings: [
+            { name: "CRISIL", value: "₹3,200 Cr" },
+            { name: "NCC", value: "₹1,800 Cr" },
+            { name: "Escorts Kubota", value: "₹1,500 Cr" }
+        ],
+        preferredSectors: ["Financial Services", "Construction", "Automobile"],
+        riskProfile: "High",
+        investmentStyle: "Growth Investing",
+        since: "2000"
+    },
+    {
+        id: 4,
+        name: "Mukul Agrawal",
+        type: "individual",
+        avatar: "MA",
+        netWorth: "₹4,200 Cr",
+        quarterlyChange: 15.3,
+        portfolioSize: 45,
+        topHoldings: [
+            { name: "Tata Investment", value: "₹680 Cr" },
+            { name: "Aptus Value Housing", value: "₹520 Cr" },
+            { name: "Easy Trip Planners", value: "₹480 Cr" }
+        ],
+        preferredSectors: ["Financial Services", "Real Estate", "Travel"],
+        riskProfile: "Very High",
+        investmentStyle: "Aggressive Growth",
+        since: "2010"
+    },
+    {
+        id: 5,
+        name: "Ashish Kacholia",
+        type: "individual",
+        avatar: "AK",
+        netWorth: "₹3,800 Cr",
+        quarterlyChange: 11.8,
+        portfolioSize: 38,
+        topHoldings: [
+            { name: "Happiest Minds", value: "₹420 Cr" },
+            { name: "Bajaj Electricals", value: "₹380 Cr" },
+            { name: "Tasty Bite", value: "₹320 Cr" }
+        ],
+        preferredSectors: ["Technology", "Consumer Goods", "FMCG"],
+        riskProfile: "High",
+        investmentStyle: "Mid-cap Focus",
+        since: "2005"
+    },
+    {
+        id: 6,
+        name: "Dolly Khanna",
+        type: "individual",
+        avatar: "DK",
+        netWorth: "₹2,900 Cr",
+        quarterlyChange: 7.4,
+        portfolioSize: 22,
+        topHoldings: [
+            { name: "Rain Industries", value: "₹520 Cr" },
+            { name: "Nocil", value: "₹480 Cr" },
+            { name: "Balaji Amines", value: "₹420 Cr" }
+        ],
+        preferredSectors: ["Chemicals", "Manufacturing", "Specialty Chemicals"],
+        riskProfile: "Medium",
+        investmentStyle: "Value Investing",
+        since: "1998"
+    },
+    {
+        id: 7,
+        name: "HDFC Mutual Fund",
+        type: "institutional",
+        avatar: "HDFC",
+        netWorth: "₹4,85,000 Cr",
+        quarterlyChange: 6.8,
+        portfolioSize: 210,
+        topHoldings: [
+            { name: "Reliance Industries", value: "₹32,000 Cr" },
+            { name: "Infosys", value: "₹28,500 Cr" },
+            { name: "ICICI Bank", value: "₹25,800 Cr" }
+        ],
+        preferredSectors: ["Technology", "Banking", "Energy"],
+        riskProfile: "Low",
+        investmentStyle: "Diversified",
+        since: "2000"
+    },
+    {
+        id: 8,
+        name: "ICICI Prudential MF",
+        type: "institutional",
+        avatar: "ICICI",
+        netWorth: "₹3,92,000 Cr",
+        quarterlyChange: 5.9,
+        portfolioSize: 195,
+        topHoldings: [
+            { name: "HDFC Bank", value: "₹29,200 Cr" },
+            { name: "Reliance Industries", value: "₹24,800 Cr" },
+            { name: "TCS", value: "₹21,500 Cr" }
+        ],
+        preferredSectors: ["Banking", "Energy", "Technology"],
+        riskProfile: "Low",
+        investmentStyle: "Balanced",
+        since: "1998"
+    },
+    {
+        id: 9,
+        name: "Foreign Portfolio Investors",
+        type: "fii",
+        avatar: "FPI",
+        netWorth: "₹52,00,000 Cr",
+        quarterlyChange: 8.7,
+        portfolioSize: 450,
+        topHoldings: [
+            { name: "Reliance Industries", value: "₹1,85,000 Cr" },
+            { name: "Infosys", value: "₹1,42,000 Cr" },
+            { name: "HDFC Bank", value: "₹1,28,000 Cr" }
+        ],
+        preferredSectors: ["Technology", "Energy", "Banking"],
+        riskProfile: "Medium",
+        investmentStyle: "Large-cap Focus",
+        since: "1991"
+    }
 ];
 
-let filteredInvestors = [...investors];
+// Application State
+const AppState = {
+    investors: [...INVESTORS_DATA],
+    filteredInvestors: [...INVESTORS_DATA],
+    currentFilters: {
+        type: 'all',
+        sortBy: 'net-worth',
+        searchQuery: '',
+        riskProfile: 'all'
+    },
+    currentInvestor: null,
+    isInitialized: false,
+    cache: new Map()
+};
 
-// Initialize the page
-function initializePage() {
-  loadTopPerformers();
-  loadInvestorsGrid();
-  setupEventListeners();
-}
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
 
-// Load top performers
-function loadTopPerformers() {
-  const topPerformersContainer = document.getElementById('topPerformers');
-  
-  // Get top 3 performers by quarterly change
-  const topPerformers = [...investors]
-    .sort((a, b) =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- b.quarterlyChange - a.quarterlyChange)
-    .slice(0, 3);
-  
-  topPerformersContainer.innerHTML = topPerformers.map((investor, index) => `
-    <div class="performer-card">
-      <div class="performer-rank">${index + 1}</div>
-      <div class="performer-avatar">${investor.avatar}</div>
-      <h3 class="performer-name">${investor.name}</h3>
-      <div class="performer-type">${formatInvestorType(investor.type)}</div>
-      <div class="performer-metric">+${investor.quarterlyChange}%</div>
-      <div class="performer-label">Quarterly Growth</div>
-    </div>
-  `).join('');
+    }
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
+    }
 }
 
-// Load investors grid
-function loadInvestorsGrid() {
-  const investorsGrid = document.getElementById('investorsGrid');
-  
-  if (filteredInvestors.length === 0) {
-    investorsGrid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-        <i class="fas fa-user-slash" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-        <h3>No Investors Found</h3>
-        <p>Try adjusting your filters or search terms.</p>
-      </div>
-    `;
-    return;
-  }
-  
-  investorsGrid.innerHTML = filteredInvestors.map(investor => `
-    <div class="investor-card">
-      <div class="investor-header">
-        <div class="investor-avatar">${investor.avatar}</div>
-        <div class="investor-info">
-          <h3 class="investor-name">${investor.name}</h3>
-          <div class="investor-type">${formatInvestorType(investor.type)}</div>
-        </div>
-      </div>
-      
-      <div class="investor-stats">
-        <div class="stat-item">
-          <div class="stat-label">Net Worth</div>
-          <div class="stat-value">${investor.netWorth}</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">Quarterly Change</div>
-          <div class="stat-change ${investor.quarterlyChange >= 0 ? 'positive' : 'negative'}">
-            <i class="fas ${investor.quarterlyChange >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
-            ${Math.abs(investor.quarterlyChange)}%
-          </div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">Portfolio Size</div>
-          <div class="stat-value">${investor.portfolioSize} stocks</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">Preferred Sectors</div>
-          <div class="stat-value">${investor.preferredSectors.slice(0, 2).join(', ')}</div>
-        </div>
-      </div>
-      
-      <div class="investor-holdings">
-        <div class="holdings-title">Top Holdings</div>
-        <div class="holdings-list">
-          ${investor.topHoldings.map(holding => `
-            <div class="holding-item">
-              <span class="holding-name">${holding.name}</span>
-              <span class="holding-value">${holding.value}</span>
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        let notification = document.getElementById('investorNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'investorNotification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content ${type}">
+                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-          `).join('')}
-        </div>
-      </div>
-      
-      <div class="investor-actions">
-        <button class="btn btn-primary btn-small" onclick="viewPortfolio(${investor.id})">
-          <i class="fas fa-chart-line"></i> View Portfolio
-        </button>
-        <button class="btn btn-secondary btn-small" onclick="viewTrendlyne('${investor.name}')">
-          <i class="fas fa-external-link-alt"></i> Trendlyne
-        </button>
-      </div>
-    </div>
-  `).join('');
-}
+        `;
 
-// Format investor type
-function formatInvestorType(type) {
-  const typeMap = {
-    'individual': 'Individual Investor',
-    'institutional': 'Institutional Investor',
-    'fii': 'Foreign Institutional Investor'
-  };
-  return typeMap[type] || type;
-}
+        notification.classList.add('show');
 
-// Filter investors based on selections
-function filterInvestors() {
-  const type = document.getElementById('typeSelect').value;
-  const sortBy = document.getElementById('sortSelect').value;
-  const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-  
-  // Apply filters
-  filteredInvestors = investors.filter(investor => {
-    // Type filter
-    if (type !== 'all' && investor.type !== type) {
-      return false;
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
-    
-    // Search filter
-    if (searchQuery && !investor.name.toLowerCase().includes(searchQuery)) {
-      return false;
+}
+
+// Cache Manager
+class CacheManager {
+    static get(key) {
+        const cached = AppState.cache.get(key);
+        if (cached && Date.now() - cached.timestamp < CONFIG.CACHE_DURATION) {
+            return cached.data;
+        }
+        return null;
     }
-    
-    return true;
-  });
-  
-  // Sort investors
-  filteredInvestors.sort((a, b) => {
-    if (sortBy === 'net-worth') {
-      // Simple numeric extraction for comparison
-      const aValue = parseFloat(a.netWorth.replace(/[^0-9.]/g, ''));
-      const bValue = parseFloat(b.netWorth.replace(/[^0-9.]/g, ''));
-      return bValue - aValue;
-    } else if (sortBy === 'quarterly-change') {
-      return b.quarterlyChange - a.quarterlyChange;
-    } else if (sortBy === 'portfolio-size') {
-      return b.portfolioSize - a.portfolioSize;
+
+    static set(key, data) {
+        AppState.cache.set(key, {
+            data,
+            timestamp: Date.now()
+        });
     }
-    return 0;
-  });
-  
-  loadInvestorsGrid();
+
+    static clear() {
+        AppState.cache.clear();
+    }
 }
 
-// View portfolio (placeholder function)
-function viewPortfolio(investorId) {
-  const investor = investors.find(i => i.id === investorId);
-  if (investor) {
-    alert(`Viewing portfolio for ${investor.name}\n\nThis would open a detailed portfolio view with all holdings, performance charts, and transaction history.`);
-  }
+// Investor Display Manager
+class InvestorDisplayManager {
+    static loadTopPerformers() {
+        const topPerformersContainer = document.getElementById('topPerformers');
+        if (!topPerformersContainer) return;
+
+        // Get top 3 performers by quarterly change
+        const topPerformers = [...AppState.investors]
+            .sort((a, b) => b.quarterlyChange - a.quarterlyChange)
+            .slice(0, 3);
+        
+        topPerformersContainer.innerHTML = topPerformers.map((investor, index) => `
+            <div class="performer-card" data-investor-id="${investor.id}">
+                <div class="performer-rank rank-${index + 1}">${index + 1}</div>
+                <div class="performer-avatar ${investor.type}">${investor.avatar}</div>
+                <h3 class="performer-name">${investor.name}</h3>
+                <div class="performer-type">${this.formatInvestorType(investor.type)}</div>
+                <div class="performer-metric positive">+${investor.quarterlyChange}%</div>
+                <div class="performer-label">Quarterly Growth</div>
+                <div class="performer-networth">${investor.netWorth}</div>
+            </div>
+        `).join('');
+
+        this.attachPerformerCardEventListeners();
+    }
+
+    static loadInvestorsGrid() {
+        const investorsGrid = document.getElementById('investorsGrid');
+        if (!investorsGrid) return;
+
+        if (AppState.filteredInvestors.length === 0) {
+            investorsGrid.innerHTML = this.createNoInvestorsHTML();
+            return;
+        }
+        
+        investorsGrid.innerHTML = AppState.filteredInvestors.map(investor => 
+            this.createInvestorCardHTML(investor)
+        ).join('');
+        
+        this.attachInvestorCardEventListeners();
+    }
+
+    static createNoInvestorsHTML() {
+        return `
+            <div class="no-investors-state">
+                <i class="fas fa-user-slash"></i>
+                <h3>No Investors Found</h3>
+                <p>Try adjusting your filters or search terms.</p>
+                <button class="btn btn-primary" onclick="InvestorManager.clearFilters()">
+                    <i class="fas fa-times"></i> Clear Filters
+                </button>
+            </div>
+        `;
+    }
+
+    static createInvestorCardHTML(investor) {
+        const riskColor = this.getRiskColor(investor.riskProfile);
+        
+        return `
+            <div class="investor-card" data-investor-id="${investor.id}">
+                <div class="investor-header">
+                    <div class="investor-avatar ${investor.type}">${investor.avatar}</div>
+                    <div class="investor-info">
+                        <h3 class="investor-name">${investor.name}</h3>
+                        <div class="investor-meta">
+                            <span class="investor-type">${this.formatInvestorType(investor.type)}</span>
+                            <span class="risk-badge" style="background: ${riskColor}">${investor.riskProfile}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="investor-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">Net Worth</div>
+                        <div class="stat-value">${investor.netWorth}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Quarterly Change</div>
+                        <div class="stat-change ${investor.quarterlyChange >= 0 ? 'positive' : 'negative'}">
+                            <i class="fas ${investor.quarterlyChange >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
+                            ${Math.abs(investor.quarterlyChange)}%
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Portfolio Size</div>
+                        <div class="stat-value">${investor.portfolioSize} stocks</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Investment Style</div>
+                        <div class="stat-value">${investor.investmentStyle}</div>
+                    </div>
+                </div>
+                
+                <div class="investor-holdings">
+                    <div class="holdings-title">Top Holdings</div>
+                    <div class="holdings-list">
+                        ${investor.topHoldings.map(holding => `
+                            <div class="holding-item">
+                                <span class="holding-name">${holding.name}</span>
+                                <span class="holding-value">${holding.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="investor-sectors">
+                    <div class="sectors-title">Preferred Sectors</div>
+                    <div class="sectors-tags">
+                        ${investor.preferredSectors.map(sector => `
+                            <span class="sector-tag">${sector}</span>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="investor-actions">
+                    <button class="btn btn-primary btn-small" onclick="event.stopPropagation(); InvestorModalManager.open(${investor.id})">
+                        <i class="fas fa-chart-line"></i> View Details
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); InvestorManager.viewTrendlyne('${investor.name}')">
+                        <i class="fas fa-external-link-alt"></i> Trendlyne
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    static attachPerformerCardEventListeners() {
+        document.querySelectorAll('.performer-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const investorId = this.getAttribute('data-investor-id');
+                InvestorModalManager.open(parseInt(investorId));
+            });
+        });
+    }
+
+    static attachInvestorCardEventListeners() {
+        document.querySelectorAll('.investor-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const investorId = this.getAttribute('data-investor-id');
+                InvestorModalManager.open(parseInt(investorId));
+            });
+        });
+    }
+
+    static formatInvestorType(type) {
+        const typeMap = {
+            'individual': 'Individual Investor',
+            'institutional': 'Institutional Investor',
+            'fii': 'Foreign Institutional Investor'
+        };
+        return typeMap[type] || type;
+    }
+
+    static getRiskColor(riskProfile) {
+        const colors = {
+            'Very High': '#dc2626',
+            'High': '#ea580c',
+            'Medium': '#d97706',
+            'Low': '#16a34a',
+            'Very Low': '#059669'
+        };
+        return colors[riskProfile] || '#6b7280';
+    }
+
+    static showLoadingState() {
+        const investorsGrid = document.getElementById('investorsGrid');
+        const topPerformers = document.getElementById('topPerformers');
+        
+        if (topPerformers) {
+            topPerformers.innerHTML = this.createTopPerformersLoadingHTML();
+        }
+        
+        if (investorsGrid) {
+            investorsGrid.innerHTML = this.createInvestorsGridLoadingHTML();
+        }
+    }
+
+    static createTopPerformersLoadingHTML() {
+        return Array(3).fill().map(() => `
+            <div class="performer-card loading">
+                <div class="shimmer" style="width: 40px; height: 40px; border-radius: 8px; margin-bottom: 12px;"></div>
+                <div class="shimmer" style="height: 20px; margin-bottom: 8px; border-radius: 4px;"></div>
+                <div class="shimmer" style="height: 16px; width: 80%; margin-bottom: 12px; border-radius: 4px;"></div>
+                <div class="shimmer" style="height: 24px; width: 60%; border-radius: 4px;"></div>
+            </div>
+        `).join('');
+    }
+
+    static createInvestorsGridLoadingHTML() {
+        return Array(6).fill().map(() => `
+            <div class="investor-card loading">
+                <div class="investor-header">
+                    <div class="shimmer" style="width: 50px; height: 50px; border-radius: 12px;"></div>
+                    <div style="flex: 1;">
+                        <div class="shimmer" style="height: 20px; margin-bottom: 8px; border-radius: 4px;"></div>
+                        <div class="shimmer" style="height: 16px; width: 70%; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                <div class="shimmer" style="height: 100px; margin: 16px 0; border-radius: 8px;"></div>
+                <div class="shimmer" style="height: 80px; margin-bottom: 16px; border-radius: 8px;"></div>
+                <div class="shimmer" style="height: 40px; border-radius: 6px;"></div>
+            </div>
+        `).join('');
+    }
 }
 
-// View on Trendlyne (placeholder function)
-function viewTrendlyne(investorName) {
-  // In a real implementation, this would open the actual Trendlyne page
-  alert(`Redirecting to Trendlyne page for ${investorName}\n\nIn a real implementation, this would open the actual Trendlyne investor page.`);
+// Investor Modal Manager
+class InvestorModalManager {
+    static open(investorId) {
+        const investor = AppState.investors.find(i => i.id === investorId);
+        if (!investor) {
+            NotificationManager.show('Investor not found', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('investorModal');
+        const modalContent = document.getElementById('modalContent');
+
+        if (!modal || !modalContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        modalContent.innerHTML = this.createModalContentHTML(investor);
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
+        AppState.currentInvestor = investor;
+    }
+
+    static createModalContentHTML(investor) {
+        const riskColor = InvestorDisplayManager.getRiskColor(investor.riskProfile);
+        
+        return `
+            <div class="modal-header">
+                <div class="investor-avatar-large ${investor.type}">${investor.avatar}</div>
+                <div class="investor-info-large">
+                    <h2>${investor.name}</h2>
+                    <div class="investor-details">
+                        <span class="investor-type">${InvestorDisplayManager.formatInvestorType(investor.type)}</span>
+                        <span class="risk-badge" style="background: ${riskColor}">${investor.riskProfile} Risk</span>
+                        <span class="since-badge">Since ${investor.since}</span>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="InvestorModalManager.close()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-stats">
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${investor.netWorth}</div>
+                        <div class="modal-stat-label">Net Worth</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value ${investor.quarterlyChange >= 0 ? 'positive' : 'negative'}">
+                            ${investor.quarterlyChange >= 0 ? '+' : ''}${investor.quarterlyChange}%
+                        </div>
+                        <div class="modal-stat-label">Quarterly Change</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${investor.portfolioSize}</div>
+                        <div class="modal-stat-label">Portfolio Size</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${investor.investmentStyle}</div>
+                        <div class="modal-stat-label">Investment Style</div>
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>Top Holdings</h3>
+                    <div class="holdings-detailed">
+                        ${investor.topHoldings.map((holding, index) => `
+                            <div class="holding-detailed">
+                                <div class="holding-rank">${index + 1}</div>
+                                <div class="holding-info">
+                                    <div class="holding-name">${holding.name}</div>
+                                    <div class="holding-value">${holding.value}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="modal-section">
+                    <h3>Investment Profile</h3>
+                    <div class="profile-details">
+                        <div class="profile-item">
+                            <span class="profile-label">Preferred Sectors:</span>
+                            <span class="profile-value">${investor.preferredSectors.join(', ')}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Risk Profile:</span>
+                            <span class="profile-value" style="color: ${riskColor}">${investor.riskProfile}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Investment Style:</span>
+                            <span class="profile-value">${investor.investmentStyle}</span>
+                        </div>
+                        <div class="profile-item">
+                            <span class="profile-label">Active Since:</span>
+                            <span class="profile-value">${investor.since}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="InvestorManager.viewPortfolio(${investor.id})">
+                        <i class="fas fa-chart-line"></i> View Full Portfolio
+                    </button>
+                    <button class="btn btn-secondary" onclick="InvestorManager.viewTrendlyne('${investor.name}')">
+                        <i class="fas fa-external-link-alt"></i> Open in Trendlyne
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    static close() {
+        const modal = document.getElementById('investorModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        AppState.currentInvestor = null;
+    }
+
+    static setupEventListeners() {
+        const modal = document.getElementById('investorModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    InvestorModalManager.close();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && AppState.currentInvestor) {
+                InvestorModalManager.close();
+            }
+        });
+    }
 }
 
-// Setup event listeners
-function setupEventListeners() {
-  // Filter change listeners
-  document.getElementById('typeSelect').addEventListener('change', filterInvestors);
-  document.getElementById('sortSelect').addEventListener('change', filterInvestors);
-  document.getElementById('searchInput').addEventListener('input', filterInvestors);
-  
-  // Mobile menu toggle
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
+// Filter Manager
+class FilterManager {
+    constructor() {
+        this.typeSelect = document.getElementById('typeSelect');
+        this.sortSelect = document.getElementById('sortSelect');
+        this.riskSelect = document.getElementById('riskSelect');
+        this.searchInput = document.getElementById('searchInput');
+        this.debouncedFilter = this.debounce(this.applyFilters.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.typeSelect) {
+            this.typeSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.sortSelect) {
+            this.sortSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.riskSelect) {
+            this.riskSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', this.debouncedFilter);
+        }
+    }
+
+    handleFilterChange() {
+        this.applyFilters();
+    }
+
+    applyFilters() {
+        const type = this.typeSelect?.value || 'all';
+        const sortBy = this.sortSelect?.value || 'net-worth';
+        const riskProfile = this.riskSelect?.value || 'all';
+        const searchQuery = this.searchInput?.value.toLowerCase().trim() || '';
+
+        AppState.currentFilters = { type, sortBy, riskProfile, searchQuery };
+        InvestorManager.filterInvestors();
+    }
+
+    clear() {
+        if (this.typeSelect) this.typeSelect.value = 'all';
+        if (this.sortSelect) this.sortSelect.value = 'net-worth';
+        if (this.riskSelect) this.riskSelect.value = 'all';
+        if (this.searchInput) this.searchInput.value = '';
+        
+        this.applyFilters();
+        NotificationManager.show('Filters cleared', 'success');
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 }
 
-// Toggle theme
+// Investor Manager
+class InvestorManager {
+    static filterInvestors() {
+        const { type, sortBy, riskProfile, searchQuery } = AppState.currentFilters;
+
+        // Apply filters
+        AppState.filteredInvestors = AppState.investors.filter(investor => {
+            // Type filter
+            if (type !== 'all' && investor.type !== type) {
+                return false;
+            }
+            
+            // Risk profile filter
+            if (riskProfile !== 'all' && investor.riskProfile !== riskProfile) {
+                return false;
+            }
+            
+            // Search filter
+            if (searchQuery && 
+                !investor.name.toLowerCase().includes(searchQuery) &&
+                !investor.preferredSectors.some(sector => 
+                    sector.toLowerCase().includes(searchQuery)) &&
+                !investor.investmentStyle.toLowerCase().includes(searchQuery)) {
+                return false;
+            }
+            
+            return true;
+        });
+
+        // Sort investors
+        AppState.filteredInvestors.sort((a, b) => {
+            switch (sortBy) {
+                case 'net-worth':
+                    return this.parseNetWorth(b.netWorth) - this.parseNetWorth(a.netWorth);
+                case 'quarterly-change':
+                    return b.quarterlyChange - a.quarterlyChange;
+                case 'portfolio-size':
+                    return b.portfolioSize - a.portfolioSize;
+                case 'risk-profile':
+                    return this.getRiskScore(b.riskProfile) - this.getRiskScore(a.riskProfile);
+                default:
+                    return 0;
+            }
+        });
+
+        InvestorDisplayManager.loadInvestorsGrid();
+    }
+
+    static parseNetWorth(netWorth) {
+        // Convert "₹28,000 Cr" to numeric value
+        const numeric = netWorth.replace(/[^0-9.]/g, '');
+        return parseFloat(numeric) * (netWorth.includes('Lakh') ? 0.01 : 1);
+    }
+
+    static getRiskScore(riskProfile) {
+        const scores = {
+            'Very High': 4,
+            'High': 3,
+            'Medium': 2,
+            'Low': 1,
+            'Very Low': 0
+        };
+        return scores[riskProfile] || 0;
+    }
+
+    static viewPortfolio(investorId) {
+        const investor = AppState.investors.find(i => i.id === investorId);
+        if (investor) {
+            InvestorModalManager.close();
+            // In a real implementation, this would navigate to a detailed portfolio page
+            NotificationManager.show(`Opening detailed portfolio for ${investor.name}`, 'info');
+            console.log(`Viewing portfolio for ${investor.name}`);
+        }
+    }
+
+    static viewTrendlyne(investorName) {
+        // In a real implementation, this would open the actual Trendlyne page
+        const trendlyneUrl = `https://trendlyne.com/portfolio/${encodeURIComponent(investorName.toLowerCase().replace(/\s+/g, '-'))}`;
+        NotificationManager.show(`Redirecting to Trendlyne for ${investorName}`, 'info');
+        console.log(`Opening Trendlyne: ${trendlyneUrl}`);
+        // window.open(trendlyneUrl, '_blank'); // Uncomment in production
+    }
+
+    static clearFilters() {
+        const filterManager = InvestorApp.getInstance().filterManager;
+        filterManager.clear();
+    }
+
+    static refreshInvestors() {
+        InvestorDisplayManager.showLoadingState();
+        
+        setTimeout(() => {
+            InvestorDisplayManager.loadTopPerformers();
+            InvestorManager.filterInvestors();
+            NotificationManager.show('Investors data refreshed', 'success');
+        }, CONFIG.LOAD_DELAY);
+    }
+}
+
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
+}
+
+// Main Investor Application
+class InvestorApp {
+    constructor() {
+        this.mobileMenu = null;
+        this.filterManager = null;
+        this.instance = null;
+        this.init();
+    }
+
+    static getInstance() {
+        return this.instance;
+    }
+
+    async init() {
+        console.log('🚀 Initializing Investor Application...');
+        InvestorApp.instance = this;
+        
+        // Load theme
+        ThemeManager.load();
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.filterManager = new FilterManager();
+        InvestorModalManager.setupEventListeners();
+        
+        // Load initial content with loading state
+        InvestorDisplayManager.showLoadingState();
+        
+        // Simulate API delay
+        setTimeout(() => {
+            InvestorDisplayManager.loadTopPerformers();
+            InvestorManager.filterInvestors();
+            AppState.isInitialized = true;
+            console.log('✅ Investor Application initialized successfully');
+        }, CONFIG.LOAD_DELAY);
+    }
+
+    destroy() {
+        InvestorModalManager.close();
+        console.log('📋 Investor Application destroyed');
+    }
+}
+
+// Global functions for HTML event handlers
 function toggleTheme() {
-  document.body.classList.toggle('light');
+    ThemeManager.toggle();
 }
 
-// Load investors (simulate API call)
-function loadInvestors() {
-  const loadingState = document.getElementById('loadingState');
-  loadingState.style.display = 'block';
-  
-  // Simulate API delay
-  setTimeout(() => {
-    initializePage();
-    loadingState.style.display = 'none';
-  }, 1000);
+function refreshInvestors() {
+    InvestorManager.refreshInvestors();
+}
+
+function clearFilters() {
+    InvestorManager.clearFilters();
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', initializePage);
+document.addEventListener('DOMContentLoaded', () => {
+    window.investorApp = new InvestorApp();
+});
+
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
+});
+
+// Add notification and loading styles
+const additionalStyles = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 10000;
+        overflow: hidden;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .notification-content.success {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .notification-content.error {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .notification-content.warning {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .notification-content.info {
+        border-left: 4px solid #2196f3;
+    }
+    
+    .notification-icon {
+        font-size: 1.2em;
+    }
+    
+    .notification-content.success .notification-icon {
+        color: var(--up-color);
+    }
+    
+    .notification-content.error .notification-icon {
+        color: var(--down-color);
+    }
+    
+    .notification-content.warning .notification-icon {
+        color: #ff9800;
+    }
+    
+    .notification-content.info .notification-icon {
+        color: #2196f3;
+    }
+    
+    .notification-message {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
+    
+    .notification-close:hover {
+        background: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .no-investors-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .no-investors-state i {
+        font-size: 48px;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+    }
+    
+    .investor-card.loading, .performer-card.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    
+    .risk-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: white;
+    }
+    
+    .since-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--border-color);
+        color: var(--text-muted);
+    }
+    
+    .investor-avatar.individual {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .investor-avatar.institutional {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .investor-avatar.fii {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .sectors-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    
+    .sector-tag {
+        padding: 4px 8px;
+        background: var(--border-color);
+        border-radius: 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+    
+    .performer-card {
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    
+    .performer-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .rank-1 {
+        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    }
+    
+    .rank-2 {
+        background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+    }
+    
+    .rank-3 {
+        background: linear-gradient(135deg, #cd7f32 0%, #e9a768 100%);
+    }
+`;
+
+// Add styles to document
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>

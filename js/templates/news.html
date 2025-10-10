@@ -960,355 +960,836 @@ body {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+// Configuration
+const CONFIG = {
+    NEWS_API_KEY: '593e59a34ba545eeabdd4d2943998f59',
+    FINNHUB_API_KEY: 'cn5q9q1r01qo9mptrf70cn5q9q1r01qo9mptrf7g',
+    CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+    MAX_ARTICLES: 50,
+    DEBOUNCE_DELAY: 300
+};
 
-const NEWS_API_KEY = '593e59a34ba545eeabdd4d2943998f59';
-const FINNHUB_API_KEY = 'cn5q9q1r01qo9mptrf70cn5q9q1r01qo9mptrf7g'; // Free tier API key
-
-let allArticles = [];
-let featuredArticles = [];
+// Application State
+const AppState = {
+    allArticles: [],
+    featuredArticles: [],
+    filteredArticles: [],
+    currentFilters: {
+        category: 'general',
+        country: 'us',
+        sortBy: 'publishedAt'
+    },
+    cache: new Map(),
+    isInitialized: false
+};
 
 // Market data for ticker
-const marketData = [
-  { symbol: "AAPL", price: 182.63, change: 1.24 },
-  { symbol: "MSFT", price: 407.57, change: -0.85 },
-  { symbol: "GOOGL", price: 172.34, change: 2.13 },
-  { symbol: "AMZN", price: 178.22, change: 0.67 },
-  { symbol: "TSLA", price: 175.79, change: -3.21 },
-  { symbol: "META", price: 485.58, change: 1.89 },
-  { symbol: "NVDA", price: 950.02, change: 5.42 },
-  { symbol: "SPY", price: 489.23, change: 0.89 },
-  { symbol: "QQQ", price: 426.78, change: 1.45 },
-  { symbol: "DOW", price: 38790.43, change: -0.23 }
+const MARKET_DATA = [
+    { symbol: "AAPL", price: 182.63, change: 1.24 },
+    { symbol: "MSFT", price: 407.57, change: -0.85 },
+    { symbol: "GOOGL", price: 172.34, change: 2.13 },
+    { symbol: "AMZN", price: 178.22, change: 0.67 },
+    { symbol: "TSLA", price: 175.79, change: -3.21 },
+    { symbol: "META", price: 485.58, change: 1.89 },
+    { symbol: "NVDA", price: 950.02, change: 5.42 },
+    { symbol: "SPY", price: 489.23, change: 0.89 },
+    { symbol: "QQQ", price: 426.78, change: 1.45 },
+    { symbol: "DOW", price: 38790.43, change: -0.23 }
 ];
 
-// Initialize market ticker
-function initializeMarketTicker() {
-  const tickerContainer = document.getElementById('marketTicker');
-  
-  // Duplicate data for seamless scrolling
-  const tickerData = [...marketData, ...marketData];
-  
-  tickerContainer.innerHTML = tickerData.map(item =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
+
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- `
-    <div class="ticker-item">
-      <span class="ticker-symbol">${item.symbol}</span>
-      <span class="ticker-price">$${item.price.toFixed(2)}</span>
-      <span class="ticker-change ${item.change >= 0 ? 'positive' : 'negative'}">
-        ${item.change >= 0 ? '+' : ''}${item.change.toFixed(2)}%
-      </span>
-    </div>
-  `).join('');
-}
-
-// Show loading placeholders
-function showLoadingPlaceholders() {
-  const newsGrid = document.getElementById('newsGrid');
-  const featuredNews = document.getElementById('featuredNews');
-  
-  // Featured news loading
-  featuredNews.innerHTML = `
-    <div class="featured-main">
-      <div class="shimmer" style="height: 300px;"></div>
-      <div style="padding: 24px;">
-        <div class="shimmer" style="height: 28px; margin-bottom: 16px;"></div>
-        <div class="shimmer" style="height: 20px; margin-bottom: 8px;"></div>
-        <div class="shimmer" style="height: 20px; margin-bottom: 8px;"></div>
-        <div class="shimmer" style="height: 20px; width: 60%;"></div>
-      </div>
-    </div>
-    <div class="featured-sidebar">
-      ${Array(3).fill().map(() => `
-        <div class="featured-side-item">
-          <div class="shimmer" style="width: 80px; height: 80px; border-radius: 12px;"></div>
-          <div style="flex: 1;">
-            <div class="shimmer" style="height: 16px; margin-bottom: 8px;"></div>
-            <div class="shimmer" style="height: 14px; margin-bottom: 8px;"></div>
-            <div class="shimmer" style="height: 12px; width: 70%;"></div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  
-  // News grid loading
-  newsGrid.innerHTML = Array(9).fill().map(() => `
-    <div class="news-card">
-      <div class="shimmer" style="height: 200px;"></div>
-      <div style="padding: 20px;">
-        <div class="shimmer" style="height: 20px; margin-bottom: 12px;"></div>
-        <div class="shimmer" style="height: 16px; margin-bottom: 8px;"></div>
-        <div class="shimmer" style="height: 16px; margin-bottom: 8px;"></div>
-        <div class="shimmer" style="height: 16px; width: 80%; margin-bottom: 16px;"></div>
-        <div class="shimmer" style="height: 14px; width: 60%;"></div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// Fetch news from API
-async function fetchNews() {
-  const loadingState = document.getElementById('loadingState');
-  const category = document.getElementById('categorySelect').value;
-  const country = document.getElementById('countrySelect').value;
-  const sortBy = document.getElementById('sortSelect').value;
-  
-  loadingState.style.display = 'block';
-  showLoadingPlaceholders();
-  
-  try {
-    const url = `https://newsapi.org/v2/top-headlines?country=${country}&category=${category}&pageSize=30&sortBy=${sortBy}&apiKey=${NEWS_API_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (data.status === 'ok') {
-      allArticles = data.articles;
-      
-      // Separate featured articles (first 4)
-      featuredArticles = allArticles.slice(0, 4);
-      const regularArticles = allArticles.slice(4);
-      
-      displayFeaturedNews(featuredArticles);
-      displayNewsGrid(regularArticles);
-    } else {
-      showErrorState('Failed to load news: ' + (data.message || 'Unknown error'));
     }
-  } catch (error) {
-    console.error('Error fetching news:', error);
-    showErrorState('Error fetching news. Please try again later.');
-  }
-  
-  loadingState.style.display = 'none';
-}
 
-// Display featured news
-function displayFeaturedNews(articles) {
-  const featuredNews = document.getElementById('featuredNews');
-  
-  if (!articles.length) {
-    featuredNews.innerHTML = '<p>No featured news available.</p>';
-    return;
-  }
-  
-  const mainArticle = articles[0];
-  const sideArticles = articles.slice(1, 4);
-  
-  featuredNews.innerHTML = `
-    <div class="featured-main">
-      <a href="${mainArticle.url}" target="_blank" style="text-decoration: none; color: inherit;">
-        <img src="${mainArticle.urlToImage || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800'}" 
-             alt="${mainArticle.title}" class="featured-main-image">
-        <div class="featured-main-content">
-          <div class="news-badge">Featured</div>
-          <h2 class="featured-main-title">${mainArticle.title}</h2>
-          <p class="featured-main-description">${mainArticle.description || 'No description available.'}</p>
-          <div class="news-meta">
-            <div class="news-source">
-              <span class="source-badge">${mainArticle.source.name}</span>
-            </div>
-            <div class="news-date">${formatDate(mainArticle.publishedAt)}</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="featured-sidebar">
-      ${sideArticles.map(article => `
-        <div class="featured-side-item">
-          <a href="${article.url}" target="_blank" style="text-decoration: none; color: inherit; display: flex; gap: 12px; width: 100%;">
-            <img src="${article.urlToImage || 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=200'}" 
-                 alt="${article.title}" class="featured-side-image">
-            <div class="featured-side-content">
-              <h3 class="featured-side-title">${article.title}</h3>
-              <div class="featured-side-meta">
-                <span>${article.source.name}</span>
-                <span>${formatDate(article.publishedAt, true)}</span>
-              </div>
-            </div>
-          </a>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-// Display news grid
-function displayNewsGrid(articles) {
-  const newsGrid = document.getElementById('newsGrid');
-  
-  if (!articles.length) {
-    newsGrid.innerHTML = '<p>No news articles found.</p>';
-    return;
-  }
-  
-  newsGrid.innerHTML = articles.map(article => `
-    <div class="news-card">
-      <a href="${article.url}" target="_blank" style="text-decoration: none; color: inherit;">
-        <div class="news-image-container">
-          <img src="${article.urlToImage || 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=400'}" 
-               alt="${article.title}" class="news-image">
-          <div class="news-badge">${article.source.name}</div>
-        </div>
-        <div class="news-content">
-          <h3 class="news-title">${article.title}</h3>
-          <p class="news-description">${article.description || 'No description available.'}</p>
-          <div class="news-meta">
-            <div class="news-source">
-              <span class="source-badge">${article.source.name}</span>
-            </div>
-            <div class="news-date">${formatDate(article.publishedAt, true)}</div>
-          </div>
-        </div>
-      </a>
-    </div>
-  `).join('');
-}
-
-// Show error state
-function showErrorState(message) {
-  const newsGrid = document.getElementById('newsGrid');
-  const featuredNews = document.getElementById('featuredNews');
-  
-  featuredNews.innerHTML = '';
-  newsGrid.innerHTML = `
-    <div style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-      <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--down-color); margin-bottom: 16px;"></i>
-      <h3>Unable to Load News</h3>
-      <p>${message}</p>
-      <button class="btn btn-primary" onclick="fetchNews()" style="margin-top: 16px;">
-        <i class="fas fa-redo"></i> Try Again
-      </button>
-    </div>
-  `;
-}
-
-// Format date
-function formatDate(dateString, short = false) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  
-  if (diffMins < 60) {
-    return `${diffMins}m ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  } else if (short) {
-    return date.toLocaleDateString();
-  } else {
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-}
-
-// Search functionality
-function setupSearch() {
-  const searchInput = document.getElementById('searchInput');
-  
-  searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    
-    if (!query) {
-      if (featuredArticles.length) {
-        displayFeaturedNews(featuredArticles);
-      }
-      if (allArticles.length > 4) {
-        displayNewsGrid(allArticles.slice(4));
-      }
-      return;
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
     }
-    
-    const filtered = allArticles.filter(article => 
-      article.title?.toLowerCase().includes(query) ||
-      article.description?.toLowerCase().includes(query) ||
-      article.source?.name?.toLowerCase().includes(query)
-    );
-    
-    if (filtered.length) {
-      const filteredFeatured = filtered.slice(0, 4);
-      const filteredRegular = filtered.slice(4);
-      
-      displayFeaturedNews(filteredFeatured);
-      displayNewsGrid(filteredRegular);
-    } else {
-      showErrorState(`No articles found for "${query}"`);
-    }
-  });
 }
 
-// Toggle theme
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('newsNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'newsNotification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content ${type}">
+                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        notification.classList.add('show');
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+}
+
+// Cache Manager
+class CacheManager {
+    static get(key) {
+        const cached = AppState.cache.get(key);
+        if (cached && Date.now() - cached.timestamp < CONFIG.CACHE_DURATION) {
+            return cached.data;
+        }
+        return null;
+    }
+
+    static set(key, data) {
+        AppState.cache.set(key, {
+            data,
+            timestamp: Date.now()
+        });
+    }
+
+    static clear() {
+        AppState.cache.clear();
+    }
+}
+
+// Market Ticker Manager
+class MarketTickerManager {
+    static initialize() {
+        const tickerContainer = document.getElementById('marketTicker');
+        if (!tickerContainer) return;
+
+        // Duplicate data for seamless scrolling
+        const tickerData = [...MARKET_DATA, ...MARKET_DATA];
+        
+        tickerContainer.innerHTML = tickerData.map(item => `
+            <div class="ticker-item">
+                <span class="ticker-symbol">${item.symbol}</span>
+                <span class="ticker-price">$${item.price.toFixed(2)}</span>
+                <span class="ticker-change ${item.change >= 0 ? 'positive' : 'negative'}">
+                    ${item.change >= 0 ? '+' : ''}${item.change.toFixed(2)}%
+                </span>
+            </div>
+        `).join('');
+
+        this.startAnimation();
+    }
+
+    static startAnimation() {
+        const ticker = document.getElementById('marketTicker');
+        if (!ticker) return;
+
+        // Reset animation
+        ticker.style.animation = 'none';
+        setTimeout(() => {
+            ticker.style.animation = 'scrollTicker 30s linear infinite';
+        }, 10);
+    }
+
+    static updateTicker(symbol, newPrice, newChange) {
+        const tickerItems = document.querySelectorAll('.ticker-item');
+        tickerItems.forEach(item => {
+            const symbolElem = item.querySelector('.ticker-symbol');
+            if (symbolElem.textContent === symbol) {
+                const priceElem = item.querySelector('.ticker-price');
+                const changeElem = item.querySelector('.ticker-change');
+                
+                priceElem.textContent = `$${newPrice.toFixed(2)}`;
+                changeElem.textContent = `${newChange >= 0 ? '+' : ''}${newChange.toFixed(2)}%`;
+                changeElem.className = `ticker-change ${newChange >= 0 ? 'positive' : 'negative'}`;
+            }
+        });
+    }
+}
+
+// News API Service
+class NewsAPIService {
+    static async fetchNews(filters = {}) {
+        const cacheKey = this.generateCacheKey(filters);
+        const cachedData = CacheManager.get(cacheKey);
+        
+        if (cachedData) {
+            console.log('Using cached news data');
+            return cachedData;
+        }
+
+        try {
+            const { category = 'general', country = 'us', sortBy = 'publishedAt' } = filters;
+            const url = `https://newsapi.org/v2/top-headlines?country=${country}&category=${category}&pageSize=${CONFIG.MAX_ARTICLES}&sortBy=${sortBy}&apiKey=${CONFIG.NEWS_API_KEY}`;
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'ok') {
+                // Filter out articles without title or content
+                const validArticles = data.articles.filter(article => 
+                    article.title && 
+                    article.title !== '[Removed]' && 
+                    article.source?.name
+                );
+                
+                CacheManager.set(cacheKey, validArticles);
+                return validArticles;
+            } else {
+                throw new Error(data.message || 'Unknown API error');
+            }
+        } catch (error) {
+            console.error('News API error:', error);
+            throw error;
+        }
+    }
+
+    static generateCacheKey(filters) {
+        return `news-${JSON.stringify(filters)}`;
+    }
+
+    static getFallbackArticles() {
+        return [
+            {
+                title: "Market Update: Major Indices Show Mixed Results",
+                description: "Global markets experienced volatility as investors await key economic data releases.",
+                url: "#",
+                urlToImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800",
+                publishedAt: new Date().toISOString(),
+                source: { name: "Financial Times" }
+            },
+            {
+                title: "Tech Sector Leads Market Gains",
+                description: "Technology companies outperform as AI investments continue to drive growth.",
+                url: "#",
+                urlToImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800",
+                publishedAt: new Date().toISOString(),
+                source: { name: "Tech News" }
+            }
+        ];
+    }
+}
+
+// News Display Manager
+class NewsDisplayManager {
+    static showLoadingState() {
+        const newsGrid = document.getElementById('newsGrid');
+        const featuredNews = document.getElementById('featuredNews');
+        
+        if (featuredNews) {
+            featuredNews.innerHTML = this.createFeaturedLoadingHTML();
+        }
+        
+        if (newsGrid) {
+            newsGrid.innerHTML = this.createNewsGridLoadingHTML();
+        }
+    }
+
+    static createFeaturedLoadingHTML() {
+        return `
+            <div class="featured-main">
+                <div class="shimmer" style="height: 300px; border-radius: 12px;"></div>
+                <div style="padding: 24px;">
+                    <div class="shimmer" style="height: 28px; margin-bottom: 16px; border-radius: 6px;"></div>
+                    <div class="shimmer" style="height: 20px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 20px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 20px; width: 60%; border-radius: 4px;"></div>
+                </div>
+            </div>
+            <div class="featured-sidebar">
+                ${Array(3).fill().map(() => `
+                    <div class="featured-side-item">
+                        <div class="shimmer" style="width: 80px; height: 80px; border-radius: 12px;"></div>
+                        <div style="flex: 1;">
+                            <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                            <div class="shimmer" style="height: 14px; margin-bottom: 8px; border-radius: 4px;"></div>
+                            <div class="shimmer" style="height: 12px; width: 70%; border-radius: 4px;"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    static createNewsGridLoadingHTML() {
+        return Array(9).fill().map(() => `
+            <div class="news-card loading">
+                <div class="shimmer" style="height: 200px; border-radius: 12px 12px 0 0;"></div>
+                <div style="padding: 20px;">
+                    <div class="shimmer" style="height: 20px; margin-bottom: 12px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; width: 80%; margin-bottom: 16px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 14px; width: 60%; border-radius: 4px;"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    static displayFeaturedNews(articles) {
+        const featuredNews = document.getElementById('featuredNews');
+        if (!featuredNews) return;
+
+        if (!articles || articles.length === 0) {
+            featuredNews.innerHTML = '<p class="no-articles">No featured news available.</p>';
+            return;
+        }
+
+        const mainArticle = articles[0];
+        const sideArticles = articles.slice(1, 4);
+
+        featuredNews.innerHTML = `
+            <div class="featured-main">
+                ${this.createArticleCard(mainArticle, 'featured')}
+            </div>
+            <div class="featured-sidebar">
+                ${sideArticles.map(article => this.createArticleCard(article, 'side')).join('')}
+            </div>
+        `;
+    }
+
+    static displayNewsGrid(articles) {
+        const newsGrid = document.getElementById('newsGrid');
+        if (!newsGrid) return;
+
+        if (!articles || articles.length === 0) {
+            newsGrid.innerHTML = '<p class="no-articles">No news articles found.</p>';
+            return;
+        }
+
+        newsGrid.innerHTML = articles.map(article => 
+            this.createArticleCard(article, 'grid')
+        ).join('');
+    }
+
+    static createArticleCard(article, type = 'grid') {
+        const defaultImage = type === 'featured' 
+            ? 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800'
+            : 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=400';
+
+        const imageUrl = article.urlToImage || defaultImage;
+        const title = article.title || 'No title available';
+        const description = article.description || 'No description available.';
+        const source = article.source?.name || 'Unknown Source';
+        const date = this.formatDate(article.publishedAt, type !== 'featured');
+
+        if (type === 'featured') {
+            return `
+                <a href="${article.url}" target="_blank" class="news-link">
+                    <img src="${imageUrl}" alt="${title}" class="featured-main-image">
+                    <div class="featured-main-content">
+                        <div class="news-badge">Featured</div>
+                        <h2 class="featured-main-title">${title}</h2>
+                        <p class="featured-main-description">${description}</p>
+                        <div class="news-meta">
+                            <span class="source-badge">${source}</span>
+                            <span class="news-date">${date}</span>
+                        </div>
+                    </div>
+                </a>
+            `;
+        }
+
+        if (type === 'side') {
+            return `
+                <div class="featured-side-item">
+                    <a href="${article.url}" target="_blank" class="news-link">
+                        <img src="${imageUrl}" alt="${title}" class="featured-side-image">
+                        <div class="featured-side-content">
+                            <h3 class="featured-side-title">${title}</h3>
+                            <div class="featured-side-meta">
+                                <span>${source}</span>
+                                <span>${date}</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+
+        // Grid type
+        return `
+            <div class="news-card">
+                <a href="${article.url}" target="_blank" class="news-link">
+                    <div class="news-image-container">
+                        <img src="${imageUrl}" alt="${title}" class="news-image">
+                        <div class="news-badge">${source}</div>
+                    </div>
+                    <div class="news-content">
+                        <h3 class="news-title">${title}</h3>
+                        <p class="news-description">${description}</p>
+                        <div class="news-meta">
+                            <span class="source-badge">${source}</span>
+                            <span class="news-date">${date}</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `;
+    }
+
+    static formatDate(dateString, short = false) {
+        if (!dateString) return 'Unknown date';
+        
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            
+            if (diffMins < 60) {
+                return `${diffMins}m ago`;
+            } else if (diffHours < 24) {
+                return `${diffHours}h ago`;
+            } else if (short) {
+                return date.toLocaleDateString();
+            } else {
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+        } catch (error) {
+            return 'Invalid date';
+        }
+    }
+
+    static showErrorState(message) {
+        const newsGrid = document.getElementById('newsGrid');
+        const featuredNews = document.getElementById('featuredNews');
+        
+        if (featuredNews) {
+            featuredNews.innerHTML = '';
+        }
+        
+        if (newsGrid) {
+            newsGrid.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle error-icon"></i>
+                    <h3>Unable to Load News</h3>
+                    <p>${message}</p>
+                    <button class="btn btn-primary retry-btn" onclick="NewsManager.refreshNews()">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// Search Manager
+class SearchManager {
+    constructor() {
+        this.searchInput = document.getElementById('searchInput');
+        this.debouncedSearch = this.debounce(this.handleSearch.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', this.debouncedSearch);
+        }
+    }
+
+    handleSearch(event) {
+        const query = event.target.value.toLowerCase().trim();
+        
+        if (!query) {
+            // Reset to original articles
+            NewsDisplayManager.displayFeaturedNews(AppState.featuredArticles);
+            NewsDisplayManager.displayNewsGrid(AppState.allArticles.slice(4));
+            return;
+        }
+        
+        const filtered = AppState.allArticles.filter(article => 
+            article.title?.toLowerCase().includes(query) ||
+            article.description?.toLowerCase().includes(query) ||
+            article.source?.name?.toLowerCase().includes(query) ||
+            article.content?.toLowerCase().includes(query)
+        );
+        
+        if (filtered.length > 0) {
+            const filteredFeatured = filtered.slice(0, 4);
+            const filteredRegular = filtered.slice(4);
+            
+            NewsDisplayManager.displayFeaturedNews(filteredFeatured);
+            NewsDisplayManager.displayNewsGrid(filteredRegular);
+        } else {
+            NewsDisplayManager.showErrorState(`No articles found for "${query}"`);
+        }
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    clearSearch() {
+        if (this.searchInput) {
+            this.searchInput.value = '';
+            this.handleSearch({ target: { value: '' } });
+        }
+    }
+}
+
+// News Manager
+class NewsManager {
+    static async loadNews(filters = {}) {
+        const loadingState = document.getElementById('loadingState');
+        
+        if (loadingState) {
+            loadingState.style.display = 'block';
+        }
+        
+        NewsDisplayManager.showLoadingState();
+
+        try {
+            const articles = await NewsAPIService.fetchNews(filters);
+            
+            AppState.allArticles = articles;
+            AppState.featuredArticles = articles.slice(0, 4);
+            AppState.currentFilters = { ...AppState.currentFilters, ...filters };
+
+            NewsDisplayManager.displayFeaturedNews(AppState.featuredArticles);
+            NewsDisplayManager.displayNewsGrid(articles.slice(4));
+            
+            NotificationManager.show(`Loaded ${articles.length} news articles`, 'success');
+
+        } catch (error) {
+            console.error('Failed to load news:', error);
+            
+            // Use fallback data
+            const fallbackArticles = NewsAPIService.getFallbackArticles();
+            AppState.allArticles = fallbackArticles;
+            AppState.featuredArticles = fallbackArticles.slice(0, 2);
+            
+            NewsDisplayManager.displayFeaturedNews(AppState.featuredArticles);
+            NewsDisplayManager.displayNewsGrid([]);
+            
+            NotificationManager.show(
+                'Using fallback news data. Some features may be limited.',
+                'warning'
+            );
+        } finally {
+            if (loadingState) {
+                loadingState.style.display = 'none';
+            }
+        }
+    }
+
+    static refreshNews() {
+        CacheManager.clear();
+        this.loadNews(AppState.currentFilters);
+    }
+
+    static updateFilters(newFilters) {
+        this.loadNews(newFilters);
+    }
+}
+
+// Filter Manager
+class FilterManager {
+    constructor() {
+        this.categorySelect = document.getElementById('categorySelect');
+        this.countrySelect = document.getElementById('countrySelect');
+        this.sortSelect = document.getElementById('sortSelect');
+        this.init();
+    }
+
+    init() {
+        if (this.categorySelect) {
+            this.categorySelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.countrySelect) {
+            this.countrySelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.sortSelect) {
+            this.sortSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+    }
+
+    handleFilterChange() {
+        const filters = {
+            category: this.categorySelect?.value || 'general',
+            country: this.countrySelect?.value || 'us',
+            sortBy: this.sortSelect?.value || 'publishedAt'
+        };
+
+        NewsManager.updateFilters(filters);
+    }
+
+    getCurrentFilters() {
+        return {
+            category: this.categorySelect?.value || 'general',
+            country: this.countrySelect?.value || 'us',
+            sortBy: this.sortSelect?.value || 'publishedAt'
+        };
+    }
+}
+
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
+}
+
+// Main News Application
+class NewsApplication {
+    constructor() {
+        this.mobileMenu = null;
+        this.searchManager = null;
+        this.filterManager = null;
+        this.init();
+    }
+
+    async init() {
+        console.log('🚀 Initializing News Application...');
+        
+        // Load theme
+        ThemeManager.load();
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.searchManager = new SearchManager();
+        this.filterManager = new FilterManager();
+        
+        // Initialize market ticker
+        MarketTickerManager.initialize();
+        
+        // Load initial news
+        await NewsManager.loadNews();
+        
+        AppState.isInitialized = true;
+        console.log('✅ News Application initialized successfully');
+    }
+
+    refreshAll() {
+        CacheManager.clear();
+        MarketTickerManager.initialize();
+        NewsManager.refreshNews();
+        this.searchManager.clearSearch();
+    }
+}
+
+// Global functions for HTML event handlers
 function toggleTheme() {
-  document.body.classList.toggle('light');
+    ThemeManager.toggle();
+}
+
+function refreshNews() {
+    NewsManager.refreshNews();
+}
+
+function clearCache() {
+    CacheManager.clear();
+    NotificationManager.show('Cache cleared successfully', 'success');
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize mobile menu
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
-  
-  // Setup search functionality
-  setupSearch();
-  
-  // Initialize market ticker
-  initializeMarketTicker();
-  
-  // Set up filter change listeners
-  document.getElementById('categorySelect').addEventListener('change', fetchNews);
-  document.getElementById('countrySelect').addEventListener('change', fetchNews);
-  document.getElementById('sortSelect').addEventListener('change', fetchNews);
-  
-  // Load initial news
-  fetchNews();
+document.addEventListener('DOMContentLoaded', async () => {
+    window.newsApp = new NewsApplication();
 });
+
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
+});
+
+// Add notification styles
+const notificationStyles = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 10000;
+        overflow: hidden;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .notification-content.success {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .notification-content.error {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .notification-content.warning {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .notification-content.info {
+        border-left: 4px solid #2196f3;
+    }
+    
+    .notification-icon {
+        font-size: 1.2em;
+    }
+    
+    .notification-content.success .notification-icon {
+        color: var(--up-color);
+    }
+    
+    .notification-content.error .notification-icon {
+        color: var(--down-color);
+    }
+    
+    .notification-content.warning .notification-icon {
+        color: #ff9800;
+    }
+    
+    .notification-content.info .notification-icon {
+        color: #2196f3;
+    }
+    
+    .notification-message {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
+    
+    .notification-close:hover {
+        background: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .error-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .error-icon {
+        font-size: 48px;
+        color: var(--down-color);
+        margin-bottom: 16px;
+    }
+    
+    .no-articles {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+    }
+    
+    .shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    
+    .news-card.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+`;
+
+// Add styles to document
+const styleSheet = document.createElement('style');
+styleSheet.textContent = notificationStyles;
+document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>

@@ -919,408 +919,1214 @@ body {
     </div>
   </main>
 </div>
-
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+// Configuration
+const CONFIG = {
+    CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+    DEBOUNCE_DELAY: 300,
+    LOAD_DELAY: 800,
+    AUTO_REFRESH_INTERVAL: 30000, // 30 seconds
+    MAX_ALERTS_DISPLAY: 100
+};
 
 // Alert data
-const alerts = [
-  {
-    id: 1,
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    type: "price",
-    severity: "high",
-    title: "Significant Price Drop Detected",
-    description: "Apple shares dropped 4.2% in the last hour amid broader tech selloff. Technical indicators show potential support at $175.",
-    confidence: 85,
-    timestamp: Date.now() - 1000 * 60 * 18, // 18 minutes ago
-    stats: {
-      precision: "82%",
-      last30: "24 alerts",
-      response: "12m"
+const ALERTS_DATA = [
+    {
+        id: 1,
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        type: "price",
+        severity: "high",
+        title: "Significant Price Drop Detected",
+        description: "Apple shares dropped 4.2% in the last hour amid broader tech selloff. Technical indicators show potential support at $175.",
+        confidence: 85,
+        timestamp: Date.now() - 1000 * 60 * 18, // 18 minutes ago
+        stats: {
+            precision: "82%",
+            last30: "24 alerts",
+            response: "12m"
+        },
+        trigger: "Price dropped below 50-day moving average",
+        impact: "High",
+        recommendation: "Consider buying opportunity at support levels",
+        isRead: false,
+        isDismissed: false
     },
-    trigger: "Price dropped below 50-day moving average",
-    impact: "High",
-    recommendation: "Consider buying opportunity at support levels"
-  },
-  {
-    id: 2,
-    symbol: "NVDA",
-    name: "NVIDIA Corp.",
-    type: "volume",
-    severity: "high",
-    title: "Unusual Volume Activity",
-    description: "NVIDIA trading volume 3.2x above average with large block trades. Options activity suggests institutional positioning.",
-    confidence: 78,
-    timestamp: Date.now() - 1000 * 60 * 45, // 45 minutes ago
-    stats: {
-      precision: "79%",
-      last30: "18 alerts",
-      response: "8m"
+    {
+        id: 2,
+        symbol: "NVDA",
+        name: "NVIDIA Corp.",
+        type: "volume",
+        severity: "high",
+        title: "Unusual Volume Activity",
+        description: "NVIDIA trading volume 3.2x above average with large block trades. Options activity suggests institutional positioning.",
+        confidence: 78,
+        timestamp: Date.now() - 1000 * 60 * 45, // 45 minutes ago
+        stats: {
+            precision: "79%",
+            last30: "18 alerts",
+            response: "8m"
+        },
+        trigger: "Volume spike with institutional block trades",
+        impact: "Medium",
+        recommendation: "Monitor for breakout above $950 resistance",
+        isRead: false,
+        isDismissed: false
     },
-    trigger: "Volume spike with institutional block trades",
-    impact: "Medium",
-    recommendation: "Monitor for breakout above $950 resistance"
-  },
-  {
-    id: 3,
-    symbol: "TSLA",
-    name: "Tesla Inc.",
-    type: "news",
-    severity: "medium",
-    title: "Negative News Sentiment Spike",
-    description: "Social media sentiment turned negative following CEO comments. Sentiment score dropped from +0.8 to -1.2 in 2 hours.",
-    confidence: 72,
-    timestamp: Date.now() - 1000 * 60 * 120, // 2 hours ago
-    stats: {
-      precision: "75%",
-      last30: "15 alerts",
-      response: "15m"
+    {
+        id: 3,
+        symbol: "TSLA",
+        name: "Tesla Inc.",
+        type: "news",
+        severity: "medium",
+        title: "Negative News Sentiment Spike",
+        description: "Social media sentiment turned negative following CEO comments. Sentiment score dropped from +0.8 to -1.2 in 2 hours.",
+        confidence: 72,
+        timestamp: Date.now() - 1000 * 60 * 120, // 2 hours ago
+        stats: {
+            precision: "75%",
+            last30: "15 alerts",
+            response: "15m"
+        },
+        trigger: "Social media sentiment decline",
+        impact: "Medium",
+        recommendation: "Watch for technical breakdown below $170",
+        isRead: false,
+        isDismissed: false
     },
-    trigger: "Social media sentiment decline",
-    impact: "Medium",
-    recommendation: "Watch for technical breakdown below $170"
-  },
-  {
-    id: 4,
-    symbol: "AMZN",
-    name: "Amazon.com Inc.",
-    type: "technical",
-    severity: "medium",
-    title: "Bullish Technical Pattern Forming",
-    description: "Amazon forming inverse head and shoulders pattern on 4-hour chart. Potential breakout target: $185-190 range.",
-    confidence: 68,
-    timestamp: Date.now() - 1000 * 60 * 180, // 3 hours ago
-    stats: {
-      precision: "71%",
-      last30: "22 alerts",
-      response: "20m"
+    {
+        id: 4,
+        symbol: "AMZN",
+        name: "Amazon.com Inc.",
+        type: "technical",
+        severity: "medium",
+        title: "Bullish Technical Pattern Forming",
+        description: "Amazon forming inverse head and shoulders pattern on 4-hour chart. Potential breakout target: $185-190 range.",
+        confidence: 68,
+        timestamp: Date.now() - 1000 * 60 * 180, // 3 hours ago
+        stats: {
+            precision: "71%",
+            last30: "22 alerts",
+            response: "20m"
+        },
+        trigger: "Inverse head and shoulders pattern detected",
+        impact: "Low",
+        recommendation: "Consider long position on breakout above $178",
+        isRead: false,
+        isDismissed: false
     },
-    trigger: "Inverse head and shoulders pattern detected",
-    impact: "Low",
-    recommendation: "Consider long position on breakout above $178"
-  },
-  {
-    id: 5,
-    symbol: "MSFT",
-    name: "Microsoft Corp.",
-    type: "volatility",
-    severity: "low",
-    title: "Volatility Compression Nearing End",
-    description: "MSFT volatility has compressed to 3-month lows. Historical patterns suggest imminent expansion with directional move.",
-    confidence: 65,
-    timestamp: Date.now() - 1000 * 60 * 240, // 4 hours ago
-    stats: {
-      precision: "69%",
-      last30: "12 alerts",
-      response: "25m"
+    {
+        id: 5,
+        symbol: "MSFT",
+        name: "Microsoft Corp.",
+        type: "volatility",
+        severity: "low",
+        title: "Volatility Compression Nearing End",
+        description: "MSFT volatility has compressed to 3-month lows. Historical patterns suggest imminent expansion with directional move.",
+        confidence: 65,
+        timestamp: Date.now() - 1000 * 60 * 240, // 4 hours ago
+        stats: {
+            precision: "69%",
+            last30: "12 alerts",
+            response: "25m"
+        },
+        trigger: "Volatility compression to extreme lows",
+        impact: "Low",
+        recommendation: "Prepare for volatility expansion, consider strangle options",
+        isRead: false,
+        isDismissed: false
     },
-    trigger: "Volatility compression to extreme lows",
-    impact: "Low",
-    recommendation: "Prepare for volatility expansion, consider strangle options"
-  },
-  {
-    id: 6,
-    symbol: "GOOGL",
-    name: "Alphabet Inc.",
-    type: "price",
-    severity: "high",
-    title: "Breakout Above Key Resistance",
-    description: "Google broke above $175 resistance with strong volume. Next resistance levels at $180 and $185. RSI shows room for further upside.",
-    confidence: 81,
-    timestamp: Date.now() - 1000 * 60 * 30, // 30 minutes ago
-    stats: {
-      precision: "84%",
-      last30: "19 alerts",
-      response: "10m"
-    },
-    trigger: "Price breakout with volume confirmation",
-    impact: "High",
-    recommendation: "Consider adding to long positions, target $180"
-  }
+    {
+        id: 6,
+        symbol: "GOOGL",
+        name: "Alphabet Inc.",
+        type: "price",
+        severity: "high",
+        title: "Breakout Above Key Resistance",
+        description: "Google broke above $175 resistance with strong volume. Next resistance levels at $180 and $185. RSI shows room for further upside.",
+        confidence: 81,
+        timestamp: Date.now() - 1000 * 60 * 30, // 30 minutes ago
+        stats: {
+            precision: "84%",
+            last30: "19 alerts",
+            response: "10m"
+        },
+        trigger: "Price breakout with volume confirmation",
+        impact: "High",
+        recommendation: "Consider adding to long positions, target $180",
+        isRead: false,
+        isDismissed: false
+    }
 ];
 
-let filteredAlerts = [...alerts];
+// Application State
+const AppState = {
+    alerts: [...ALERTS_DATA],
+    filteredAlerts: [...ALERTS_DATA],
+    currentFilters: {
+        severity: 'all',
+        type: 'all',
+        time: 'all',
+        searchQuery: '',
+        showRead: true,
+        showDismissed: false
+    },
+    currentAlert: null,
+    isInitialized: false,
+    autoRefreshInterval: null,
+    unreadCount: ALERTS_DATA.filter(alert => !alert.isRead).length
+};
 
-// Initialize the page
-function initializePage() {
-  updateStats();
-  loadAlertsGrid();
-  setupEventListeners();
-}
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
 
-// Update statistics
-function updateStats() {
-  const totalAlerts = alerts.length;
-  const highAlerts = alerts.filter(alert =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- alert.severity === 'high').length;
-  const accuracyRate = "83%";
-  const avgResponse = "15m";
-  
-  document.getElementById('totalAlerts').textContent = totalAlerts;
-  document.getElementById('highAlerts').textContent = highAlerts;
-  document.getElementById('accuracyRate').textContent = accuracyRate;
-  document.getElementById('avgResponse').textContent = avgResponse;
-}
-
-// Load alerts grid
-function loadAlertsGrid() {
-  const alertsGrid = document.getElementById('alertsGrid');
-  const emptyState = document.getElementById('emptyState');
-  const loadingState = document.getElementById('loadingState');
-  
-  // Hide loading state
-  loadingState.style.display = 'none';
-  
-  if (filteredAlerts.length === 0) {
-    alertsGrid.style.display = 'none';
-    emptyState.style.display = 'block';
-    return;
-  }
-  
-  alertsGrid.style.display = 'grid';
-  emptyState.style.display = 'none';
-  
-  alertsGrid.innerHTML = filteredAlerts.map(alert => `
-    <div class="alert-card">
-      <div class="alert-header">
-        <div>
-          <h3 class="alert-title">${alert.title}</h3>
-          <div class="alert-symbol">${alert.symbol} · ${alert.name}</div>
-        </div>
-        <div class="alert-severity severity-${alert.severity}">
-          ${alert.severity.toUpperCase()}
-        </div>
-      </div>
-      
-      <p class="alert-description">${alert.description}</p>
-      
-      <div class="alert-meta">
-        <div class="alert-confidence">
-          <div class="confidence-label">Confidence Level</div>
-          <div class="confidence-bar">
-            <div class="confidence-fill" style="width: ${alert.confidence}%"></div>
-          </div>
-        </div>
-        <div class="alert-time">${formatTimeAgo(alert.timestamp)}</div>
-      </div>
-      
-      <div class="alert-details">
-        <div class="alert-stats">
-          <div class="alert-stat">
-            <div class="stat-label">Precision</div>
-            <div class="stat-value-small">${alert.stats.precision}</div>
-          </div>
-          <div class="alert-stat">
-            <div class="stat-label">Last 30d</div>
-            <div class="stat-value-small">${alert.stats.last30}</div>
-          </div>
-          <div class="alert-stat">
-            <div class="stat-label">Avg Response</div>
-            <div class="stat-value-small">${alert.stats.response}</div>
-          </div>
-        </div>
-        <div class="alert-actions">
-          <button class="btn btn-primary btn-small" onclick="viewAlertDetails(${alert.id})">
-            <i class="fas fa-eye"></i> Details
-          </button>
-          <button class="btn btn-secondary btn-small" onclick="dismissAlert(${alert.id})">
-            <i class="fas fa-times"></i> Dismiss
-          </button>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-// Format time ago
-function formatTimeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  
-  if (seconds < 60) {
-    return `${seconds}s ago`;
-  } else if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m ago`;
-  } else if (seconds < 86400) {
-    const hours = Math.floor(seconds / 3600);
-    return `${hours}h ago`;
-  } else {
-    const days = Math.floor(seconds / 86400);
-    return `${days}d ago`;
-  }
-}
-
-// Filter alerts based on selections
-function filterAlerts() {
-  const severity = document.getElementById('severitySelect').value;
-  const type = document.getElementById('typeSelect').value;
-  const time = document.getElementById('timeSelect').value;
-  const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-  
-  // Apply filters
-  filteredAlerts = alerts.filter(alert => {
-    // Severity filter
-    if (severity !== 'all' && alert.severity !== severity) {
-      return false;
     }
-    
-    // Type filter
-    if (type !== 'all' && alert.type !== type) {
-      return false;
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
     }
-    
-    // Time filter
-    if (time !== 'all') {
-      const now = Date.now();
-      const alertTime = alert.timestamp;
-      let timeThreshold;
-      
-      switch (time) {
-        case '1h': timeThreshold = now - (1000 * 60 * 60); break;
-        case '6h': timeThreshold = now - (1000 * 60 * 60 * 6); break;
-        case '24h': timeThreshold = now - (1000 * 60 * 60 * 24); break;
-        case '7d': timeThreshold = now - (1000 * 60 * 60 * 24 * 7); break;
-        default: timeThreshold = 0;
-      }
-      
-      if (alertTime < timeThreshold) {
-        return false;
-      }
+}
+
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        let notification = document.getElementById('alertNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'alertNotification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content ${type}">
+                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
-    
-    // Search filter
-    if (searchQuery && 
-        !alert.symbol.toLowerCase().includes(searchQuery) &&
-        !alert.name.toLowerCase().includes(searchQuery) &&
-        !alert.title.toLowerCase().includes(searchQuery) &&
-        !alert.description.toLowerCase().includes(searchQuery)) {
-      return false;
+}
+
+// Cache Manager
+class CacheManager {
+    static get(key) {
+        const cached = localStorage.getItem(`alerts_${key}`);
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < CONFIG.CACHE_DURATION) {
+                return data;
+            }
+        }
+        return null;
     }
-    
-    return true;
-  });
-  
-  loadAlertsGrid();
+
+    static set(key, data) {
+        const cacheData = {
+            data,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(`alerts_${key}`, JSON.stringify(cacheData));
+    }
+
+    static clear() {
+        // Clear all alert-related cache
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('alerts_')) {
+                localStorage.removeItem(key);
+            }
+        });
+    }
 }
 
-// View alert details
-function viewAlertDetails(alertId) {
-  const alert = alerts.find(a => a.id === alertId);
-  if (alert) {
-    alert(`
-      ${alert.symbol} - ${alert.name}
-      Severity: ${alert.severity.toUpperCase()}
-      Type: ${alert.type}
-      Confidence: ${alert.confidence}%
-      
-      ${alert.description}
-      
-      Trigger: ${alert.trigger}
-      Impact: ${alert.impact}
-      Recommendation: ${alert.recommendation}
-      
-      Stats:
-      - Precision: ${alert.stats.precision}
-      - Alerts (30d): ${alert.stats.last30}
-      - Avg Response: ${alert.stats.response}
-    `);
-  }
+// Stats Manager
+class StatsManager {
+    static update() {
+        const totalAlerts = AppState.alerts.length;
+        const highAlerts = AppState.alerts.filter(alert => alert.severity === 'high' && !alert.isDismissed).length;
+        const unreadAlerts = AppState.alerts.filter(alert => !alert.isRead && !alert.isDismissed).length;
+        const accuracyRate = this.calculateAccuracyRate();
+        const avgResponse = this.calculateAvgResponse();
+
+        document.getElementById('totalAlerts').textContent = totalAlerts;
+        document.getElementById('highAlerts').textContent = highAlerts;
+        document.getElementById('unreadAlerts').textContent = unreadAlerts;
+        document.getElementById('accuracyRate').textContent = accuracyRate;
+        document.getElementById('avgResponse').textContent = avgResponse;
+
+        // Update badge if exists
+        this.updateUnreadBadge(unreadAlerts);
+    }
+
+    static calculateAccuracyRate() {
+        const totalAlerts = AppState.alerts.length;
+        if (totalAlerts === 0) return "0%";
+        
+        const avgConfidence = AppState.alerts.reduce((sum, alert) => sum + alert.confidence, 0) / totalAlerts;
+        return `${Math.round(avgConfidence)}%`;
+    }
+
+    static calculateAvgResponse() {
+        const responses = AppState.alerts.map(alert => {
+            const responseTime = alert.stats.response;
+            return parseInt(responseTime) || 0;
+        });
+        
+        const avg = responses.reduce((sum, time) => sum + time, 0) / responses.length;
+        return `${Math.round(avg)}m`;
+    }
+
+    static updateUnreadBadge(count) {
+        const badge = document.getElementById('unreadBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
 }
 
-// Dismiss alert
-function dismissAlert(alertId) {
-  if (confirm('Are you sure you want to dismiss this alert?')) {
-    // In a real app, this would update the backend
-    filteredAlerts = filteredAlerts.filter(alert => alert.id !== alertId);
-    loadAlertsGrid();
-    updateStats();
-  }
+// Alert Display Manager
+class AlertDisplayManager {
+    static loadAlertsGrid() {
+        const alertsGrid = document.getElementById('alertsGrid');
+        const emptyState = document.getElementById('emptyState');
+        const loadingState = document.getElementById('loadingState');
+        
+        if (!alertsGrid || !emptyState || !loadingState) return;
+
+        loadingState.style.display = 'none';
+        
+        if (AppState.filteredAlerts.length === 0) {
+            alertsGrid.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        alertsGrid.style.display = 'grid';
+        emptyState.style.display = 'none';
+        
+        alertsGrid.innerHTML = AppState.filteredAlerts.map(alert => 
+            this.createAlertCardHTML(alert)
+        ).join('');
+        
+        this.attachAlertCardEventListeners();
+    }
+
+    static createAlertCardHTML(alert) {
+        const isUnread = !alert.isRead;
+        const isDismissed = alert.isDismissed;
+        
+        return `
+            <div class="alert-card ${isUnread ? 'unread' : ''} ${isDismissed ? 'dismissed' : ''}" data-alert-id="${alert.id}">
+                <div class="alert-header">
+                    <div class="alert-title-section">
+                        ${isUnread ? '<div class="unread-indicator"></div>' : ''}
+                        <div>
+                            <h3 class="alert-title">${alert.title}</h3>
+                            <div class="alert-symbol">
+                                <span class="symbol-ticker">${alert.symbol}</span>
+                                <span class="symbol-name">${alert.name}</span>
+                                <span class="alert-type">${this.formatAlertType(alert.type)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert-severity severity-${alert.severity}">
+                        ${alert.severity.toUpperCase()}
+                    </div>
+                </div>
+                
+                <p class="alert-description">${alert.description}</p>
+                
+                <div class="alert-meta">
+                    <div class="alert-confidence">
+                        <div class="confidence-label">Confidence Level</div>
+                        <div class="confidence-display">
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${alert.confidence}%"></div>
+                            </div>
+                            <span class="confidence-value">${alert.confidence}%</span>
+                        </div>
+                    </div>
+                    <div class="alert-time">
+                        <i class="fas fa-clock"></i>
+                        ${this.formatTimeAgo(alert.timestamp)}
+                    </div>
+                </div>
+                
+                <div class="alert-details">
+                    <div class="alert-stats">
+                        <div class="alert-stat">
+                            <div class="stat-label">Precision</div>
+                            <div class="stat-value-small ${this.getPrecisionColor(alert.stats.precision)}">
+                                ${alert.stats.precision}
+                            </div>
+                        </div>
+                        <div class="alert-stat">
+                            <div class="stat-label">Last 30d</div>
+                            <div class="stat-value-small">${alert.stats.last30}</div>
+                        </div>
+                        <div class="alert-stat">
+                            <div class="stat-label">Avg Response</div>
+                            <div class="stat-value-small">${alert.stats.response}</div>
+                        </div>
+                    </div>
+                    <div class="alert-actions">
+                        <button class="btn btn-primary btn-small" onclick="event.stopPropagation(); AlertModalManager.open(${alert.id})">
+                            <i class="fas fa-eye"></i> Details
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); AlertManager.dismissAlert(${alert.id})">
+                            <i class="fas fa-times"></i> Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    static attachAlertCardEventListeners() {
+        document.querySelectorAll('.alert-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const alertId = this.getAttribute('data-alert-id');
+                AlertModalManager.open(parseInt(alertId));
+            });
+        });
+    }
+
+    static formatTimeAgo(timestamp) {
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        
+        if (seconds < 60) {
+            return `${seconds}s ago`;
+        } else if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            return `${minutes}m ago`;
+        } else if (seconds < 86400) {
+            const hours = Math.floor(seconds / 3600);
+            return `${hours}h ago`;
+        } else {
+            const days = Math.floor(seconds / 86400);
+            return `${days}d ago`;
+        }
+    }
+
+    static formatAlertType(type) {
+        const typeMap = {
+            'price': 'Price Alert',
+            'volume': 'Volume Alert',
+            'news': 'News Sentiment',
+            'technical': 'Technical Pattern',
+            'volatility': 'Volatility Alert'
+        };
+        return typeMap[type] || type;
+    }
+
+    static getPrecisionColor(precision) {
+        const value = parseInt(precision);
+        if (value >= 80) return 'positive';
+        if (value >= 70) return 'medium';
+        return 'negative';
+    }
+
+    static showLoadingState() {
+        const alertsGrid = document.getElementById('alertsGrid');
+        const emptyState = document.getElementById('emptyState');
+        const loadingState = document.getElementById('loadingState');
+        
+        if (alertsGrid) alertsGrid.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        if (loadingState) loadingState.style.display = 'block';
+    }
+
+    static createLoadingHTML() {
+        return Array(4).fill().map(() => `
+            <div class="alert-card loading">
+                <div class="alert-header">
+                    <div class="shimmer" style="height: 20px; width: 70%; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; width: 40%; border-radius: 4px;"></div>
+                </div>
+                <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                <div class="shimmer" style="height: 16px; width: 80%; margin-bottom: 16px; border-radius: 4px;"></div>
+                <div class="shimmer" style="height: 12px; width: 60%; border-radius: 4px;"></div>
+            </div>
+        `).join('');
+    }
 }
 
-// Setup event listeners
-function setupEventListeners() {
-  // Filter change listeners
-  document.getElementById('severitySelect').addEventListener('change', filterAlerts);
-  document.getElementById('typeSelect').addEventListener('change', filterAlerts);
-  document.getElementById('timeSelect').addEventListener('change', filterAlerts);
-  document.getElementById('searchInput').addEventListener('input', filterAlerts);
-  
-  // Mobile menu toggle
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
+// Alert Modal Manager
+class AlertModalManager {
+    static open(alertId) {
+        const alert = AppState.alerts.find(a => a.id === alertId);
+        if (!alert) {
+            NotificationManager.show('Alert not found', 'error');
+            return;
+        }
+
+        // Mark as read
+        AlertManager.markAsRead(alertId);
+
+        const modal = document.getElementById('alertModal');
+        const modalContent = document.getElementById('modalContent');
+
+        if (!modal || !modalContent) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        modalContent.innerHTML = this.createModalContentHTML(alert);
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
+        AppState.currentAlert = alert;
+    }
+
+    static createModalContentHTML(alert) {
+        return `
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <h2>${alert.title}</h2>
+                    <div class="modal-subtitle">
+                        <span class="symbol-ticker-large">${alert.symbol}</span>
+                        <span class="symbol-name-large">${alert.name}</span>
+                        <span class="alert-type-badge">${AlertDisplayManager.formatAlertType(alert.type)}</span>
+                        <span class="alert-severity-badge severity-${alert.severity}">${alert.severity.toUpperCase()}</span>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="AlertModalManager.close()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="modal-description">
+                    <p>${alert.description}</p>
+                </div>
+                
+                <div class="modal-stats">
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${alert.confidence}%</div>
+                        <div class="modal-stat-label">Confidence</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${alert.stats.precision}</div>
+                        <div class="modal-stat-label">Precision</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${alert.stats.last30}</div>
+                        <div class="modal-stat-label">Alerts (30d)</div>
+                    </div>
+                    <div class="modal-stat">
+                        <div class="modal-stat-value">${alert.stats.response}</div>
+                        <div class="modal-stat-label">Avg Response</div>
+                    </div>
+                </div>
+                
+                <div class="modal-details">
+                    <div class="detail-section">
+                        <h3>Trigger</h3>
+                        <p>${alert.trigger}</p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Impact Assessment</h3>
+                        <div class="impact-level impact-${alert.impact.toLowerCase()}">
+                            ${alert.impact} Impact
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Recommendation</h3>
+                        <p>${alert.recommendation}</p>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="AlertManager.viewStockDetails('${alert.symbol}')">
+                        <i class="fas fa-chart-line"></i> View Stock Details
+                    </button>
+                    <button class="btn btn-secondary" onclick="AlertManager.dismissAlert(${alert.id})">
+                        <i class="fas fa-times"></i> Dismiss Alert
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    static close() {
+        const modal = document.getElementById('alertModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        AppState.currentAlert = null;
+    }
+
+    static setupEventListeners() {
+        const modal = document.getElementById('alertModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    AlertModalManager.close();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && AppState.currentAlert) {
+                AlertModalManager.close();
+            }
+        });
+    }
 }
 
-// Toggle theme
+// Filter Manager
+class FilterManager {
+    constructor() {
+        this.severitySelect = document.getElementById('severitySelect');
+        this.typeSelect = document.getElementById('typeSelect');
+        this.timeSelect = document.getElementById('timeSelect');
+        this.searchInput = document.getElementById('searchInput');
+        this.showReadCheckbox = document.getElementById('showRead');
+        this.showDismissedCheckbox = document.getElementById('showDismissed');
+        this.debouncedFilter = this.debounce(this.applyFilters.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.severitySelect) {
+            this.severitySelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.typeSelect) {
+            this.typeSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.timeSelect) {
+            this.timeSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', this.debouncedFilter);
+        }
+        if (this.showReadCheckbox) {
+            this.showReadCheckbox.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.showDismissedCheckbox) {
+            this.showDismissedCheckbox.addEventListener('change', () => this.handleFilterChange());
+        }
+    }
+
+    handleFilterChange() {
+        this.applyFilters();
+    }
+
+    applyFilters() {
+        const severity = this.severitySelect?.value || 'all';
+        const type = this.typeSelect?.value || 'all';
+        const time = this.timeSelect?.value || 'all';
+        const searchQuery = this.searchInput?.value.toLowerCase().trim() || '';
+        const showRead = this.showReadCheckbox?.checked ?? true;
+        const showDismissed = this.showDismissedCheckbox?.checked ?? false;
+
+        AppState.currentFilters = { severity, type, time, searchQuery, showRead, showDismissed };
+        AlertManager.filterAlerts();
+    }
+
+    clear() {
+        if (this.severitySelect) this.severitySelect.value = 'all';
+        if (this.typeSelect) this.typeSelect.value = 'all';
+        if (this.timeSelect) this.timeSelect.value = 'all';
+        if (this.searchInput) this.searchInput.value = '';
+        if (this.showReadCheckbox) this.showReadCheckbox.checked = true;
+        if (this.showDismissedCheckbox) this.showDismissedCheckbox.checked = false;
+        
+        this.applyFilters();
+        NotificationManager.show('Filters cleared', 'success');
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+}
+
+// Alert Manager
+class AlertManager {
+    static filterAlerts() {
+        const { severity, type, time, searchQuery, showRead, showDismissed } = AppState.currentFilters;
+
+        // Apply filters
+        AppState.filteredAlerts = AppState.alerts.filter(alert => {
+            // Severity filter
+            if (severity !== 'all' && alert.severity !== severity) {
+                return false;
+            }
+            
+            // Type filter
+            if (type !== 'all' && alert.type !== type) {
+                return false;
+            }
+            
+            // Time filter
+            if (time !== 'all') {
+                const now = Date.now();
+                const alertTime = alert.timestamp;
+                let timeThreshold;
+                
+                switch (time) {
+                    case '1h': timeThreshold = now - (1000 * 60 * 60); break;
+                    case '6h': timeThreshold = now - (1000 * 60 * 60 * 6); break;
+                    case '24h': timeThreshold = now - (1000 * 60 * 60 * 24); break;
+                    case '7d': timeThreshold = now - (1000 * 60 * 60 * 24 * 7); break;
+                    default: timeThreshold = 0;
+                }
+                
+                if (alertTime < timeThreshold) {
+                    return false;
+                }
+            }
+            
+            // Read status filter
+            if (!showRead && alert.isRead) {
+                return false;
+            }
+            
+            // Dismissed status filter
+            if (!showDismissed && alert.isDismissed) {
+                return false;
+            }
+            
+            // Search filter
+            if (searchQuery && 
+                !alert.symbol.toLowerCase().includes(searchQuery) &&
+                !alert.name.toLowerCase().includes(searchQuery) &&
+                !alert.title.toLowerCase().includes(searchQuery) &&
+                !alert.description.toLowerCase().includes(searchQuery) &&
+                !alert.trigger.toLowerCase().includes(searchQuery)) {
+                return false;
+            }
+            
+            return true;
+        });
+
+        AlertDisplayManager.loadAlertsGrid();
+        StatsManager.update();
+    }
+
+    static markAsRead(alertId) {
+        const alertIndex = AppState.alerts.findIndex(alert => alert.id === alertId);
+        if (alertIndex !== -1 && !AppState.alerts[alertIndex].isRead) {
+            AppState.alerts[alertIndex].isRead = true;
+            this.saveAlerts();
+            StatsManager.update();
+            AlertDisplayManager.loadAlertsGrid();
+        }
+    }
+
+    static markAllAsRead() {
+        let updated = false;
+        AppState.alerts.forEach(alert => {
+            if (!alert.isRead) {
+                alert.isRead = true;
+                updated = true;
+            }
+        });
+        
+        if (updated) {
+            this.saveAlerts();
+            StatsManager.update();
+            AlertDisplayManager.loadAlertsGrid();
+            NotificationManager.show('All alerts marked as read', 'success');
+        }
+    }
+
+    static dismissAlert(alertId) {
+        const alertIndex = AppState.alerts.findIndex(alert => alert.id === alertId);
+        if (alertIndex !== -1) {
+            AppState.alerts[alertIndex].isDismissed = true;
+            this.saveAlerts();
+            StatsManager.update();
+            AlertManager.filterAlerts();
+            NotificationManager.show('Alert dismissed', 'success');
+            
+            // Close modal if open
+            if (AppState.currentAlert && AppState.currentAlert.id === alertId) {
+                AlertModalManager.close();
+            }
+        }
+    }
+
+    static dismissAll() {
+        if (confirm('Are you sure you want to dismiss all visible alerts?')) {
+            AppState.filteredAlerts.forEach(alert => {
+                const mainAlert = AppState.alerts.find(a => a.id === alert.id);
+                if (mainAlert) {
+                    mainAlert.isDismissed = true;
+                }
+            });
+            
+            this.saveAlerts();
+            StatsManager.update();
+            AlertManager.filterAlerts();
+            NotificationManager.show('All visible alerts dismissed', 'success');
+        }
+    }
+
+    static viewStockDetails(symbol) {
+        // In a real implementation, this would navigate to stock details
+        NotificationManager.show(`Opening stock details for ${symbol}`, 'info');
+        console.log(`Viewing stock details for ${symbol}`);
+    }
+
+    static refreshAlerts() {
+        AlertDisplayManager.showLoadingState();
+        
+        setTimeout(() => {
+            // Simulate new alerts
+            const newAlert = {
+                ...ALERTS_DATA[0],
+                id: Date.now(),
+                timestamp: Date.now(),
+                isRead: false,
+                isDismissed: false
+            };
+            
+            AppState.alerts.unshift(newAlert);
+            this.saveAlerts();
+            AlertManager.filterAlerts();
+            NotificationManager.show('Alerts refreshed', 'success');
+        }, CONFIG.LOAD_DELAY);
+    }
+
+    static saveAlerts() {
+        try {
+            localStorage.setItem('userAlerts', JSON.stringify(AppState.alerts));
+        } catch (error) {
+            console.error('Failed to save alerts:', error);
+        }
+    }
+
+    static loadAlerts() {
+        try {
+            const savedAlerts = localStorage.getItem('userAlerts');
+            if (savedAlerts) {
+                const parsedAlerts = JSON.parse(savedAlerts);
+                AppState.alerts = parsedAlerts;
+                AppState.filteredAlerts = [...parsedAlerts];
+            }
+        } catch (error) {
+            console.error('Failed to load alerts:', error);
+        }
+    }
+
+    static clearFilters() {
+        const filterManager = AlertApp.getInstance().filterManager;
+        filterManager.clear();
+    }
+}
+
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
+}
+
+// Auto Refresh Manager
+class AutoRefreshManager {
+    static start() {
+        if (AppState.autoRefreshInterval) {
+            clearInterval(AppState.autoRefreshInterval);
+        }
+        
+        AppState.autoRefreshInterval = setInterval(() => {
+            AlertManager.refreshAlerts();
+        }, CONFIG.AUTO_REFRESH_INTERVAL);
+    }
+
+    static stop() {
+        if (AppState.autoRefreshInterval) {
+            clearInterval(AppState.autoRefreshInterval);
+            AppState.autoRefreshInterval = null;
+        }
+    }
+
+    static toggle() {
+        if (AppState.autoRefreshInterval) {
+            this.stop();
+            NotificationManager.show('Auto-refresh disabled', 'info');
+        } else {
+            this.start();
+            NotificationManager.show('Auto-refresh enabled (30s)', 'success');
+        }
+    }
+}
+
+// Main Alert Application
+class AlertApp {
+    constructor() {
+        this.mobileMenu = null;
+        this.filterManager = null;
+        this.instance = null;
+        this.init();
+    }
+
+    static getInstance() {
+        return this.instance;
+    }
+
+    async init() {
+        console.log('🚀 Initializing Alert Application...');
+        AlertApp.instance = this;
+        
+        // Load theme and saved data
+        ThemeManager.load();
+        AlertManager.loadAlerts();
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.filterManager = new FilterManager();
+        AlertModalManager.setupEventListeners();
+        
+        // Load initial content with loading state
+        AlertDisplayManager.showLoadingState();
+        
+        // Simulate API delay
+        setTimeout(() => {
+            StatsManager.update();
+            AlertManager.filterAlerts();
+            AppState.isInitialized = true;
+            
+            // Start auto-refresh
+            AutoRefreshManager.start();
+            
+            console.log('✅ Alert Application initialized successfully');
+        }, CONFIG.LOAD_DELAY);
+    }
+
+    destroy() {
+        AutoRefreshManager.stop();
+        AlertModalManager.close();
+        console.log('📋 Alert Application destroyed');
+    }
+}
+
+// Global functions for HTML event handlers
 function toggleTheme() {
-  document.body.classList.toggle('light');
+    ThemeManager.toggle();
 }
 
-// Load alerts (simulate API call)
-function loadAlerts() {
-  const loadingState = document.getElementById('loadingState');
-  loadingState.style.display = 'block';
-  
-  // Simulate API delay
-  setTimeout(() => {
-    initializePage();
-    loadingState.style.display = 'none';
-  }, 1000);
+function refreshAlerts() {
+    AlertManager.refreshAlerts();
+}
+
+function clearFilters() {
+    AlertManager.clearFilters();
+}
+
+function markAllAsRead() {
+    AlertManager.markAllAsRead();
+}
+
+function dismissAllAlerts() {
+    AlertManager.dismissAll();
+}
+
+function toggleAutoRefresh() {
+    AutoRefreshManager.toggle();
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', initializePage);
+document.addEventListener('DOMContentLoaded', () => {
+    window.alertApp = new AlertApp();
+});
+
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
+});
+
+// Add notification and loading styles
+const additionalStyles = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 10000;
+        overflow: hidden;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .notification-content.success {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .notification-content.error {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .notification-content.warning {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .notification-content.info {
+        border-left: 4px solid #2196f3;
+    }
+    
+    .notification-icon {
+        font-size: 1.2em;
+    }
+    
+    .notification-content.success .notification-icon {
+        color: var(--up-color);
+    }
+    
+    .notification-content.error .notification-icon {
+        color: var(--down-color);
+    }
+    
+    .notification-content.warning .notification-icon {
+        color: #ff9800;
+    }
+    
+    .notification-content.info .notification-icon {
+        color: #2196f3;
+    }
+    
+    .notification-message {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
+    
+    .notification-close:hover {
+        background: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .alert-card.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .alert-card.unread {
+        border-left: 4px solid var(--active-color);
+    }
+    
+    .alert-card.dismissed {
+        opacity: 0.6;
+        background: var(--border-color);
+    }
+    
+    .unread-indicator {
+        width: 8px;
+        height: 8px;
+        background: var(--active-color);
+        border-radius: 50%;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    
+    .shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    
+    .symbol-ticker {
+        font-weight: bold;
+        color: var(--active-color);
+    }
+    
+    .symbol-name {
+        color: var(--text-muted);
+        margin: 0 8px;
+    }
+    
+    .alert-type {
+        background: var(--border-color);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+    
+    .confidence-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+    }
+    
+    .confidence-bar {
+        flex: 1;
+        height: 6px;
+        background: var(--border-color);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: var(--up-color);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    
+    .confidence-value {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        min-width: 30px;
+    }
+    
+    .stat-value-small.positive {
+        color: var(--up-color);
+    }
+    
+    .stat-value-small.medium {
+        color: #d97706;
+    }
+    
+    .stat-value-small.negative {
+        color: var(--down-color);
+    }
+    
+    .impact-level {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .impact-high {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .impact-medium {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .impact-low {
+        background: #d1fae5;
+        color: #059669;
+    }
+`;
+
+// Add styles to document
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
 </script>
+
 </body>
 </html>
 

@@ -992,401 +992,922 @@ body {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+// Configuration
+const CONFIG = {
+    CACHE_DURATION: 10 * 60 * 1000, // 10 minutes
+    DEBOUNCE_DELAY: 300,
+    VIDEO_LOAD_DELAY: 800,
+    MAX_VIDEOS_DISPLAY: 50
+};
 
 // Video data
-const videos = [
-  {
-    id: 1,
-    title: "Market Analysis: Tech Stocks Rally Amid Fed Decision",
-    description: "Detailed analysis of the recent tech stock rally following the Federal Reserve's interest rate decision and its implications for investors.",
-    embedUrl: "https://www.youtube.com/embed/pYR3A8E4hqg",
-    thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500",
-    duration: "12:45",
-    channel: "AlphaAnalytics",
-    category: "market-analysis",
-    views: "125K",
-    likes: "4.2K",
-    date: "2024-01-15",
-    isFeatured: true
-  },
-  {
-    id: 2,
-    title: "Beginner's Guide to Technical Analysis",
-    description: "Learn the fundamentals of technical analysis including chart patterns, indicators, and how to identify trading opportunities.",
-    embedUrl: "https://www.youtube.com/embed/9f5_3y9w7x4",
-    thumbnail: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=500",
-    duration: "18:32",
-    channel: "AlphaAnalytics",
-    category: "investment-education",
-    views: "89K",
-    likes: "3.5K",
-    date: "2024-01-12",
-    isFeatured: false
-  },
-  {
-    id: 3,
-    title: "Top 5 Stocks to Watch This Week",
-    description: "Our analysts highlight five stocks with strong potential based on recent earnings, market trends, and technical indicators.",
-    embedUrl: "https://www.youtube.com/embed/DfvBMFZp1K8",
-    thumbnail: "https://images.unsplash.com/photo-1642790554895-1f1e2aaff7c0?w=500",
-    duration: "8:15",
-    channel: "AlphaAnalytics",
-    category: "trading-strategies",
-    views: "67K",
-    likes: "2.8K",
-    date: "2024-01-10",
-    isFeatured: false
-  },
-  {
-    id: 4,
-    title: "Understanding Cryptocurrency Market Cycles",
-    description: "Deep dive into cryptocurrency market cycles, historical patterns, and what to expect in the current market environment.",
-    embedUrl: "https://www.youtube.com/embed/yG8MbP3zEFY",
-    thumbnail: "https://images.unsplash.com/photo-1516245834210-c4c142787335?w=500",
-    duration: "22:10",
-    channel: "AlphaAnalytics",
-    category: "market-analysis",
-    views: "142K",
-    likes: "5.1K",
-    date: "2024-01-08",
-    isFeatured: false
-  },
-  {
-    id: 5,
-    title: "Options Trading Strategies for Beginners",
-    description: "Learn basic options trading strategies, risk management techniques, and how to get started with options trading.",
-    embedUrl: "https://www.youtube.com/embed/QwZT7T-TXT0",
-    thumbnail: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500",
-    duration: "15:28",
-    channel: "AlphaAnalytics",
-    category: "investment-education",
-    views: "93K",
-    likes: "3.9K",
-    date: "2024-01-05",
-    isFeatured: false
-  },
-  {
-    id: 6,
-    title: "Global Economic Outlook 2024",
-    description: "Comprehensive analysis of global economic trends, central bank policies, and their impact on financial markets in 2024.",
-    embedUrl: "https://www.youtube.com/embed/5Uh1Jlv8Z1E",
-    thumbnail: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500",
-    duration: "25:42",
-    channel: "AlphaAnalytics",
-    category: "economic-news",
-    views: "178K",
-    likes: "6.3K",
-    date: "2024-01-03",
-    isFeatured: false
-  },
-  {
-    id: 7,
-    title: "Apple Earnings Analysis: What Investors Need to Know",
-    description: "Detailed breakdown of Apple's latest earnings report, key metrics, and investment implications for shareholders.",
-    embedUrl: "https://www.youtube.com/embed/XxJKnDLYZz4",
-    thumbnail: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=500",
-    duration: "10:18",
-    channel: "AlphaAnalytics",
-    category: "company-updates",
-    views: "76K",
-    likes: "3.1K",
-    date: "2024-01-01",
-    isFeatured: false
-  },
-  {
-    id: 8,
-    title: "Portfolio Diversification Strategies",
-    description: "Learn how to properly diversify your investment portfolio across different asset classes, sectors, and geographies.",
-    embedUrl: "https://www.youtube.com/embed/8m6C5K7K7w4",
-    thumbnail: "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=500",
-    duration: "14:55",
-    channel: "AlphaAnalytics",
-    category: "investment-education",
-    views: "81K",
-    likes: "3.4K",
-    date: "2023-12-28",
-    isFeatured: false
-  }
+const VIDEOS_DATA = [
+    {
+        id: 1,
+        title: "Market Analysis: Tech Stocks Rally Amid Fed Decision",
+        description: "Detailed analysis of the recent tech stock rally following the Federal Reserve's interest rate decision and its implications for investors.",
+        embedUrl: "https://www.youtube.com/embed/pYR3A8E4hqg",
+        thumbnail: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500",
+        duration: "12:45",
+        channel: "AlphaAnalytics",
+        category: "market-analysis",
+        views: "125K",
+        likes: "4.2K",
+        date: "2024-01-15",
+        isFeatured: true
+    },
+    {
+        id: 2,
+        title: "Beginner's Guide to Technical Analysis",
+        description: "Learn the fundamentals of technical analysis including chart patterns, indicators, and how to identify trading opportunities.",
+        embedUrl: "https://www.youtube.com/embed/9f5_3y9w7x4",
+        thumbnail: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=500",
+        duration: "18:32",
+        channel: "AlphaAnalytics",
+        category: "investment-education",
+        views: "89K",
+        likes: "3.5K",
+        date: "2024-01-12",
+        isFeatured: false
+    },
+    {
+        id: 3,
+        title: "Top 5 Stocks to Watch This Week",
+        description: "Our analysts highlight five stocks with strong potential based on recent earnings, market trends, and technical indicators.",
+        embedUrl: "https://www.youtube.com/embed/DfvBMFZp1K8",
+        thumbnail: "https://images.unsplash.com/photo-1642790554895-1f1e2aaff7c0?w=500",
+        duration: "8:15",
+        channel: "AlphaAnalytics",
+        category: "trading-strategies",
+        views: "67K",
+        likes: "2.8K",
+        date: "2024-01-10",
+        isFeatured: false
+    },
+    {
+        id: 4,
+        title: "Understanding Cryptocurrency Market Cycles",
+        description: "Deep dive into cryptocurrency market cycles, historical patterns, and what to expect in the current market environment.",
+        embedUrl: "https://www.youtube.com/embed/yG8MbP3zEFY",
+        thumbnail: "https://images.unsplash.com/photo-1516245834210-c4c142787335?w=500",
+        duration: "22:10",
+        channel: "AlphaAnalytics",
+        category: "market-analysis",
+        views: "142K",
+        likes: "5.1K",
+        date: "2024-01-08",
+        isFeatured: false
+    },
+    {
+        id: 5,
+        title: "Options Trading Strategies for Beginners",
+        description: "Learn basic options trading strategies, risk management techniques, and how to get started with options trading.",
+        embedUrl: "https://www.youtube.com/embed/QwZT7T-TXT0",
+        thumbnail: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=500",
+        duration: "15:28",
+        channel: "AlphaAnalytics",
+        category: "investment-education",
+        views: "93K",
+        likes: "3.9K",
+        date: "2024-01-05",
+        isFeatured: false
+    },
+    {
+        id: 6,
+        title: "Global Economic Outlook 2024",
+        description: "Comprehensive analysis of global economic trends, central bank policies, and their impact on financial markets in 2024.",
+        embedUrl: "https://www.youtube.com/embed/5Uh1Jlv8Z1E",
+        thumbnail: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500",
+        duration: "25:42",
+        channel: "AlphaAnalytics",
+        category: "economic-news",
+        views: "178K",
+        likes: "6.3K",
+        date: "2024-01-03",
+        isFeatured: false
+    },
+    {
+        id: 7,
+        title: "Apple Earnings Analysis: What Investors Need to Know",
+        description: "Detailed breakdown of Apple's latest earnings report, key metrics, and investment implications for shareholders.",
+        embedUrl: "https://www.youtube.com/embed/XxJKnDLYZz4",
+        thumbnail: "https://images.unsplash.com/photo-1547658719-da2b51169166?w=500",
+        duration: "10:18",
+        channel: "AlphaAnalytics",
+        category: "company-updates",
+        views: "76K",
+        likes: "3.1K",
+        date: "2024-01-01",
+        isFeatured: false
+    },
+    {
+        id: 8,
+        title: "Portfolio Diversification Strategies",
+        description: "Learn how to properly diversify your investment portfolio across different asset classes, sectors, and geographies.",
+        embedUrl: "https://www.youtube.com/embed/8m6C5K7K7w4",
+        thumbnail: "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=500",
+        duration: "14:55",
+        channel: "AlphaAnalytics",
+        category: "investment-education",
+        views: "81K",
+        likes: "3.4K",
+        date: "2023-12-28",
+        isFeatured: false
+    }
 ];
 
-let filteredVideos = [...videos];
+// Application State
+const AppState = {
+    videos: [...VIDEOS_DATA],
+    filteredVideos: [...VIDEOS_DATA],
+    currentFilters: {
+        category: 'all',
+        duration: 'all',
+        sortBy: 'newest',
+        searchQuery: ''
+    },
+    currentVideo: null,
+    isInitialized: false
+};
 
-// Initialize the page
-function initializePage() {
-  loadFeaturedVideo();
-  loadVideosGrid();
-  setupEventListeners();
-}
+// Mobile Menu Controller
+class MobileMenu {
+    constructor() {
+        this.menuToggle = document.querySelector('.menu-toggle');
+        this.navItems = document.querySelector('.nav-items');
+        this.isOpen = false;
+        this.init();
+    }
 
-// Load featured video
-function loadFeaturedVideo() {
-  const featuredVideo = videos.find(video =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
+    init() {
+        if (this.menuToggle && this.navItems) {
+            this.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggle();
+            });
+
+            this.setupClickOutsideHandler();
+        }
+    }
+
+    toggle() {
+        this.isOpen = !this.isOpen;
+        this.navItems.classList.toggle('show');
+        
+        const spans = this.menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.toggle('active'));
+    }
+
+    close() {
+        this.isOpen = false;
+        this.navItems.classList.remove('show');
+        const spans = this.menuToggle.querySelectorAll('span');
         spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- video.isFeatured) || videos[0];
-  const featuredContainer = document.getElementById('featuredVideo');
-  
-  featuredContainer.innerHTML = `
-    <iframe class="featured-video" src="${featuredVideo.embedUrl}" frameborder="0" allowfullscreen></iframe>
-    <div class="featured-video-content">
-      <div class="video-badge">Featured</div>
-      <h2 class="featured-video-title">${featuredVideo.title}</h2>
-      <p class="featured-video-description">${featuredVideo.description}</p>
-      <div class="featured-video-meta">
-        <div class="video-stats">
-          <div class="video-stat">
-            <i class="fas fa-eye"></i>
-            <span>${featuredVideo.views} views</span>
-          </div>
-          <div class="video-stat">
-            <i class="fas fa-thumbs-up"></i>
-            <span>${featuredVideo.likes}</span>
-          </div>
-          <div class="video-stat">
-            <i class="fas fa-clock"></i>
-            <span>${featuredVideo.duration}</span>
-          </div>
-        </div>
-        <div class="video-date">${formatDate(featuredVideo.date)}</div>
-      </div>
-    </div>
-  `;
-}
-
-// Load videos grid
-function loadVideosGrid() {
-  const videosGrid = document.getElementById('videosGrid');
-  
-  if (filteredVideos.length === 0) {
-    videosGrid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-        <i class="fas fa-video-slash" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-        <h3>No Videos Found</h3>
-        <p>Try adjusting your filters or search terms.</p>
-      </div>
-    `;
-    return;
-  }
-  
-  // Filter out featured video from grid
-  const gridVideos = filteredVideos.filter(video => !video.isFeatured);
-  
-  videosGrid.innerHTML = gridVideos.map(video => `
-    <div class="video-card" data-video-id="${video.id}">
-      <div class="video-thumbnail-container">
-        <img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail">
-        <div class="video-play-button">
-          <i class="fas fa-play"></i>
-        </div>
-        <div class="video-duration">${video.duration}</div>
-      </div>
-      <div class="video-content">
-        <h3 class="video-title">${video.title}</h3>
-        <p class="video-description">${video.description}</p>
-        <div class="video-meta">
-          <div class="video-channel">
-            <span class="channel-badge">${video.channel}</span>
-          </div>
-          <div class="video-date">${formatDate(video.date)}</div>
-        </div>
-      </div>
-    </div>
-  `).join('');
-  
-  // Add click event listeners to video cards
-  document.querySelectorAll('.video-card').forEach(card => {
-    card.addEventListener('click', function() {
-      const videoId = this.getAttribute('data-video-id');
-      openVideoModal(videoId);
-    });
-  });
-}
-
-// Open video modal
-function openVideoModal(videoId) {
-  const video = videos.find(v => v.id == videoId);
-  if (!video) return;
-  
-  const modal = document.getElementById('videoModal');
-  const modalVideo = document.getElementById('modalVideo');
-  const modalTitle = document.getElementById('modalTitle');
-  const modalDescription = document.getElementById('modalDescription');
-  
-  modalVideo.src = video.embedUrl;
-  modalTitle.textContent = video.title;
-  modalDescription.textContent = video.description;
-  
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-}
-
-// Close video modal
-function closeVideoModal() {
-  const modal = document.getElementById('videoModal');
-  const modalVideo = document.getElementById('modalVideo');
-  
-  modal.style.display = 'none';
-  modalVideo.src = '';
-  document.body.style.overflow = 'auto';
-}
-
-// Filter videos based on selections
-function filterVideos() {
-  const category = document.getElementById('categorySelect').value;
-  const duration = document.getElementById('durationSelect').value;
-  const sortBy = document.getElementById('sortSelect').value;
-  const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-  
-  // Apply filters
-  filteredVideos = videos.filter(video => {
-    // Category filter
-    if (category !== 'all' && video.category !== category) {
-      return false;
     }
-    
-    // Duration filter
-    if (duration !== 'all') {
-      const minutes = parseInt(video.duration.split(':')[0]);
-      if (duration === 'short' && minutes >= 5) return false;
-      if (duration === 'medium' && (minutes < 5 || minutes > 15)) return false;
-      if (duration === 'long' && minutes <= 15) return false;
+
+    setupClickOutsideHandler() {
+        document.addEventListener('click', (event) => {
+            if (this.isOpen && !event.target.closest('.navbar')) {
+                this.close();
+            }
+        });
     }
-    
-    // Search filter
-    if (searchQuery && !video.title.toLowerCase().includes(searchQuery) && 
-        !video.description.toLowerCase().includes(searchQuery)) {
-      return false;
-    }
-    
-    return true;
-  });
-  
-  // Sort videos
-  filteredVideos.sort((a, b) => {
-    if (sortBy === 'newest') {
-      return new Date(b.date) - new Date(a.date);
-    } else if (sortBy === 'oldest') {
-      return new Date(a.date) - new Date(b.date);
-    } else if (sortBy === 'popular') {
-      // Simple popularity metric based on views
-      const aViews = parseInt(a.views.replace('K', '000'));
-      const bViews = parseInt(b.views.replace('K', '000'));
-      return bViews - aViews;
-    }
-    return 0;
-  });
-  
-  loadVideosGrid();
 }
 
-// Format date
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) {
-    return 'Today';
-  } else if (diffDays === 1) {
-    return 'Yesterday';
-  } else if (diffDays < 7) {
-    return `${diffDays} days ago`;
-  } else {
-    return date.toLocaleDateString();
-  }
-}
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('videoNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'videoNotification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
 
-// Setup event listeners
-function setupEventListeners() {
-  // Filter change listeners
-  document.getElementById('categorySelect').addEventListener('change', filterVideos);
-  document.getElementById('durationSelect').addEventListener('change', filterVideos);
-  document.getElementById('sortSelect').addEventListener('change', filterVideos);
-  document.getElementById('searchInput').addEventListener('input', filterVideos);
-  
-  // Modal close listener
-  document.getElementById('modalClose').addEventListener('click', closeVideoModal);
-  
-  // Close modal when clicking outside
-  document.getElementById('videoModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-      closeVideoModal();
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content ${type}">
+                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        notification.classList.add('show');
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
-  });
-  
-  // Mobile menu toggle
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
 }
 
-// Toggle theme
+// Video Display Manager
+class VideoDisplayManager {
+    static loadFeaturedVideo() {
+        const featuredVideo = AppState.videos.find(video => video.isFeatured) || AppState.videos[0];
+        const featuredContainer = document.getElementById('featuredVideo');
+        
+        if (!featuredContainer || !featuredVideo) return;
+
+        featuredContainer.innerHTML = `
+            <div class="featured-video-container">
+                <iframe 
+                    class="featured-video" 
+                    src="${featuredVideo.embedUrl}" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen
+                    loading="lazy"
+                ></iframe>
+                <div class="featured-video-content">
+                    <div class="video-badge">Featured</div>
+                    <h2 class="featured-video-title">${featuredVideo.title}</h2>
+                    <p class="featured-video-description">${featuredVideo.description}</p>
+                    <div class="featured-video-meta">
+                        <div class="video-stats">
+                            <div class="video-stat">
+                                <i class="fas fa-eye"></i>
+                                <span>${featuredVideo.views} views</span>
+                            </div>
+                            <div class="video-stat">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span>${featuredVideo.likes}</span>
+                            </div>
+                            <div class="video-stat">
+                                <i class="fas fa-clock"></i>
+                                <span>${featuredVideo.duration}</span>
+                            </div>
+                        </div>
+                        <div class="video-date">${this.formatDate(featuredVideo.date)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    static loadVideosGrid() {
+        const videosGrid = document.getElementById('videosGrid');
+        if (!videosGrid) return;
+
+        if (AppState.filteredVideos.length === 0) {
+            videosGrid.innerHTML = this.createNoVideosHTML();
+            return;
+        }
+
+        // Filter out featured video from grid
+        const gridVideos = AppState.filteredVideos.filter(video => !video.isFeatured);
+        
+        videosGrid.innerHTML = gridVideos.map(video => this.createVideoCardHTML(video)).join('');
+        
+        this.attachVideoCardEventListeners();
+    }
+
+    static createNoVideosHTML() {
+        return `
+            <div class="no-videos-state">
+                <i class="fas fa-video-slash"></i>
+                <h3>No Videos Found</h3>
+                <p>Try adjusting your filters or search terms.</p>
+                <button class="btn btn-primary" onclick="VideoManager.clearFilters()">
+                    <i class="fas fa-times"></i> Clear Filters
+                </button>
+            </div>
+        `;
+    }
+
+    static createVideoCardHTML(video) {
+        return `
+            <div class="video-card" data-video-id="${video.id}">
+                <div class="video-thumbnail-container">
+                    <img 
+                        src="${video.thumbnail}" 
+                        alt="${video.title}" 
+                        class="video-thumbnail"
+                        loading="lazy"
+                    >
+                    <div class="video-play-button">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="video-duration">${video.duration}</div>
+                    <div class="video-category-badge">${this.formatCategory(video.category)}</div>
+                </div>
+                <div class="video-content">
+                    <h3 class="video-title">${video.title}</h3>
+                    <p class="video-description">${video.description}</p>
+                    <div class="video-meta">
+                        <div class="video-stats-small">
+                            <span class="video-stat-small">
+                                <i class="fas fa-eye"></i> ${video.views}
+                            </span>
+                            <span class="video-stat-small">
+                                <i class="fas fa-thumbs-up"></i> ${video.likes}
+                            </span>
+                        </div>
+                        <div class="video-channel-date">
+                            <span class="channel-badge">${video.channel}</span>
+                            <span class="video-date">${this.formatDate(video.date, true)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    static attachVideoCardEventListeners() {
+        document.querySelectorAll('.video-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const videoId = this.getAttribute('data-video-id');
+                VideoModalManager.open(parseInt(videoId));
+            });
+        });
+    }
+
+    static formatDate(dateString, short = false) {
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return 'Today';
+            } else if (diffDays === 1) {
+                return 'Yesterday';
+            } else if (diffDays < 7) {
+                return `${diffDays} days ago`;
+            } else if (diffDays < 30) {
+                const weeks = Math.floor(diffDays / 7);
+                return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+            } else {
+                return date.toLocaleDateString();
+            }
+        } catch (error) {
+            return 'Unknown date';
+        }
+    }
+
+    static formatCategory(category) {
+        const categoryMap = {
+            'market-analysis': 'Market Analysis',
+            'investment-education': 'Education',
+            'trading-strategies': 'Trading',
+            'economic-news': 'Economics',
+            'company-updates': 'Company News'
+        };
+        return categoryMap[category] || category;
+    }
+
+    static showLoadingState() {
+        const videosGrid = document.getElementById('videosGrid');
+        const featuredVideo = document.getElementById('featuredVideo');
+        
+        if (featuredVideo) {
+            featuredVideo.innerHTML = this.createFeaturedLoadingHTML();
+        }
+        
+        if (videosGrid) {
+            videosGrid.innerHTML = this.createGridLoadingHTML();
+        }
+    }
+
+    static createFeaturedLoadingHTML() {
+        return `
+            <div class="featured-video-container loading">
+                <div class="shimmer" style="height: 400px; border-radius: 12px;"></div>
+                <div style="padding: 24px;">
+                    <div class="shimmer" style="height: 32px; margin-bottom: 16px; border-radius: 6px;"></div>
+                    <div class="shimmer" style="height: 20px; margin-bottom: 12px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 20px; margin-bottom: 12px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 20px; width: 70%; margin-bottom: 20px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; width: 50%; border-radius: 4px;"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    static createGridLoadingHTML() {
+        return Array(6).fill().map(() => `
+            <div class="video-card loading">
+                <div class="video-thumbnail-container">
+                    <div class="shimmer" style="height: 200px; border-radius: 12px 12px 0 0;"></div>
+                </div>
+                <div style="padding: 16px;">
+                    <div class="shimmer" style="height: 20px; margin-bottom: 12px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 16px; margin-bottom: 8px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 14px; width: 60%; margin-bottom: 12px; border-radius: 4px;"></div>
+                    <div class="shimmer" style="height: 12px; width: 40%; border-radius: 4px;"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Video Modal Manager
+class VideoModalManager {
+    static open(videoId) {
+        const video = AppState.videos.find(v => v.id === videoId);
+        if (!video) {
+            NotificationManager.show('Video not found', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('videoModal');
+        const modalVideo = document.getElementById('modalVideo');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDescription = document.getElementById('modalDescription');
+        const modalStats = document.getElementById('modalStats');
+
+        if (!modal || !modalVideo || !modalTitle) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        // Update modal content
+        modalVideo.src = video.embedUrl;
+        modalTitle.textContent = video.title;
+        modalDescription.textContent = video.description;
+        
+        if (modalStats) {
+            modalStats.innerHTML = `
+                <div class="modal-stat">
+                    <i class="fas fa-eye"></i>
+                    <span>${video.views} views</span>
+                </div>
+                <div class="modal-stat">
+                    <i class="fas fa-thumbs-up"></i>
+                    <span>${video.likes} likes</span>
+                </div>
+                <div class="modal-stat">
+                    <i class="fas fa-clock"></i>
+                    <span>${video.duration}</span>
+                </div>
+                <div class="modal-stat">
+                    <i class="fas fa-calendar"></i>
+                    <span>${VideoDisplayManager.formatDate(video.date)}</span>
+                </div>
+            `;
+        }
+
+        // Show modal
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
+        AppState.currentVideo = video;
+        NotificationManager.show(`Now playing: ${video.title}`, 'info');
+    }
+
+    static close() {
+        const modal = document.getElementById('videoModal');
+        const modalVideo = document.getElementById('modalVideo');
+
+        if (modal) {
+            modal.style.display = 'none';
+        }
+
+        if (modalVideo) {
+            modalVideo.src = '';
+        }
+
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        AppState.currentVideo = null;
+    }
+
+    static setupEventListeners() {
+        // Modal close button
+        const modalClose = document.getElementById('modalClose');
+        if (modalClose) {
+            modalClose.addEventListener('click', this.close);
+        }
+
+        // Close modal when clicking outside
+        const modal = document.getElementById('videoModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    VideoModalManager.close();
+                }
+            });
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && AppState.currentVideo) {
+                VideoModalManager.close();
+            }
+        });
+    }
+}
+
+// Filter Manager
+class FilterManager {
+    constructor() {
+        this.categorySelect = document.getElementById('categorySelect');
+        this.durationSelect = document.getElementById('durationSelect');
+        this.sortSelect = document.getElementById('sortSelect');
+        this.searchInput = document.getElementById('searchInput');
+        this.debouncedFilter = this.debounce(this.applyFilters.bind(this), CONFIG.DEBOUNCE_DELAY);
+        this.init();
+    }
+
+    init() {
+        if (this.categorySelect) {
+            this.categorySelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.durationSelect) {
+            this.durationSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.sortSelect) {
+            this.sortSelect.addEventListener('change', () => this.handleFilterChange());
+        }
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', this.debouncedFilter);
+        }
+    }
+
+    handleFilterChange() {
+        this.applyFilters();
+    }
+
+    applyFilters() {
+        const category = this.categorySelect?.value || 'all';
+        const duration = this.durationSelect?.value || 'all';
+        const sortBy = this.sortSelect?.value || 'newest';
+        const searchQuery = this.searchInput?.value.toLowerCase().trim() || '';
+
+        AppState.currentFilters = { category, duration, sortBy, searchQuery };
+        VideoManager.filterVideos();
+    }
+
+    clear() {
+        if (this.categorySelect) this.categorySelect.value = 'all';
+        if (this.durationSelect) this.durationSelect.value = 'all';
+        if (this.sortSelect) this.sortSelect.value = 'newest';
+        if (this.searchInput) this.searchInput.value = '';
+        
+        this.applyFilters();
+        NotificationManager.show('Filters cleared', 'success');
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+}
+
+// Video Manager
+class VideoManager {
+    static filterVideos() {
+        const { category, duration, sortBy, searchQuery } = AppState.currentFilters;
+
+        // Apply filters
+        AppState.filteredVideos = AppState.videos.filter(video => {
+            // Category filter
+            if (category !== 'all' && video.category !== category) {
+                return false;
+            }
+            
+            // Duration filter
+            if (duration !== 'all') {
+                const minutes = this.parseDuration(video.duration);
+                if (duration === 'short' && minutes > 10) return false;
+                if (duration === 'medium' && (minutes <= 10 || minutes > 20)) return false;
+                if (duration === 'long' && minutes <= 20) return false;
+            }
+            
+            // Search filter
+            if (searchQuery && 
+                !video.title.toLowerCase().includes(searchQuery) && 
+                !video.description.toLowerCase().includes(searchQuery) &&
+                !video.channel.toLowerCase().includes(searchQuery)) {
+                return false;
+            }
+            
+            return true;
+        });
+
+        // Sort videos
+        AppState.filteredVideos.sort((a, b) => {
+            switch (sortBy) {
+                case 'newest':
+                    return new Date(b.date) - new Date(a.date);
+                case 'oldest':
+                    return new Date(a.date) - new Date(b.date);
+                case 'popular':
+                    return this.parseViews(b.views) - this.parseViews(a.views);
+                case 'duration':
+                    return this.parseDuration(b.duration) - this.parseDuration(a.duration);
+                default:
+                    return 0;
+            }
+        });
+
+        VideoDisplayManager.loadVideosGrid();
+    }
+
+    static parseDuration(duration) {
+        const parts = duration.split(':');
+        if (parts.length === 2) {
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+        return parseInt(duration);
+    }
+
+    static parseViews(views) {
+        if (views.includes('K')) {
+            return parseFloat(views) * 1000;
+        } else if (views.includes('M')) {
+            return parseFloat(views) * 1000000;
+        }
+        return parseInt(views) || 0;
+    }
+
+    static clearFilters() {
+        const filterManager = VideoApp.getInstance().filterManager;
+        filterManager.clear();
+    }
+
+    static refreshVideos() {
+        VideoDisplayManager.showLoadingState();
+        
+        setTimeout(() => {
+            VideoDisplayManager.loadFeaturedVideo();
+            VideoManager.filterVideos();
+            NotificationManager.show('Videos refreshed', 'success');
+        }, CONFIG.VIDEO_LOAD_DELAY);
+    }
+}
+
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
+}
+
+// Main Video Application
+class VideoApp {
+    constructor() {
+        this.mobileMenu = null;
+        this.filterManager = null;
+        this.instance = null;
+        this.init();
+    }
+
+    static getInstance() {
+        return this.instance;
+    }
+
+    async init() {
+        console.log('🚀 Initializing Video Application...');
+        VideoApp.instance = this;
+        
+        // Load theme
+        ThemeManager.load();
+        
+        // Initialize components
+        this.mobileMenu = new MobileMenu();
+        this.filterManager = new FilterManager();
+        VideoModalManager.setupEventListeners();
+        
+        // Load initial content with loading state
+        VideoDisplayManager.showLoadingState();
+        
+        // Simulate API delay
+        setTimeout(() => {
+            VideoDisplayManager.loadFeaturedVideo();
+            VideoManager.filterVideos();
+            AppState.isInitialized = true;
+            console.log('✅ Video Application initialized successfully');
+        }, CONFIG.VIDEO_LOAD_DELAY);
+    }
+
+    destroy() {
+        VideoModalManager.close();
+        console.log('📋 Video Application destroyed');
+    }
+}
+
+// Global functions for HTML event handlers
 function toggleTheme() {
-  document.body.classList.toggle('light');
+    ThemeManager.toggle();
 }
 
-// Load videos (simulate API call)
-function loadVideos() {
-  const loadingState = document.getElementById('loadingState');
-  loadingState.style.display = 'block';
-  
-  // Simulate API delay
-  setTimeout(() => {
-    initializePage();
-    loadingState.style.display = 'none';
-  }, 1000);
+function refreshVideos() {
+    VideoManager.refreshVideos();
+}
+
+function clearFilters() {
+    VideoManager.clearFilters();
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', initializePage);
+document.addEventListener('DOMContentLoaded', () => {
+    window.videoApp = new VideoApp();
+});
+
+// Error boundary
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
+});
+
+// Add notification and loading styles
+const additionalStyles = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 10000;
+        overflow: hidden;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .notification-content.success {
+        border-left: 4px solid var(--up-color);
+    }
+    
+    .notification-content.error {
+        border-left: 4px solid var(--down-color);
+    }
+    
+    .notification-content.warning {
+        border-left: 4px solid #ff9800;
+    }
+    
+    .notification-content.info {
+        border-left: 4px solid #2196f3;
+    }
+    
+    .notification-icon {
+        font-size: 1.2em;
+    }
+    
+    .notification-content.success .notification-icon {
+        color: var(--up-color);
+    }
+    
+    .notification-content.error .notification-icon {
+        color: var(--down-color);
+    }
+    
+    .notification-content.warning .notification-icon {
+        color: #ff9800;
+    }
+    
+    .notification-content.info .notification-icon {
+        color: #2196f3;
+    }
+    
+    .notification-message {
+        flex: 1;
+        font-size: 14px;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
+    
+    .notification-close:hover {
+        background: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .no-videos-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .no-videos-state i {
+        font-size: 48px;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+    }
+    
+    .video-card.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .featured-video-container.loading {
+        opacity: 0.7;
+    }
+    
+    .shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    
+    .video-category-badge {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .modal-stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--text-muted);
+    }
+    
+    .video-stats-small {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .video-stat-small {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    
+    .video-channel-date {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        gap: 12px;
+    }
+`;
+
+// Add styles to document
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>
