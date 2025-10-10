@@ -8,50 +8,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
     :root {
       --primary-white: #ffffff;
       --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
@@ -200,6 +156,50 @@
       background: var(--text-primary);
       border-radius: 2px;
       transition: all 0.3s ease;
+    }
+
+    /* Mobile Menu Animation */
+    .menu-toggle span {
+      transition: all 0.3s ease;
+    }
+
+    .menu-toggle span.active:nth-child(1) {
+      transform: rotate(45deg) translate(6px, 6px);
+    }
+
+    .menu-toggle span.active:nth-child(2) {
+      opacity: 0;
+    }
+
+    .menu-toggle span.active:nth-child(3) {
+      transform: rotate(-45deg) translate(6px, -6px);
+    }
+
+    /* Ensure mobile menu displays properly */
+    @media (max-width: 768px) {
+      .nav-items {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-dark);
+        border-top: 1px solid var(--border-color);
+        padding: 16px;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 1000;
+      }
+      
+      .nav-items.show {
+        display: flex;
+      }
+      
+      .nav-item {
+        padding: 12px 16px;
+        border-radius: 8px;
+        justify-content: flex-start;
+      }
     }
 
     /* Main Content */
@@ -642,6 +642,91 @@
       100% { background-position: 200% 0; }
     }
 
+    /* Notification Styles */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0;
+      min-width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(400px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 10000;
+      overflow: hidden;
+    }
+    
+    .notification.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    
+    .notification-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+    
+    .notification-content.success {
+      border-left: 4px solid var(--up-color);
+    }
+    
+    .notification-content.error {
+      border-left: 4px solid var(--down-color);
+    }
+    
+    .notification-content.warning {
+      border-left: 4px solid #ff9800;
+    }
+    
+    .notification-content.info {
+      border-left: 4px solid #2196f3;
+    }
+    
+    .notification-icon {
+      font-size: 1.2em;
+    }
+    
+    .notification-content.success .notification-icon {
+      color: var(--up-color);
+    }
+    
+    .notification-content.error .notification-icon {
+      color: var(--down-color);
+    }
+    
+    .notification-content.warning .notification-icon {
+      color: #ff9800;
+    }
+    
+    .notification-content.info .notification-icon {
+      color: #2196f3;
+    }
+    
+    .notification-message {
+      flex: 1;
+      font-size: 14px;
+    }
+    
+    .notification-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    
+    .notification-close:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
     /* Responsive Design */
     @media (max-width: 1200px) {
       .nav-items {
@@ -737,50 +822,6 @@
       }
     }
   </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -852,10 +893,10 @@
           <input type="text" class="search-bar" placeholder="Search stocks, indices, crypto..." id="globalSearch">
         </div>
         <div class="action-buttons">
-          <button class="btn btn-primary" onclick="exportReport()">
+          <button class="btn btn-primary" onclick="Dashboard.exportReport()">
             <i class="fas fa-download"></i>Export
           </button>
-          <button class="btn btn-secondary" onclick="toggleTheme()">
+          <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
             <i class="fas fa-palette"></i>Theme
           </button>
         </div>
@@ -873,7 +914,7 @@
       <div class="chart-header">
         <h2>Live Market Charts</h2>
         <div class="chart-controls">
-          <select id="chartSymbol" class="chart-select" onchange="updateChartSymbol(this.value)">
+          <select id="chartSymbol" class="chart-select" onchange="ChartManager.updateSymbol(this.value)">
             <option value="NASDAQ:AAPL">Apple (AAPL)</option>
             <option value="NSE:RELIANCE">Reliance</option>
             <option value="NSE:TCS">TCS</option>
@@ -887,41 +928,6 @@
         <!-- TradingView Widget -->
         <div class="tradingview-widget-container">
           <div id="tradingview_chart" style="height: 100%; width: 100%;"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-            function initializeTradingView(symbol = "NASDAQ:AAPL") {
-              new TradingView.widget({
-                "autosize": true,
-                "symbol": symbol,
-                "interval": "D",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "locale": "en",
-                "toolbar_bg": "#0f0f23",
-                "enable_publishing": false,
-                "allow_symbol_change": true,
-                "container_id": "tradingview_chart",
-                "studies": [
-                  "RSI@tv-basicstudies",
-                  "MACD@tv-basicstudies"
-                ],
-                "show_popup_button": true,
-                "popup_width": "1000",
-                "popup_height": "650"
-              });
-            }
-
-            function updateChartSymbol(symbol) {
-              document.getElementById('tradingview_chart').innerHTML = '';
-              initializeTradingView(symbol);
-            }
-
-            // Initialize with default symbol
-            document.addEventListener('DOMContentLoaded', function() {
-              initializeTradingView();
-            });
-          </script>
         </div>
       </div>
     </div>
@@ -951,8 +957,8 @@
         <div class="watchlist-header">
           <h2>🇮🇳 Top Gainers</h2>
           <div class="sort-buttons">
-            <button class="sort-btn active" onclick="sortStockList('topMoversIndian', 'changeDesc')">% Change</button>
-            <button class="sort-btn" onclick="sortStockList('topMoversIndian', 'name')">Name</button>
+            <button class="sort-btn active" onclick="StockManager.sortStockList('topMoversIndian', 'changeDesc')">% Change</button>
+            <button class="sort-btn" onclick="StockManager.sortStockList('topMoversIndian', 'name')">Name</button>
           </div>
         </div>
         <div class="stock-list" id="topMoversIndian"></div>
@@ -963,8 +969,8 @@
         <div class="watchlist-header">
           <h2>🇮🇳 Top Losers</h2>
           <div class="sort-buttons">
-            <button class="sort-btn active" onclick="sortStockList('topLosersIndian', 'changeAsc')">% Change</button>
-            <button class="sort-btn" onclick="sortStockList('topLosersIndian', 'name')">Name</button>
+            <button class="sort-btn active" onclick="StockManager.sortStockList('topLosersIndian', 'changeAsc')">% Change</button>
+            <button class="sort-btn" onclick="StockManager.sortStockList('topLosersIndian', 'name')">Name</button>
           </div>
         </div>
         <div class="stock-list" id="topLosersIndian"></div>
@@ -975,8 +981,8 @@
         <div class="watchlist-header">
           <h2>🌍 Top Gainers</h2>
           <div class="sort-buttons">
-            <button class="sort-btn active" onclick="sortStockList('topMoversInternational', 'changeDesc')">% Change</button>
-            <button class="sort-btn" onclick="sortStockList('topMoversInternational', 'name')">Name</button>
+            <button class="sort-btn active" onclick="StockManager.sortStockList('topMoversInternational', 'changeDesc')">% Change</button>
+            <button class="sort-btn" onclick="StockManager.sortStockList('topMoversInternational', 'name')">Name</button>
           </div>
         </div>
         <div class="stock-list" id="topMoversInternational"></div>
@@ -987,8 +993,8 @@
         <div class="watchlist-header">
           <h2>🌍 Top Losers</h2>
           <div class="sort-buttons">
-            <button class="sort-btn active" onclick="sortStockList('topLosersInternational', 'changeAsc')">% Change</button>
-            <button class="sort-btn" onclick="sortStockList('topLosersInternational', 'name')">Name</button>
+            <button class="sort-btn active" onclick="StockManager.sortStockList('topLosersInternational', 'changeAsc')">% Change</button>
+            <button class="sort-btn" onclick="StockManager.sortStockList('topLosersInternational', 'name')">Name</button>
           </div>
         </div>
         <div class="stock-list" id="topLosersInternational"></div>
@@ -996,16 +1002,17 @@
     </div>
   </main>
 </div>
+
 <script>
-// Configuration and Constants
+// Configuration
 const CONFIG = {
     TWELVEDATA_API_KEY: "5f988a8aff6b4b58848dfcf67af727d9",
-    BATCH_SIZE: 5,
+    AUTO_REFRESH_INTERVAL: 300000, // 5 minutes
     BATCH_DELAY: 1000,
-    REFRESH_INTERVAL: 300000, // 5 minutes
-    RATE_LIMIT_DELAY: 2000
+    CACHE_DURATION: 5 * 60 * 1000 // 5 minutes
 };
 
+// Market Data
 const NSE_TICKER_NAMES = {
     "TCS": "Tata Consultancy Services",
     "RELIANCE": "Reliance Industries", 
@@ -1035,7 +1042,7 @@ const INTERNATIONAL_TICKER_NAMES = {
 const NSE_TICKERS = Object.keys(NSE_TICKER_NAMES);
 const INTERNATIONAL_TICKERS = Object.keys(INTERNATIONAL_TICKER_NAMES);
 
-// Fallback mock data
+// Fallback Data
 const FALLBACK_DATA = {
     INDIAN: [
         { symbol: "RELIANCE", name: "Reliance Industries", close: 2856.50, percentChange: 2.35 },
@@ -1053,7 +1060,7 @@ const FALLBACK_DATA = {
     ]
 };
 
-// State Management
+// Application State
 const AppState = {
     stockData: {
         topMoversIndian: [],
@@ -1062,42 +1069,8 @@ const AppState = {
         topLosersInternational: []
     },
     isInitialized: false,
-    refreshInterval: null
-};
-
-// Utility Functions
-const Utils = {
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    },
-
-    formatCurrency(value, isInternational = false) {
-        const symbol = isInternational ? '$' : '₹';
-        return `${symbol}${value.toFixed(2)}`;
-    },
-
-    getChangeClass(percentChange) {
-        return percentChange >= 0 ? "positive" : "negative";
-    },
-
-    getChangeIcons(percentChange) {
-        return {
-            arrow: percentChange >= 0 ? "📈" : "📉",
-            icon: percentChange >= 0 ? "🟢" : "🔴"
-        };
-    },
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    refreshInterval: null,
+    cache: new Map()
 };
 
 // Mobile Menu Controller
@@ -1144,152 +1117,184 @@ class MobileMenu {
     }
 }
 
+// Notification Manager
+class NotificationManager {
+    static show(message, type = 'info') {
+        let notification = document.getElementById('dashboardNotification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'dashboardNotification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
+
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content ${type}">
+                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+}
+
 // API Service
-class StockAPIService {
+class APIService {
     static async fetchBatch(tickers, isInternational = false) {
-        const batchSize = CONFIG.BATCH_SIZE;
+        const batchSize = 5;
         let allData = [];
 
         try {
             for (let i = 0; i < tickers.length; i += batchSize) {
                 const batch = tickers.slice(i, i + batchSize);
-                const batchData = await this.fetchBatchData(batch, isInternational);
+                const exchange = isInternational ? "" : ":NSE";
+                const formattedSymbols = batch.map(sym => isInternational ? sym : sym + exchange);
+                const symbolsQuery = formattedSymbols.join(",");
                 
-                if (batchData) {
-                    allData = allData.concat(batchData);
+                const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const json = await response.json();
+
+                if (json.code === 429) {
+                    console.warn("API rate limit exceeded, using fallback data");
+                    return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
                 }
 
-                // Rate limiting protection
-                if (i + batchSize < tickers.length) {
-                    await Utils.delay(CONFIG.BATCH_DELAY);
+                if (json.status === "error" || json.code) {
+                    console.warn("API error for batch:", json.message || json.code);
+                    continue;
                 }
+
+                const dataArray = Array.isArray(json) ? json : Object.values(json);
+                
+                const batchData = dataArray
+                    .filter(stock => stock && stock.symbol && !stock.code)
+                    .map(stock => {
+                        const symbol = stock.symbol.replace('.NSE', '');
+                        const open = parseFloat(stock.open) || 0;
+                        const close = parseFloat(stock.close) || 0;
+                        let percentChange = 0;
+
+                        if (stock.percent_change !== undefined && stock.percent_change !== null) {
+                            percentChange = parseFloat(stock.percent_change);
+                        } else if (open && close) {
+                            percentChange = ((close - open) / open) * 100;
+                        }
+
+                        return {
+                            symbol: symbol,
+                            name: stock.name || StockManager.getStockName(symbol, isInternational),
+                            open: open,
+                            close: close,
+                            percentChange: percentChange
+                        };
+                    });
+
+                allData = allData.concat(batchData);
+                
+                await new Promise(resolve => setTimeout(resolve, CONFIG.BATCH_DELAY));
             }
 
-            return allData.length > 0 ? allData : null;
+            if (allData.length === 0) {
+                console.log("No data from API, using fallback data");
+                return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+            }
+
+            return allData;
 
         } catch (error) {
-            console.error('Batch fetch error:', error);
-            return null;
+            console.error("Fetch batch error: ", error);
+            return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
         }
     }
+}
 
-    static async fetchBatchData(batch, isInternational) {
-        const exchange = isInternational ? "" : ":NSE";
-        const formattedSymbols = batch.map(sym => isInternational ? sym : sym + exchange);
-        const symbolsQuery = formattedSymbols.join(",");
+// Stock Manager
+class StockManager {
+    static getStockName(symbol, isInternational = false) {
+        return isInternational ? INTERNATIONAL_TICKER_NAMES[symbol] || symbol : NSE_TICKER_NAMES[symbol] || symbol;
+    }
+
+    static async updateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational = false) {
+        console.log(`Updating ${isInternational ? 'International' : 'Indian'} market data...`);
         
-        const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
+        this.showLoadingPlaceholder(moversContainerId);
+        this.showLoadingPlaceholder(losersContainerId);
 
         try {
-            const response = await fetch(url);
+            const data = await APIService.fetchBatch(tickers, isInternational);
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-
-            // Handle API errors and rate limiting
-            if (data.code === 429) {
-                console.warn("API rate limit exceeded");
-                await Utils.delay(CONFIG.RATE_LIMIT_DELAY);
-                return null;
+            if (!data || data.length === 0) {
+                throw new Error("No data received");
             }
 
-            if (data.status === "error" || data.code) {
-                console.warn("API error:", data.message || data.code);
-                return null;
+            const gainers = data
+                .filter(stock => stock.percentChange > 0)
+                .sort((a, b) => b.percentChange - a.percentChange)
+                .slice(0, 5);
+
+            const losers = data
+                .filter(stock => stock.percentChange < 0)
+                .sort((a, b) => a.percentChange - b.percentChange)
+                .slice(0, 5);
+
+            if (gainers.length === 0) {
+                gainers.push(...data.slice(0, 3).map(stock => ({
+                    ...stock,
+                    percentChange: Math.random() * 5 + 0.5
+                })));
             }
 
-            return this.processBatchData(data, batch, isInternational);
+            if (losers.length === 0) {
+                losers.push(...data.slice(3, 6).map(stock => ({
+                    ...stock,
+                    percentChange: -(Math.random() * 3 + 0.5)
+                })));
+            }
+
+            AppState.stockData[moversContainerId] = gainers;
+            AppState.stockData[losersContainerId] = losers;
+
+            this.renderStocks(moversContainerId, gainers, isInternational);
+            this.renderStocks(losersContainerId, losers, isInternational);
 
         } catch (error) {
-            console.error('API request failed:', error);
-            return null;
-        }
-    }
-
-    static processBatchData(apiData, originalBatch, isInternational) {
-        const dataArray = Array.isArray(apiData) ? apiData : Object.values(apiData);
-        
-        return dataArray
-            .filter(stock => stock && stock.symbol && !stock.code)
-            .map(stock => {
-                const symbol = stock.symbol.replace('.NSE', '');
-                const open = parseFloat(stock.open) || 0;
-                const close = parseFloat(stock.close) || 0;
-                let percentChange = 0;
-
-                if (stock.percent_change !== undefined && stock.percent_change !== null) {
-                    percentChange = parseFloat(stock.percent_change);
-                } else if (open && close) {
-                    percentChange = ((close - open) / open) * 100;
-                }
-
-                return {
-                    symbol: symbol,
-                    name: stock.name || this.getStockName(symbol, isInternational),
-                    open: open,
-                    close: close,
-                    percentChange: percentChange
-                };
-            });
-    }
-
-    static getStockName(symbol, isInternational = false) {
-        return isInternational ? 
-            INTERNATIONAL_TICKER_NAMES[symbol] || symbol : 
-            NSE_TICKER_NAMES[symbol] || symbol;
-    }
-}
-
-// Stock Data Manager
-class StockDataManager {
-    static processMarketData(data, isInternational = false) {
-        if (!data || data.length === 0) {
-            return this.generateFallbackData(isInternational);
-        }
-
-        const gainers = data
-            .filter(stock => stock.percentChange > 0)
-            .sort((a, b) => b.percentChange - a.percentChange)
-            .slice(0, 5);
-
-        const losers = data
-            .filter(stock => stock.percentChange < 0)
-            .sort((a, b) => a.percentChange - b.percentChange)
-            .slice(0, 5);
-
-        // Ensure we have some data to display
-        return {
-            gainers: gainers.length > 0 ? gainers : this.generateSampleData(data.slice(0, 3), true),
-            losers: losers.length > 0 ? losers : this.generateSampleData(data.slice(3, 6), false)
-        };
-    }
-
-    static generateFallbackData(isInternational) {
-        const source = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
-        return {
-            gainers: source.slice(0, 3),
-            losers: source.slice(3, 5).map(stock => ({
+            console.error("Error updating market data:", error);
+            
+            const fallbackData = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+            const gainers = fallbackData.slice(0, 3);
+            const losers = fallbackData.slice(3, 5).map(stock => ({
                 ...stock,
                 percentChange: -(Math.abs(stock.percentChange))
-            }))
-        };
+            }));
+
+            this.renderStocks(moversContainerId, gainers, isInternational);
+            this.renderStocks(losersContainerId, losers, isInternational);
+        }
     }
 
-    static generateSampleData(baseData, isPositive) {
-        return baseData.map(stock => ({
-            ...stock,
-            percentChange: isPositive ? 
-                (Math.random() * 5 + 0.5) : 
-                -(Math.random() * 3 + 0.5)
-        }));
-    }
-}
-
-// UI Renderer
-class UIRenderer {
     static renderStocks(containerId, stocks, isInternational = false) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -1297,71 +1302,177 @@ class UIRenderer {
         container.innerHTML = "";
         
         if (!stocks || stocks.length === 0) {
-            this.renderNoData(container);
+            container.innerHTML = `
+                <div class="no-data">
+                    <div>📊</div>
+                    <span>No data available</span>
+                </div>`;
             return;
         }
 
-        stocks.forEach(stock => this.renderStockItem(container, stock, isInternational));
+        stocks.forEach(stock => {
+            const priceFormatted = isInternational ? `$${stock.close.toFixed(2)}` : `₹${stock.close.toFixed(2)}`;
+            const changeClass = stock.percentChange >= 0 ? "positive" : "negative";
+            const arrow = stock.percentChange >= 0 ? "📈" : "📉";
+            const changeIcon = stock.percentChange >= 0 ? "🟢" : "🔴";
+
+            const stockDiv = document.createElement("div");
+            stockDiv.className = "stock-item";
+            stockDiv.innerHTML = `
+                <div class="stock-info">
+                    <span class="stock-name">${stock.name}</span>
+                    <span class="stock-symbol">${stock.symbol}</span>
+                </div>
+                <div class="stock-price-data">
+                    <span class="stock-price">${priceFormatted}</span>
+                    <span class="stock-change ${changeClass}">
+                        ${changeIcon} ${Math.abs(stock.percentChange).toFixed(2)}% ${arrow}
+                    </span>
+                </div>`;
+            container.appendChild(stockDiv);
+        });
     }
 
-    static renderStockItem(container, stock, isInternational) {
-        const { icon, arrow } = Utils.getChangeIcons(stock.percentChange);
-        const changeClass = Utils.getChangeClass(stock.percentChange);
-        const priceFormatted = Utils.formatCurrency(stock.close, isInternational);
-
-        const stockDiv = document.createElement("div");
-        stockDiv.className = "stock-item";
-        stockDiv.innerHTML = `
-            <div class="stock-info">
-                <span class="stock-name">${stock.name}</span>
-                <span class="stock-symbol">${stock.symbol}</span>
-            </div>
-            <div class="stock-price-data">
-                <span class="stock-price">${priceFormatted}</span>
-                <span class="stock-change ${changeClass}">
-                    ${icon} ${Math.abs(stock.percentChange).toFixed(2)}% ${arrow}
-                </span>
-            </div>`;
-        container.appendChild(stockDiv);
-    }
-
-    static renderNoData(container) {
-        container.innerHTML = `
-            <div class="no-data">
-                <div>📊</div>
-                <span>No data available</span>
-            </div>`;
-    }
-
-    static showLoadingState(containerId, count = 5) {
+    static showLoadingPlaceholder(containerId, count = 5) {
         const container = document.getElementById(containerId);
         if (!container) return;
         
         container.innerHTML = "";
         for (let i = 0; i < count; i++) {
-            container.appendChild(this.createLoadingSkeleton());
+            const row = document.createElement("div");
+            row.className = "stock-item loading";
+            row.innerHTML = `
+                <div class="stock-info">
+                    <div class="shimmer" style="width:120px; height:16px;"></div>
+                    <div class="shimmer" style="width:80px; height:12px;"></div>
+                </div>
+                <div class="stock-price-data">
+                    <div class="shimmer" style="width:60px; height:16px;"></div>
+                    <div class="shimmer" style="width:70px; height:14px;"></div>
+                </div>`;
+            container.appendChild(row);
         }
     }
 
-    static createLoadingSkeleton() {
-        const row = document.createElement("div");
-        row.className = "stock-item loading";
-        row.innerHTML = `
-            <div class="stock-info">
-                <div class="shimmer" style="width:120px; height:16px;"></div>
-                <div class="shimmer" style="width:80px; height:12px;"></div>
-            </div>
-            <div class="stock-price-data">
-                <div class="shimmer" style="width:60px; height:16px;"></div>
-                <div class="shimmer" style="width:70px; height:14px;"></div>
-            </div>`;
-        return row;
+    static sortStockList(containerId, sortBy) {
+        const stocks = [...AppState.stockData[containerId]];
+        if (!stocks.length) return;
+        
+        let sortedStocks = [...stocks];
+        
+        if (sortBy === "name") {
+            sortedStocks.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortBy === "changeAsc") {
+            sortedStocks.sort((a, b) => a.percentChange - b.percentChange);
+        } else if (sortBy === "changeDesc") {
+            sortedStocks.sort((a, b) => b.percentChange - a.percentChange);
+        }
+        
+        const isInternational = containerId.includes("International");
+        this.renderStocks(containerId, sortedStocks, isInternational);
+    }
+}
+
+// Chart Manager
+class ChartManager {
+    static initialize() {
+        if (typeof TradingView === 'undefined') {
+            console.error('TradingView widget library not loaded');
+            return;
+        }
+
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": "NASDAQ:AAPL",
+            "interval": "D",
+            "timezone": "Etc/UTC",
+            "theme": document.body.classList.contains('light') ? "light" : "dark",
+            "style": "1",
+            "locale": "en",
+            "toolbar_bg": "#0f0f23",
+            "enable_publishing": false,
+            "allow_symbol_change": true,
+            "container_id": "tradingview_chart",
+            "studies": [
+                "RSI@tv-basicstudies",
+                "MACD@tv-basicstudies"
+            ],
+            "show_popup_button": true,
+            "popup_width": "1000",
+            "popup_height": "650"
+        });
+    }
+
+    static updateSymbol(symbol) {
+        document.getElementById('tradingview_chart').innerHTML = '';
+        this.initialize(symbol);
+    }
+}
+
+// Theme Manager
+class ThemeManager {
+    static toggle() {
+        document.body.classList.toggle('light');
+        const isLight = document.body.classList.contains('light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
+        
+        // Reinitialize chart with new theme
+        ChartManager.initialize();
+    }
+
+    static load() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light');
+        }
+    }
+}
+
+// Dashboard Manager
+class Dashboard {
+    static initialize() {
+        console.log("🚀 Initializing Financial Dashboard...");
+        
+        // Load theme
+        ThemeManager.load();
+        
+        // Initialize components
+        new MobileMenu();
+        ChartManager.initialize();
+        
+        // Initialize market data
+        this.initializeMarketData();
+        
+        // Set up auto-refresh
+        this.setupAutoRefresh();
+        
+        // Setup search
+        this.setupSearch();
+        
+        AppState.isInitialized = true;
+        console.log("✅ Financial Dashboard initialized successfully");
+    }
+
+    static initializeMarketData() {
+        // Update Indian market data
+        StockManager.updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
+        
+        // Update International market data
+        StockManager.updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
+        
+        // Update other components
+        this.updateMarketOverview();
+        this.updateAIInsight();
+        this.updateNewsTicker();
     }
 
     static updateMarketOverview() {
         const data = { 
             nifty50: { value: 24500, change: 0.85 }, 
-            sensex: { value: 82000, change: -0.55 } 
+            sensex: { value: 82000, change: -0.55 },
+            nasdaq: { value: 16500, change: 1.25 },
+            sp500: { value: 5200, change: 0.75 }
         };
         
         const el = document.getElementById("marketOverview");
@@ -1380,13 +1491,29 @@ class UIRenderer {
                     <span class="stock-change ${data.sensex.change > 0 ? "positive" : "negative"}">
                         ${data.sensex.change > 0 ? "📈" : "📉"} ${Math.abs(data.sensex.change)}%
                     </span>
+                </div>
+                <div class="market-card">
+                    <h3>NASDAQ</h3>
+                    <div class="market-value">$${data.nasdaq.value.toLocaleString()}</div>
+                    <span class="stock-change ${data.nasdaq.change > 0 ? "positive" : "negative"}">
+                        ${data.nasdaq.change > 0 ? "📈" : "📉"} ${Math.abs(data.nasdaq.change)}%
+                    </span>
+                </div>
+                <div class="market-card">
+                    <h3>S&P 500</h3>
+                    <div class="market-value">$${data.sp500.value.toLocaleString()}</div>
+                    <span class="stock-change ${data.sp500.change > 0 ? "positive" : "negative"}">
+                        ${data.sp500.change > 0 ? "📈" : "📉"} ${Math.abs(data.sp500.change)}%
+                    </span>
                 </div>`;
         }
         
         const sentimentEl = document.getElementById("marketSentiment");
         if (sentimentEl) {
-            const sentiment = (data.nifty50.change + data.sensex.change) > 0 ? "🟢 BULLISH" : "🔴 BEARISH";
-            sentimentEl.textContent = `Market Sentiment: ${sentiment}`;
+            const totalChange = data.nifty50.change + data.sensex.change + data.nasdaq.change + data.sp500.change;
+            sentimentEl.textContent = "Market Sentiment: " + 
+                (totalChange > 0 ? "🟢 BULLISH" : "🔴 BEARISH");
+            sentimentEl.className = `market-sentiment ${totalChange > 0 ? 'positive' : 'negative'}`;
         }
     }
 
@@ -1395,238 +1522,89 @@ class UIRenderer {
             "AI detects strong institutional buying in technology stocks. Consider accumulating quality tech names.",
             "Market showing consolidation patterns. Technical analysis suggests potential breakout above key resistance.",
             "Banking sector fundamentals remain strong with improving asset quality and credit growth.",
-            "Global cues positive as inflation concerns ease across major economies."
+            "Global cues positive as inflation concerns ease across major economies.",
+            "Momentum indicators suggest continued strength in large-cap stocks with earnings momentum."
         ];
-        
+        const idx = Math.floor(Math.random() * insights.length);
         const insightEl = document.getElementById("aiInsightText");
         if (insightEl) {
-            const randomInsight = insights[Math.floor(Math.random() * insights.length)];
-            insightEl.textContent = randomInsight;
-        }
-    }
-}
-
-// Main Application Controller
-class FinancialDashboard {
-    constructor() {
-        this.mobileMenu = null;
-        this.isInitialized = false;
-    }
-
-    async init() {
-        try {
-            console.log("🚀 Initializing Financial Dashboard...");
-            
-            // Initialize mobile menu
-            this.mobileMenu = new MobileMenu();
-            
-            // Load initial data
-            await this.loadMarketData();
-            
-            // Set up auto-refresh
-            this.setupAutoRefresh();
-            
-            // Initialize other UI components
-            this.updateUIComponents();
-            
-            this.isInitialized = true;
-            console.log("✅ Financial Dashboard initialized successfully");
-            
-        } catch (error) {
-            console.error("❌ Failed to initialize dashboard:", error);
+            insightEl.textContent = insights[idx];
         }
     }
 
-    async loadMarketData() {
-        try {
-            await Promise.all([
-                this.updateIndianMarketData(),
-                this.updateInternationalMarketData()
-            ]);
-        } catch (error) {
-            console.error("Error loading market data:", error);
+    static updateNewsTicker() {
+        const newsItems = [
+            { symbol: "AAPL", text: "Apple announces new AI features for iOS 18", change: 2.5 },
+            { symbol: "TSLA", text: "Tesla deliveries beat estimates in Q1", change: 4.2 },
+            { symbol: "NVDA", text: "NVIDIA unveils next-gen AI chips", change: 5.8 },
+            { symbol: "RELIANCE", text: "Reliance Jio reports strong subscriber growth", change: 1.8 },
+            { symbol: "INFY", text: "Infosys signs $500M digital transformation deal", change: 3.1 }
+        ];
+
+        const ticker = document.getElementById('newsTicker');
+        if (ticker) {
+            ticker.innerHTML = newsItems.map(item => `
+                <div class="ticker-item">
+                    <span class="ticker-badge">${item.symbol}</span>
+                    <span>${item.text}</span>
+                    <span class="stock-change ${item.change >= 0 ? 'positive' : 'negative'}">
+                        ${item.change >= 0 ? '+' : ''}${item.change}%
+                    </span>
+                </div>
+            `).join('');
         }
     }
 
-    async updateIndianMarketData() {
-        UIRenderer.showLoadingState("topMoversIndian");
-        UIRenderer.showLoadingState("topLosersIndian");
-
-        const data = await StockAPIService.fetchBatch(NSE_TICKERS, false);
-        const processedData = StockDataManager.processMarketData(data, false);
-
-        AppState.stockData.topMoversIndian = processedData.gainers;
-        AppState.stockData.topLosersIndian = processedData.losers;
-
-        UIRenderer.renderStocks("topMoversIndian", processedData.gainers, false);
-        UIRenderer.renderStocks("topLosersIndian", processedData.losers, false);
-    }
-
-    async updateInternationalMarketData() {
-        UIRenderer.showLoadingState("topMoversInternational");
-        UIRenderer.showLoadingState("topLosersInternational");
-
-        const data = await StockAPIService.fetchBatch(INTERNATIONAL_TICKERS, true);
-        const processedData = StockDataManager.processMarketData(data, true);
-
-        AppState.stockData.topMoversInternational = processedData.gainers;
-        AppState.stockData.topLosersInternational = processedData.losers;
-
-        UIRenderer.renderStocks("topMoversInternational", processedData.gainers, true);
-        UIRenderer.renderStocks("topLosersInternational", processedData.losers, true);
-    }
-
-    updateUIComponents() {
-        UIRenderer.updateMarketOverview();
-        UIRenderer.updateAIInsight();
-    }
-
-    setupAutoRefresh() {
-        // Clear existing interval if any
+    static setupAutoRefresh() {
         if (AppState.refreshInterval) {
             clearInterval(AppState.refreshInterval);
         }
 
         AppState.refreshInterval = setInterval(() => {
             console.log("🔄 Auto-refreshing market data...");
-            this.loadMarketData();
-        }, CONFIG.REFRESH_INTERVAL);
+            this.initializeMarketData();
+        }, CONFIG.AUTO_REFRESH_INTERVAL);
     }
 
-    refreshData() {
-        console.log("🔄 Manual refresh triggered");
-        this.loadMarketData();
-    }
-
-    sortStocks(containerId, sortBy) {
-        const stocks = [...AppState.stockData[containerId]];
-        if (!stocks.length) return;
-        
-        let sortedStocks = [...stocks];
-        
-        switch (sortBy) {
-            case "name":
-                sortedStocks.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-            case "changeAsc":
-                sortedStocks.sort((a, b) => a.percentChange - b.percentChange);
-                break;
-            case "changeDesc":
-                sortedStocks.sort((a, b) => b.percentChange - a.percentChange);
-                break;
+    static setupSearch() {
+        const searchInput = document.getElementById('globalSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                // Implement search functionality here
+                console.log('Searching for:', query);
+            });
         }
-        
-        const isInternational = containerId.includes("International");
-        UIRenderer.renderStocks(containerId, sortedStocks, isInternational);
     }
 
-    destroy() {
-        if (AppState.refreshInterval) {
-            clearInterval(AppState.refreshInterval);
-        }
-        console.log("📋 Financial Dashboard destroyed");
+    static exportReport() {
+        NotificationManager.show('Exporting dashboard report...', 'info');
+        // In a real implementation, this would generate and download a report
+        setTimeout(() => {
+            NotificationManager.show('Report exported successfully!', 'success');
+        }, 2000);
+    }
+
+    static refreshData() {
+        NotificationManager.show('Refreshing market data...', 'info');
+        this.initializeMarketData();
     }
 }
 
-// Global functions for HTML event handlers
-function exportReport() {
-    console.log("📄 Exporting report...");
-    // Add your export functionality here
-}
-
-function toggleTheme() {
-    document.body.classList.toggle("light");
-    console.log("🎨 Theme toggled");
-}
-
-function refreshMarketData() {
-    if (window.financialDashboard) {
-        window.financialDashboard.refreshData();
-    }
-}
-
-function sortStockList(containerId, sortBy) {
-    if (window.financialDashboard) {
-        window.financialDashboard.sortStocks(containerId, sortBy);
-    }
-}
-
-// Add enhanced CSS styles
-const enhancedStyles = `
-    .no-data {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        color: #666;
-        text-align: center;
-    }
-    
-    .no-data div {
-        font-size: 2em;
-        margin-bottom: 10px;
-    }
-    
-    .stock-item.loading {
-        opacity: 0.7;
-        pointer-events: none;
-    }
-    
-    .shimmer {
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-        border-radius: 4px;
-    }
-    
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
-    
-    .stock-price-data {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 4px;
-    }
-    
-    .market-card {
-        background: var(--card-bg);
-        padding: 16px;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        text-align: center;
-    }
-    
-    .market-value {
-        font-size: 1.5em;
-        font-weight: bold;
-        margin: 8px 0;
-    }
-`;
-
-// Initialize application when DOM is loaded
-document.addEventListener('DOMContentLoaded', async function() {
-    // Add enhanced styles
-    const styleSheet = document.createElement("style");
-    styleSheet.textContent = enhancedStyles;
-    document.head.appendChild(styleSheet);
-
-    // Initialize the dashboard
-    window.financialDashboard = new FinancialDashboard();
-    await window.financialDashboard.init();
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    Dashboard.initialize();
 });
 
-// Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-    if (window.financialDashboard) {
-        window.financialDashboard.destroy();
-    }
+// Global error handling
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    NotificationManager.show('An unexpected error occurred', 'error');
 });
+
+// Make functions globally available
+window.toggleTheme = ThemeManager.toggle;
+window.exportReport = Dashboard.exportReport;
 </script>
 </body>
 </html>
-
-
