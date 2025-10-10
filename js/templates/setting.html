@@ -5,6 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings - Admin Panel</title>
   <style>
+/* Mobile Menu Animation */
+.menu-toggle span {
+  transition: all 0.3s ease;
+}
+
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+}
+
     /* General styling for the whole dashboard */
     body {
       font-family: 'Poppins', sans-serif;
@@ -292,4 +336,6 @@
   </div>
 </body>
 </html>
+
+
 

@@ -93,6 +93,30 @@
   </div>
 
   <script>
+// Mobile menu functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  if (menuToggle && navItems) {
+    menuToggle.addEventListener('click', function() {
+      navItems.classList.toggle('show');
+      // Animate hamburger to X
+      const spans = menuToggle.querySelectorAll('span');
+      spans.forEach(span => span.classList.toggle('active'));
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
+        navItems.classList.remove('show');
+        const spans = menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.remove('active'));
+      }
+    });
+  }
+});
+
     // Example to load dynamic data on page load
     document.addEventListener('DOMContentLoaded', function() {
       // Fetch data dynamically for overview (users, predictions, reports)
@@ -190,6 +214,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   </script>
   <script>
+// Mobile menu functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  if (menuToggle && navItems) {
+    menuToggle.addEventListener('click', function() {
+      navItems.classList.toggle('show');
+      // Animate hamburger to X
+      const spans = menuToggle.querySelectorAll('span');
+      spans.forEach(span => span.classList.toggle('active'));
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
+        navItems.classList.remove('show');
+        const spans = menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.remove('active'));
+      }
+    });
+  }
+});
+
     fetch('http://localhost:3000/admin/users')
       .then(response =>
 // Mobile menu functionality
@@ -260,4 +308,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
 </body>
 </html>
+
+
 
