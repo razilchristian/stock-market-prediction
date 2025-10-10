@@ -408,16 +408,10 @@
       overflow: hidden;
     }
 
-    /* TradingView Chart Styling */
+    /* TradingView Widget */
     .tradingview-widget-container {
       height: 100%;
       width: 100%;
-      border-radius: 20px;
-    }
-
-    .tradingview-widget-container__widget {
-      height: 100% !important;
-      width: 100% !important;
       border-radius: 20px;
     }
 
@@ -899,6 +893,9 @@
           <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
             <i class="fas fa-palette"></i>Theme
           </button>
+          <button class="btn btn-primary" onclick="Dashboard.refreshData()">
+            <i class="fas fa-sync-alt"></i>Refresh
+          </button>
         </div>
       </div>
     </div>
@@ -916,18 +913,26 @@
         <div class="chart-controls">
           <select id="chartSymbol" class="chart-select" onchange="ChartManager.updateSymbol(this.value)">
             <option value="NASDAQ:AAPL">Apple (AAPL)</option>
-            <option value="NSE:RELIANCE">Reliance</option>
-            <option value="NSE:TCS">TCS</option>
-            <option value="NASDAQ:MSFT">Microsoft</option>
-            <option value="NSE:INFY">Infosys</option>
-            <option value="NYSE:TSLA">Tesla</option>
+            <option value="NASDAQ:TSLA">Tesla (TSLA)</option>
+            <option value="NASDAQ:MSFT">Microsoft (MSFT)</option>
+            <option value="NASDAQ:GOOGL">Google (GOOGL)</option>
+            <option value="NASDAQ:NVDA">NVIDIA (NVDA)</option>
+            <option value="BINANCE:BTCUSDT">Bitcoin (BTC)</option>
+          </select>
+          <select id="chartInterval" class="chart-select" onchange="ChartManager.updateInterval(this.value)">
+            <option value="1">1 Minute</option>
+            <option value="5">5 Minutes</option>
+            <option value="15">15 Minutes</option>
+            <option value="60">1 Hour</option>
+            <option value="D" selected>Daily</option>
+            <option value="W">Weekly</option>
           </select>
         </div>
       </div>
       <div class="chart-container">
         <!-- TradingView Widget -->
         <div class="tradingview-widget-container">
-          <div id="tradingview_chart" style="height: 100%; width: 100%;"></div>
+          <div id="tradingview_widget" style="height: 100%; width: 100%;"></div>
         </div>
       </div>
     </div>
@@ -1155,6 +1160,119 @@ class NotificationManager {
     }
 }
 
+// Chart Manager with TradingView
+class ChartManager {
+    static currentWidget = null;
+    
+    static initialize() {
+        this.loadTradingViewScript().then(() => {
+            this.createChart();
+            NotificationManager.show('Live charts loaded successfully', 'success');
+        }).catch(error => {
+            console.error('Failed to load TradingView:', error);
+            this.createFallbackChart();
+            NotificationManager.show('Using fallback charts', 'warning');
+        });
+    }
+
+    static loadTradingViewScript() {
+        return new Promise((resolve, reject) => {
+            if (window.TradingView) {
+                resolve();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/tv.js';
+            script.type = 'text/javascript';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    static createChart(symbol = "NASDAQ:AAPL", interval = "D") {
+        if (this.currentWidget) {
+            this.currentWidget.remove();
+        }
+
+        this.currentWidget = new TradingView.widget({
+            "autosize": true,
+            "symbol": symbol,
+            "interval": interval,
+            "timezone": "America/New_York",
+            "theme": this.getTheme(),
+            "style": "1",
+            "locale": "en",
+            "toolbar_bg": "#0f0f23",
+            "enable_publishing": false,
+            "allow_symbol_change": true,
+            "container_id": "tradingview_widget",
+            "studies": [
+                "RSI@tv-basicstudies",
+                "MACD@tv-basicstudies",
+                "Volume@tv-basicstudies"
+            ],
+            "show_popup_button": true,
+            "popup_width": "1000",
+            "popup_height": "650",
+            "disabled_features": [
+                "use_localstorage_for_settings",
+                "header_widget_dom_node"
+            ],
+            "enabled_features": [
+                "study_templates",
+                "hide_left_toolbar_by_default"
+            ]
+        });
+    }
+
+    static updateSymbol(symbol) {
+        const interval = document.getElementById('chartInterval')?.value || 'D';
+        this.createChart(symbol, interval);
+        NotificationManager.show(`Chart updated to ${symbol}`, 'info');
+    }
+
+    static updateInterval(interval) {
+        const symbol = document.getElementById('chartSymbol')?.value || 'NASDAQ:AAPL';
+        this.createChart(symbol, interval);
+        NotificationManager.show(`Interval changed to ${interval}`, 'info');
+    }
+
+    static getTheme() {
+        return document.body.classList.contains('light') ? "light" : "dark";
+    }
+
+    static createFallbackChart() {
+        const container = document.getElementById('tradingview_widget');
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); padding: 20px; text-align: center;">
+                <i class="fas fa-chart-line" style="font-size: 64px; margin-bottom: 20px; color: var(--active-color);"></i>
+                <h3 style="margin-bottom: 12px; color: var(--text-primary);">Advanced Charting</h3>
+                <p style="margin-bottom: 20px; line-height: 1.6;">Real-time charts powered by TradingView. Interactive technical analysis with multiple indicators and drawing tools.</p>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px;">
+                    <div style="background: var(--bg-card); padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-bolt" style="color: var(--up-color);"></i>
+                        <div>Real-time Data</div>
+                    </div>
+                    <div style="background: var(--bg-card); padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-chart-bar" style="color: var(--active-color);"></i>
+                        <div>Technical Indicators</div>
+                    </div>
+                    <div style="background: var(--bg-card); padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-draw-polygon" style="color: var(--accent-purple);"></i>
+                        <div>Drawing Tools</div>
+                    </div>
+                    <div style="background: var(--bg-card); padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-exchange-alt" style="color: var(--accent-teal);"></i>
+                        <div>Multiple Timeframes</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
 // API Service
 class APIService {
     static async fetchBatch(tickers, isInternational = false) {
@@ -1303,9 +1421,9 @@ class StockManager {
         
         if (!stocks || stocks.length === 0) {
             container.innerHTML = `
-                <div class="no-data">
-                    <div>📊</div>
-                    <span>No data available</span>
+                <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+                    <i class="fas fa-chart-line" style="font-size: 32px; margin-bottom: 12px;"></i>
+                    <div>No data available</div>
                 </div>`;
             return;
         }
@@ -1370,42 +1488,11 @@ class StockManager {
         
         const isInternational = containerId.includes("International");
         this.renderStocks(containerId, sortedStocks, isInternational);
-    }
-}
-
-// Chart Manager
-class ChartManager {
-    static initialize() {
-        if (typeof TradingView === 'undefined') {
-            console.error('TradingView widget library not loaded');
-            return;
-        }
-
-        new TradingView.widget({
-            "autosize": true,
-            "symbol": "NASDAQ:AAPL",
-            "interval": "D",
-            "timezone": "Etc/UTC",
-            "theme": document.body.classList.contains('light') ? "light" : "dark",
-            "style": "1",
-            "locale": "en",
-            "toolbar_bg": "#0f0f23",
-            "enable_publishing": false,
-            "allow_symbol_change": true,
-            "container_id": "tradingview_chart",
-            "studies": [
-                "RSI@tv-basicstudies",
-                "MACD@tv-basicstudies"
-            ],
-            "show_popup_button": true,
-            "popup_width": "1000",
-            "popup_height": "650"
-        });
-    }
-
-    static updateSymbol(symbol) {
-        document.getElementById('tradingview_chart').innerHTML = '';
-        this.initialize(symbol);
+        
+        // Update active button
+        const buttons = document.querySelectorAll(`#${containerId} ~ .watchlist-header .sort-btn`);
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
     }
 }
 
@@ -1418,7 +1505,9 @@ class ThemeManager {
         NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
         
         // Reinitialize chart with new theme
-        ChartManager.initialize();
+        if (window.TradingView) {
+            ChartManager.initialize();
+        }
     }
 
     static load() {
@@ -1452,6 +1541,8 @@ class Dashboard {
         
         AppState.isInitialized = true;
         console.log("✅ Financial Dashboard initialized successfully");
+        
+        NotificationManager.show('Dashboard loaded successfully!', 'success');
     }
 
     static initializeMarketData() {
@@ -1511,8 +1602,10 @@ class Dashboard {
         const sentimentEl = document.getElementById("marketSentiment");
         if (sentimentEl) {
             const totalChange = data.nifty50.change + data.sensex.change + data.nasdaq.change + data.sp500.change;
-            sentimentEl.textContent = "Market Sentiment: " + 
-                (totalChange > 0 ? "🟢 BULLISH" : "🔴 BEARISH");
+            const sentiment = totalChange > 1 ? "🟢 STRONGLY BULLISH" : 
+                            totalChange > 0 ? "🟢 BULLISH" : 
+                            totalChange > -1 ? "🔴 BEARISH" : "🔴 STRONGLY BEARISH";
+            sentimentEl.textContent = `Market Sentiment: ${sentiment}`;
             sentimentEl.className = `market-sentiment ${totalChange > 0 ? 'positive' : 'negative'}`;
         }
     }
@@ -1523,7 +1616,8 @@ class Dashboard {
             "Market showing consolidation patterns. Technical analysis suggests potential breakout above key resistance.",
             "Banking sector fundamentals remain strong with improving asset quality and credit growth.",
             "Global cues positive as inflation concerns ease across major economies.",
-            "Momentum indicators suggest continued strength in large-cap stocks with earnings momentum."
+            "Momentum indicators suggest continued strength in large-cap stocks with earnings momentum.",
+            "AI analysis shows oversold conditions in mid-cap segment, potential buying opportunity emerging."
         ];
         const idx = Math.floor(Math.random() * insights.length);
         const insightEl = document.getElementById("aiInsightText");
@@ -1538,7 +1632,8 @@ class Dashboard {
             { symbol: "TSLA", text: "Tesla deliveries beat estimates in Q1", change: 4.2 },
             { symbol: "NVDA", text: "NVIDIA unveils next-gen AI chips", change: 5.8 },
             { symbol: "RELIANCE", text: "Reliance Jio reports strong subscriber growth", change: 1.8 },
-            { symbol: "INFY", text: "Infosys signs $500M digital transformation deal", change: 3.1 }
+            { symbol: "INFY", text: "Infosys signs $500M digital transformation deal", change: 3.1 },
+            { symbol: "BTC", text: "Bitcoin breaks $45,000 as institutional adoption grows", change: 6.2 }
         ];
 
         const ticker = document.getElementById('newsTicker');
@@ -1571,8 +1666,11 @@ class Dashboard {
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const query = e.target.value.toLowerCase();
-                // Implement search functionality here
-                console.log('Searching for:', query);
+                if (query.length > 2) {
+                    // Implement search functionality here
+                    console.log('Searching for:', query);
+                    NotificationManager.show(`Searching for: ${query}`, 'info');
+                }
             });
         }
     }
