@@ -124,7 +124,31 @@
         const users = await response.json();
         
         const tableBody = document.querySelector('#latest-users-table tbody');
-        users.forEach(user => {
+        users.forEach(user =>
+// Mobile menu functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  if (menuToggle && navItems) {
+    menuToggle.addEventListener('click', function() {
+      navItems.classList.toggle('show');
+      // Animate hamburger to X
+      const spans = menuToggle.querySelectorAll('span');
+      spans.forEach(span => span.classList.toggle('active'));
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
+        navItems.classList.remove('show');
+        const spans = menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.remove('active'));
+      }
+    });
+  }
+});
+ {
           const row = document.createElement('tr');
           row.innerHTML = `
             <td>${user.id}</td>
@@ -167,7 +191,31 @@
   </script>
   <script>
     fetch('http://localhost:3000/admin/users')
-      .then(response => response.json())
+      .then(response =>
+// Mobile menu functionality
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.menu-toggle');
+  const navItems = document.querySelector('.nav-items');
+  
+  if (menuToggle && navItems) {
+    menuToggle.addEventListener('click', function() {
+      navItems.classList.toggle('show');
+      // Animate hamburger to X
+      const spans = menuToggle.querySelectorAll('span');
+      spans.forEach(span => span.classList.toggle('active'));
+    });
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
+        navItems.classList.remove('show');
+        const spans = menuToggle.querySelectorAll('span');
+        spans.forEach(span => span.classList.remove('active'));
+      }
+    });
+  }
+});
+ response.json())
       .then(data => {
         const usersTable = document.getElementById('users-table');
         data.users.forEach(user => {
@@ -212,3 +260,4 @@
   
 </body>
 </html>
+
