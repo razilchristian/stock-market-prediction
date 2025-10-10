@@ -8,6 +8,7 @@ import requests
 import yfinance as yf
 from datetime import datetime, timedelta
 import warnings
+import os
 warnings.filterwarnings('ignore')
 
 # Machine Learning imports
@@ -24,7 +25,6 @@ MARKETSTACK_API_KEY = "775c00986af45bdb518927502e1eb471"
 TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9"
 
 # ========= FLASK SERVER & DASH APP =========
-import os
 server = Flask(__name__, template_folder='templates')
 app = dash.Dash(
     __name__,
@@ -287,11 +287,59 @@ predictor = AdvancedStockPredictor()
 # ========= FLASK ROUTES =========
 @server.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('jeet.html')
+
+@server.route('/portfolio')
+def portfolio_page():
+    return render_template('portfolio.html')
+
+@server.route('/mystock')
+def mystock_page():
+    return render_template('mystock.html')
+
+@server.route('/deposit')
+def deposit_page():
+    return render_template('deposit.html')
+
+@server.route('/insight')
+def insight_page():
+    return render_template('insight.html')
 
 @server.route('/prediction')
 def prediction_page():
     return render_template('prediction.html')
+
+@server.route('/news')
+def news_page():
+    return render_template('news.html')
+
+@server.route('/videos')
+def videos_page():
+    return render_template('videos.html')
+
+@server.route('/superstars')
+def superstars_page():
+    return render_template('Superstars.html')
+
+@server.route('/alerts')
+def alerts_page():
+    return render_template('Alerts.html')
+
+@server.route('/help')
+def help_page():
+    return render_template('help.html')
+
+@server.route('/profile')
+def profile_page():
+    return render_template('profile.html')
+
+@server.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@server.route('/faq')
+def faq_page():
+    return render_template('FAQ.html')
 
 @server.route('/api/stocks')
 def get_stocks():
@@ -805,62 +853,15 @@ def generate_advanced_data_table(historical_data):
         page_size=15
     )
 
-# ========= FLASK ROUTES =========
-@server.route('/')
-def index():
-    return render_template('jeet.html')
+# Serve static files
+@server.route('/assets/<path:path>')
+def send_assets(path):
+    return send_from_directory('assets', path)
 
-@server.route('/portfolio')
-def portfolio_page():
-    return render_template('portfolio.html')
-
-@server.route('/mystock')
-def mystock_page():
-    return render_template('mystock.html')
-
-@server.route('/deposit')
-def deposit_page():
-    return render_template('deposit.html')
-
-@server.route('/insight')
-def insight_page():
-    return render_template('insight.html')
-
-@server.route('/prediction')
-def prediction_page():
-    return render_template('prediction.html')
-
-@server.route('/news')
-def news_page():
-    return render_template('news.html')
-
-@server.route('/videos')
-def videos_page():
-    return render_template('videos.html')
-
-@server.route('/superstars')
-def superstars_page():
-    return render_template('Superstars.html')
-
-@server.route('/alerts')
-def alerts_page():
-    return render_template('Alerts.html')
-
-@server.route('/help')
-def help_page():
-    return render_template('help.html')
-
-@server.route('/profile')
-def profile_page():
-    return render_template('profile.html')
-
-@server.route('/login')
-def login_page():
-    return render_template('login.html')
-
-@server.route('/faq')
-def faq_page():
-    return render_template('FAQ.html')
+# Serve templates
+@server.route('/templates/<path:path>')
+def send_templates(path):
+    return send_from_directory('templates', path)
 
 # Main entry
 if __name__ == '__main__':
