@@ -7,48 +7,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
 }
 
 :root {
@@ -86,13 +49,6 @@ body.light {
   --active-color: #0077cc;
   --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
 }
 
 body {
@@ -199,6 +155,50 @@ body {
   background: var(--text-primary);
   border-radius: 2px;
   transition: all 0.3s ease;
+}
+
+/* Mobile Menu Animation */
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
 }
 
 /* Main Content */
@@ -687,50 +687,6 @@ body {
   }
 }
 </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -878,6 +834,20 @@ body {
 </div>
 
 <script>
+// Configuration
+const TWELVEDATA_API_KEY = '5f988a8aff6b4b58848dfcf67af727d9';
+let allInsights = [];
+
+// Sample sector data
+const sectorData = [
+  { name: 'Technology', performance: 2.8 },
+  { name: 'Healthcare', performance: 1.2 },
+  { name: 'Financials', performance: -0.5 },
+  { name: 'Energy', performance: -1.8 },
+  { name: 'Consumer', performance: 0.9 },
+  { name: 'Industrials', performance: 0.3 }
+];
+
 // Mobile menu functionality
 document.addEventListener('DOMContentLoaded', function() {
   const menuToggle = document.querySelector('.menu-toggle');
@@ -901,20 +871,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
-
-const TWELVEDATA_API_KEY = '5f988a8aff6b4b58848dfcf67af727d9';
-let allInsights = [];
-let sectors = [];
-
-// Sample sector data
-const sectorData = [
-  { name: 'Technology', performance: 2.8 },
-  { name: 'Healthcare', performance: 1.2 },
-  { name: 'Financials', performance: -0.5 },
-  { name: 'Energy', performance: -1.8 },
-  { name: 'Consumer', performance: 0.9 },
-  { name: 'Industrials', performance: 0.3 }
-];
 
 // Show loading placeholders
 function showLoadingPlaceholders() {
@@ -927,30 +883,6 @@ function showLoadingPlaceholders() {
     card.className = 'insight-card';
     card.innerHTML = `
       <div class="insight-header">
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
-
         <div>
           <div class="shimmer" style="width: 120px; height: 20px; margin-bottom: 8px;"></div>
           <div class="shimmer" style="width: 80px; height: 16px;"></div>
@@ -1162,14 +1094,6 @@ function updateAIInsight() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize mobile menu
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  menuToggle.addEventListener('click', () => {
-    navItems.classList.toggle('show');
-  });
-  
   // Setup search functionality
   setupSearch();
   
@@ -1184,5 +1108,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-
