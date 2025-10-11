@@ -518,14 +518,6 @@ def help_page():
 def profile_page():
     return render_template('profile.html')
 
-@server.route('/login')
-def login_page():
-    return render_template('login.html')
-
-@server.route('/faq')
-def faq_page():
-    return render_template('FAQ.html')
-
 # ========= FALLBACK ROUTE =========
 @server.route('/<page_name>')
 def fallback_route(page_name):
