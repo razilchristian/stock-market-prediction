@@ -45,13 +45,16 @@ MARKETSTACK_API_KEY = "775c00986af45bdb518927502e1eb471"
 TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9"
 
 # ========= FLASK SERVER & DASH APP =========
-server = Flask(__name__, template_folder='templates')
+server = Flask(__name__, template_folder='templates', static_folder='static')
 app = dash.Dash(
     __name__,
     server=server,
     routes_pathname_prefix='/dash/',
     suppress_callback_exceptions=True,
-    external_stylesheets=['https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css']
+    external_stylesheets=[
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+        'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+    ]
 )
 
 # ========= MACHINE LEARNING MODELS =========
@@ -401,6 +404,68 @@ def get_trading_recommendation(change_percent, risk_level):
         else:
             return "🔄 HOLD: Stable with minimal movement"
 
+# ========= FLASK ROUTES FOR ALL PAGES =========
+@server.route('/jeet')
+def jeet_page():
+    return render_template('jeet.html')
+
+@server.route('/portfolio')
+def portfolio_page():
+    return render_template('portfolio.html')
+
+@server.route('/mystock')
+def mystock_page():
+    return render_template('mystock.html')
+
+@server.route('/deposit')
+def deposit_page():
+    return render_template('deposit.html')
+
+@server.route('/insight')
+def insight_page():
+    return render_template('insight.html')
+
+@server.route('/prediction')
+def prediction_page():
+    return render_template('prediction.html')
+
+@server.route('/news')
+def news_page():
+    return render_template('news.html')
+
+@server.route('/videos')
+def videos_page():
+    return render_template('videos.html')
+
+@server.route('/superstars')
+def superstars_page():
+    return render_template('Superstars.html')
+
+@server.route('/alerts')
+def alerts_page():
+    return render_template('alerts.html')
+
+@server.route('/help')
+def help_page():
+    return render_template('help.html')
+
+@server.route('/profile')
+def profile_page():
+    return render_template('profile.html')
+
+@server.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@server.route('/faq')
+def faq_page():
+    return render_template('FAQ.html')
+
+# Make the root route redirect to jeet.html (dashboard)
+@server.route('/')
+def index():
+    return render_template('jeet.html')
+
 # ========= API ROUTES =========
 @server.route('/api/predict', methods=['POST'])
 @rate_limit(0.5)
@@ -548,61 +613,176 @@ def generate_10_year_synthetic_data(ticker):
 
 # ========= DASH LAYOUT =========
 app.layout = html.Div([
+    # Header with Navigation
     html.Div([
-        html.H1('🤖 Advanced AI Stock Predictions Dashboard', 
-                style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px'}),
-        html.P("10-YEAR Data Analysis • Machine Learning • Risk Assessment • Confidence Intervals", 
-               style={'color': '#ffffff', 'textAlign': 'center', 'marginBottom': '30px'})
-    ]),
-
-    # Market Status
-    html.Div(id="market-status-banner", style={
-        'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px',
-        'textAlign': 'center', 'fontWeight': 'bold'
+        html.Div([
+            html.H1('🚀 QuantumTrade AI', 
+                   style={'color': '#00e6ff', 'margin': '0', 'fontSize': '28px', 'fontWeight': '700'}),
+            html.P('Advanced Stock Prediction Platform', 
+                  style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 'fontWeight': '400'})
+        ], style={'flex': '1'}),
+        
+        html.Div([
+            html.A('Dashboard', href='/', 
+                  style={'color': '#00e6ff', 'textDecoration': 'none', 'margin': '0 15px', 'fontWeight': '500'}),
+            html.A('Predictions', href='/prediction', 
+                  style={'color': '#94a3b8', 'textDecoration': 'none', 'margin': '0 15px', 'fontWeight': '500'}),
+            html.A('Portfolio', href='/portfolio', 
+                  style={'color': '#94a3b8', 'textDecoration': 'none', 'margin': '0 15px', 'fontWeight': '500'}),
+            html.A('News', href='/news', 
+                  style={'color': '#94a3b8', 'textDecoration': 'none', 'margin': '0 15px', 'fontWeight': '500'}),
+            html.A('Profile', href='/profile', 
+                  style={'color': '#94a3b8', 'textDecoration': 'none', 'margin': '0 15px', 'fontWeight': '500'})
+        ], style={'display': 'flex', 'alignItems': 'center'})
+    ], style={
+        'display': 'flex', 
+        'justifyContent': 'space-between', 
+        'alignItems': 'center',
+        'padding': '20px 30px',
+        'backgroundColor': '#0f172a',
+        'borderBottom': '1px solid #1e293b',
+        'marginBottom': '30px'
     }),
 
-    # Controls
+    # Main Content
     html.Div([
+        # Hero Section
         html.Div([
-            html.Label("Stock Ticker:", style={'color': '#ffffff', 'marginRight': '10px'}),
-            dcc.Input(
-                id='ticker-input', 
-                placeholder='e.g., AAPL, MSFT, TSLA', 
-                type='text',
-                value='AAPL',
-                style={'width': '200px', 'marginRight': '20px', 'padding': '8px'}
-            )
-        ]),
+            html.Div([
+                html.H2('🤖 Advanced AI Stock Predictions', 
+                       style={'color': '#ffffff', 'fontSize': '36px', 'fontWeight': '700', 'marginBottom': '10px'}),
+                html.P('10-YEAR Data Analysis • Machine Learning • Risk Assessment • Confidence Intervals', 
+                      style={'color': '#94a3b8', 'fontSize': '18px', 'marginBottom': '30px'}),
+                
+                # Stats Cards
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className='fas fa-database', style={'color': '#00e6ff', 'fontSize': '24px'}),
+                            html.Div([
+                                html.H3('10+ Years', style={'color': '#ffffff', 'margin': '0', 'fontSize': '20px'}),
+                                html.P('Historical Data', style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px'})
+                            ], style={'marginLeft': '15px'})
+                        ], style={'display': 'flex', 'alignItems': 'center'}),
+                    ], style={'flex': '1', 'backgroundColor': '#1e293b', 'padding': '20px', 'borderRadius': '12px', 'margin': '0 10px'}),
+                    
+                    html.Div([
+                        html.Div([
+                            html.I(className='fas fa-brain', style={'color': '#00e6ff', 'fontSize': '24px'}),
+                            html.Div([
+                                html.H3('4 AI Models', style={'color': '#ffffff', 'margin': '0', 'fontSize': '20px'}),
+                                html.P('Ensemble Learning', style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px'})
+                            ], style={'marginLeft': '15px'})
+                        ], style={'display': 'flex', 'alignItems': 'center'}),
+                    ], style={'flex': '1', 'backgroundColor': '#1e293b', 'padding': '20px', 'borderRadius': '12px', 'margin': '0 10px'}),
+                    
+                    html.Div([
+                        html.Div([
+                            html.I(className='fas fa-chart-line', style={'color': '#00e6ff', 'fontSize': '24px'}),
+                            html.Div([
+                                html.H3('50+ Features', style={'color': '#ffffff', 'margin': '0', 'fontSize': '20px'}),
+                                html.P('Technical Indicators', style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px'})
+                            ], style={'marginLeft': '15px'})
+                        ], style={'display': 'flex', 'alignItems': 'center'}),
+                    ], style={'flex': '1', 'backgroundColor': '#1e293b', 'padding': '20px', 'borderRadius': '12px', 'margin': '0 10px'})
+                ], style={'display': 'flex', 'marginBottom': '30px'})
+            ], style={'textAlign': 'center', 'maxWidth': '800px', 'margin': '0 auto'})
+        ], style={'marginBottom': '40px'}),
 
+        # Market Status
+        html.Div(id="market-status-banner", style={'marginBottom': '30px'}),
+
+        # Prediction Controls
         html.Div([
-            html.Label("Prediction Date:", style={'color': '#ffffff', 'marginRight': '10px'}),
-            dcc.Input(
-                id='prediction-date',
-                value=get_next_trading_day(),
-                type='text',
-                disabled=True,
-                style={'width': '150px', 'marginRight': '20px', 'padding': '8px', 'backgroundColor': '#2a2a2a'}
-            )
-        ]),
+            html.Div([
+                html.H3('🔮 Generate AI Prediction', 
+                       style={'color': '#ffffff', 'marginBottom': '20px', 'fontSize': '24px'}),
+                
+                html.Div([
+                    html.Div([
+                        html.Label("Stock Ticker", 
+                                 style={'color': '#94a3b8', 'marginBottom': '8px', 'fontWeight': '500', 'display': 'block'}),
+                        dcc.Input(
+                            id='ticker-input', 
+                            placeholder='e.g., AAPL, MSFT, TSLA...', 
+                            type='text',
+                            value='AAPL',
+                            style={
+                                'width': '100%', 
+                                'padding': '12px 16px',
+                                'borderRadius': '8px',
+                                'border': '1px solid #334155',
+                                'backgroundColor': '#1e293b',
+                                'color': '#ffffff',
+                                'fontSize': '16px'
+                            }
+                        )
+                    ], style={'flex': '1', 'marginRight': '15px'}),
+                    
+                    html.Div([
+                        html.Label("Prediction Date", 
+                                 style={'color': '#94a3b8', 'marginBottom': '8px', 'fontWeight': '500', 'display': 'block'}),
+                        dcc.Input(
+                            id='prediction-date',
+                            value=get_next_trading_day(),
+                            type='text',
+                            disabled=True,
+                            style={
+                                'width': '100%', 
+                                'padding': '12px 16px',
+                                'borderRadius': '8px',
+                                'border': '1px solid #334155',
+                                'backgroundColor': '#1e293b',
+                                'color': '#94a3b8',
+                                'fontSize': '16px'
+                            }
+                        )
+                    ], style={'flex': '1', 'marginRight': '15px'})
+                ], style={'display': 'flex', 'marginBottom': '20px'}),
+                
+                html.Button(
+                    "🚀 Generate AI Prediction (10-YEAR Analysis)", 
+                    id="train-btn", 
+                    n_clicks=0,
+                    style={
+                        'width': '100%',
+                        'backgroundColor': '#00e6ff',
+                        'color': '#0f172a',
+                        'border': 'none',
+                        'padding': '15px 30px',
+                        'borderRadius': '8px',
+                        'cursor': 'pointer',
+                        'fontWeight': '600',
+                        'fontSize': '16px',
+                        'transition': 'all 0.3s ease'
+                    }
+                )
+            ], style={
+                'backgroundColor': '#1e293b',
+                'padding': '30px',
+                'borderRadius': '12px',
+                'border': '1px solid #334155'
+            })
+        ], style={'maxWidth': '600px', 'margin': '0 auto 30px auto'}),
 
-        html.Button("🚀 Generate AI Prediction (10-YEAR Analysis)", id="train-btn", n_clicks=0,
-                   style={'backgroundColor': '#00e6ff', 'color': '#0f0f23', 'border': 'none', 
-                          'padding': '10px 20px', 'borderRadius': '5px', 'cursor': 'pointer',
-                          'fontWeight': 'bold', 'fontSize': '14px'})
+        # Loading and Status
+        dcc.Loading(
+            id="loading-main",
+            type="circle",
+            color="#00e6ff",
+            children=html.Div(id="training-status", style={'textAlign': 'center'})
+        ),
 
-    ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'gap': '15px', 'marginBottom': '20px'}),
+        # Prediction Results
+        html.Div(id="prediction-results"),
 
-    # Loading and Status
-    dcc.Loading(
-        id="loading-main",
-        type="circle",
-        children=html.Div(id="training-status")
-    ),
-
-    # Prediction Results
-    html.Div(id="prediction-results"),
-
-], style={'backgroundColor': '#0f0f23', 'color': '#ffffff', 'minHeight': '100vh', 'padding': '20px'})
+    ], style={'padding': '0 30px', 'maxWidth': '1200px', 'margin': '0 auto'})
+], style={
+    'backgroundColor': '#0f172a', 
+    'color': '#ffffff', 
+    'minHeight': '100vh',
+    'fontFamily': '"Inter", "Segoe UI", sans-serif'
+})
 
 # ========= DASH CALLBACKS =========
 @app.callback(
@@ -620,17 +800,33 @@ def update_market_status(n_clicks):
         'closed': '#ff4d7c'
     }
     
+    icon_map = {
+        'open': '🟢',
+        'pre_market': '🟡',
+        'after_hours': '🟡',
+        'closed': '🔴'
+    }
+    
     return html.Div([
-        html.Span("📊 Market Status: ", style={'fontWeight': 'bold'}),
-        html.Span(f"{status_message.upper()} ", 
-                 style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': 'bold'}),
-        html.Span(f" | Next Trading Day: {get_next_trading_day()} | Last Trading Day: {get_last_market_date()}", 
-                 style={'fontSize': '14px', 'marginLeft': '10px'})
+        html.Div([
+            html.Span(f"{icon_map.get(market_status, '⚪')} ", 
+                     style={'fontSize': '20px', 'marginRight': '10px'}),
+            html.Span("Market Status: ", style={'fontWeight': '600', 'marginRight': '5px'}),
+            html.Span(f"{status_message}", 
+                     style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': '600'}),
+        ]),
+        html.Div([
+            html.Span(f"📅 Next Trading: {get_next_trading_day()} | ", 
+                     style={'fontSize': '14px', 'color': '#94a3b8'}),
+            html.Span(f"Last Trading: {get_last_market_date()}",
+                     style={'fontSize': '14px', 'color': '#94a3b8'})
+        ], style={'marginTop': '5px'})
     ], style={
-        'backgroundColor': '#1a1a2e',
-        'padding': '15px',
-        'borderRadius': '8px',
-        'border': f'2px solid {color_map.get(market_status, "#00e6ff")}'
+        'backgroundColor': '#1e293b',
+        'padding': '20px',
+        'borderRadius': '12px',
+        'border': f'2px solid {color_map.get(market_status, "#334155")}',
+        'textAlign': 'center'
     })
 
 @app.callback(
@@ -642,13 +838,19 @@ def update_market_status(n_clicks):
 def generate_prediction(n_clicks, ticker):
     if n_clicks == 0:
         return (
-            html.Div("Enter a stock ticker and click 'Generate AI Prediction' to start 10-YEAR analysis."),
+            html.Div([
+                html.P("Enter a stock ticker and click 'Generate AI Prediction' to start 10-YEAR analysis.",
+                      style={'color': '#94a3b8', 'fontSize': '16px'})
+            ]),
             html.Div()
         )
     
     if not ticker:
         return (
-            html.Div("Please enter a stock ticker.", style={'color': '#ff4d7c'}),
+            html.Div([
+                html.P("Please enter a stock ticker.", 
+                      style={'color': '#ff4d7c', 'fontSize': '16px'})
+            ]),
             html.Div()
         )
     
@@ -660,8 +862,10 @@ def generate_prediction(n_clicks, ticker):
         
         if response.status_code != 200:
             return (
-                html.Div(f"Error: {response.json().get('error', 'Unknown error')}", 
-                        style={'color': '#ff4d7c'}),
+                html.Div([
+                    html.P(f"❌ Error: {response.json().get('error', 'Unknown error')}", 
+                          style={'color': '#ff4d7c', 'fontSize': '16px'})
+                ]),
                 html.Div()
             )
         
@@ -671,16 +875,19 @@ def generate_prediction(n_clicks, ticker):
         results_content = create_prediction_display(data)
         status = html.Div([
             html.H4(f"✅ 10-YEAR AI Analysis Complete for {ticker}", 
-                   style={'color': '#00ff9d', 'marginBottom': '10px'}),
-            html.P(f"Data Analyzed: {data['data_analysis']['total_data_points']:,} points over {data['data_analysis']['years_covered']} years | Features Used: {data['data_analysis']['features_used']}",
-                  style={'color': '#cccccc'})
+                   style={'color': '#00ff9d', 'marginBottom': '10px', 'fontSize': '20px'}),
+            html.P(f"📊 Data Analyzed: {data['data_analysis']['total_data_points']:,} points over {data['data_analysis']['years_covered']} years | Features Used: {data['data_analysis']['features_used']}",
+                  style={'color': '#94a3b8', 'fontSize': '14px'})
         ])
         
         return status, results_content
         
     except Exception as e:
         return (
-            html.Div(f"Prediction failed: {str(e)}", style={'color': '#ff4d7c'}),
+            html.Div([
+                html.P(f"❌ Prediction failed: {str(e)}", 
+                      style={'color': '#ff4d7c', 'fontSize': '16px'})
+            ]),
             html.Div()
         )
 
@@ -693,110 +900,170 @@ def create_prediction_display(data):
     if change_percent > 0:
         change_color = '#00ff9d'
         trend_icon = '📈'
+        trend_text = 'BULLISH'
     else:
         change_color = '#ff4d7c'
         trend_icon = '📉'
+        trend_text = 'BEARISH'
     
     return html.Div([
         # Main Prediction Card
         html.Div([
-            html.H3(f"🔮 10-YEAR AI Prediction Summary", style={'color': '#00e6ff', 'marginBottom': '20px'}),
+            html.H3("🔮 10-YEAR AI Prediction Summary", 
+                   style={'color': '#00e6ff', 'marginBottom': '25px', 'fontSize': '24px'}),
             
+            # Price Comparison
             html.Div([
                 html.Div([
-                    html.H4("Current Price", style={'color': '#cccccc'}),
-                    html.H2(f"${data['current_price']}", style={'color': '#ffffff'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'}),
+                    html.Div([
+                        html.P("CURRENT PRICE", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'}),
+                        html.H2(f"${data['current_price']}", style={'color': '#ffffff', 'margin': '5px 0', 'fontSize': '32px'}),
+                        html.P("Last Trading Day", style={'color': '#64748b', 'margin': '0', 'fontSize': '12px'})
+                    ], style={'textAlign': 'center', 'padding': '20px'})
+                ], style={'flex': '1', 'backgroundColor': '#1e293b', 'borderRadius': '12px', 'margin': '0 10px'}),
                 
                 html.Div([
-                    html.H4("Predicted Price", style={'color': '#cccccc'}),
-                    html.H2(f"${data['predicted_price']}", style={'color': change_color}),
-                    html.P(f"{trend_icon} {data['change_percent']:+.2f}%", 
-                          style={'color': change_color, 'fontWeight': 'bold'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'}),
+                    html.Div([
+                        html.P("PREDICTED PRICE", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'}),
+                        html.H2(f"${data['predicted_price']}", style={'color': change_color, 'margin': '5px 0', 'fontSize': '32px'}),
+                        html.Div([
+                            html.Span(f"{trend_icon} {data['change_percent']:+.2f}%", 
+                                     style={'color': change_color, 'fontWeight': '600', 'fontSize': '16px'}),
+                            html.Span(f" • {trend_text}", 
+                                     style={'color': change_color, 'fontSize': '12px', 'marginLeft': '5px'})
+                        ])
+                    ], style={'textAlign': 'center', 'padding': '20px'})
+                ], style={'flex': '1', 'backgroundColor': '#1e293b', 'borderRadius': '12px', 'margin': '0 10px', 'border': f'2px solid {change_color}'}),
                 
                 html.Div([
-                    html.H4("Risk Level", style={'color': '#cccccc'}),
-                    html.H3(data['risk_level'], style={'color': '#ffa500' if 'MEDIUM' in data['risk_level'] else '#ff4d7c' if 'HIGH' in data['risk_level'] else '#00ff9d'}),
-                    html.P(f"Volatility: {data['volatility']:.4f}", style={'color': '#cccccc'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'})
-            ], style={'display': 'flex', 'justifyContent': 'space-around', 'marginBottom': '20px'}),
+                    html.Div([
+                        html.P("RISK LEVEL", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'}),
+                        html.H3(data['risk_level'], 
+                               style={'color': '#ffa500' if 'MEDIUM' in data['risk_level'] else '#ff4d7c' if 'HIGH' in data['risk_level'] else '#00ff9d', 
+                                      'margin': '10px 0', 'fontSize': '20px'}),
+                        html.P(f"Volatility: {data['volatility']:.4f}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '12px'})
+                    ], style={'textAlign': 'center', 'padding': '20px'})
+                ], style={'flex': '1', 'backgroundColor': '#1e293b', 'borderRadius': '12px', 'margin': '0 10px'})
+            ], style={'display': 'flex', 'marginBottom': '25px', 'gap': '15px'}),
             
             # Data Analysis Info
             html.Div([
-                html.H4("📊 10-Year Data Analysis", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("📊 10-Year Data Analysis", 
+                       style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '18px'}),
                 html.Div([
-                    html.Span(f"Period: {data['data_analysis']['data_period']}", 
-                             style={'color': '#cccccc', 'marginRight': '20px'}),
-                    html.Span(f"Data Points: {data['data_analysis']['total_data_points']:,}", 
-                             style={'color': '#cccccc', 'marginRight': '20px'}),
-                    html.Span(f"Years: {data['data_analysis']['years_covered']}", 
-                             style={'color': '#cccccc'})
-                ])
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
+                    html.Div([
+                        html.Span("📅 Period:", style={'color': '#94a3b8', 'fontWeight': '500'}),
+                        html.Span(f" {data['data_analysis']['data_period']}", 
+                                 style={'color': '#ffffff', 'marginLeft': '5px'})
+                    ]),
+                    html.Div([
+                        html.Span("📈 Data Points:", style={'color': '#94a3b8', 'fontWeight': '500'}),
+                        html.Span(f" {data['data_analysis']['total_data_points']:,}", 
+                                 style={'color': '#ffffff', 'marginLeft': '5px'})
+                    ]),
+                    html.Div([
+                        html.Span("⏳ Years Covered:", style={'color': '#94a3b8', 'fontWeight': '500'}),
+                        html.Span(f" {data['data_analysis']['years_covered']}", 
+                                 style={'color': '#ffffff', 'marginLeft': '5px'})
+                    ])
+                ], style={'display': 'flex', 'justifyContent': 'space-between', 'gap': '20px'})
+            ], style={
+                'backgroundColor': '#1e293b', 
+                'padding': '20px', 
+                'borderRadius': '12px', 
+                'marginBottom': '20px',
+                'border': '1px solid #334155'
+            }),
             
             # Confidence Interval
             html.Div([
-                html.H4("🎯 Confidence Interval (10-Year Analysis)", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("🎯 Confidence Interval (10-Year Analysis)", 
+                       style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '18px'}),
                 html.Div([
-                    html.Span(f"Lower: ${data['confidence_interval']['lower']}", 
-                             style={'color': '#ff4d7c', 'marginRight': '20px'}),
-                    html.Span(f"Upper: ${data['confidence_interval']['upper']}", 
-                             style={'color': '#00ff9d', 'marginRight': '20px'}),
-                    html.Span(f"Confidence: {data['confidence']}%", 
-                             style={'color': '#ffa500', 'fontWeight': 'bold'})
-                ])
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
+                    html.Div([
+                        html.P("LOWER BOUND", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '500'}),
+                        html.H4(f"${data['confidence_interval']['lower']}", 
+                               style={'color': '#ff4d7c', 'margin': '5px 0', 'fontSize': '18px'})
+                    ], style={'textAlign': 'center', 'flex': '1'}),
+                    
+                    html.Div([
+                        html.P("UPPER BOUND", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '500'}),
+                        html.H4(f"${data['confidence_interval']['upper']}", 
+                               style={'color': '#00ff9d', 'margin': '5px 0', 'fontSize': '18px'})
+                    ], style={'textAlign': 'center', 'flex': '1'}),
+                    
+                    html.Div([
+                        html.P("CONFIDENCE", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '500'}),
+                        html.H4(f"{data['confidence']}%", 
+                               style={'color': '#ffa500', 'margin': '5px 0', 'fontSize': '18px'})
+                    ], style={'textAlign': 'center', 'flex': '1'})
+                ], style={'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center'})
+            ], style={
+                'backgroundColor': '#1e293b', 
+                'padding': '20px', 
+                'borderRadius': '12px', 
+                'marginBottom': '20px',
+                'border': '1px solid #334155'
+            }),
             
             # Trading Recommendation
             html.Div([
-                html.H4("💡 Trading Recommendation (Based on 10-Year Patterns)", style={'color': '#00e6ff', 'marginBottom': '10px'}),
-                html.P(data['recommendation'], 
-                      style={'color': '#ffffff', 'fontSize': '16px', 'fontWeight': 'bold'})
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
+                html.H4("💡 Trading Recommendation (Based on 10-Year Patterns)", 
+                       style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '18px'}),
+                html.Div([
+                    html.P(data['recommendation'], 
+                          style={'color': '#ffffff', 'fontSize': '16px', 'fontWeight': '500', 'margin': '0',
+                                 'padding': '15px', 'backgroundColor': '#0f172a', 'borderRadius': '8px'})
+                ])
+            ], style={
+                'backgroundColor': '#1e293b', 
+                'padding': '20px', 
+                'borderRadius': '12px', 
+                'marginBottom': '20px',
+                'border': '1px solid #334155'
+            }),
             
-            # Market Context
+            # Risk Analysis
             html.Div([
-                html.H4("🏛️ Market Context", style={'color': '#00e6ff', 'marginBottom': '10px'}),
-                html.P(f"Last Trading Day: {data['last_trading_day']} | Market Status: {data['market_status']}",
-                      style={'color': '#cccccc'})
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px'})
+                html.H4("⚠️ 10-Year Risk Analysis & Alerts", 
+                       style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '18px'}),
+                html.Div([
+                    html.Div([
+                        html.P("🔍 Volatility Analysis", style={'color': '#94a3b8', 'margin': '0 0 5px 0', 'fontSize': '14px'}),
+                        html.P("High long-term volatility" if data['volatility'] > 0.02 else "Stable long-term pattern", 
+                              style={'color': '#ffa500' if data['volatility'] > 0.02 else '#00ff9d', 
+                                     'margin': '0', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#0f172a', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("📊 Price Movement", style={'color': '#94a3b8', 'margin': '0 0 5px 0', 'fontSize': '14px'}),
+                        html.P("Significant move expected" if abs(data['change_percent']) > 5 else "Normal movement",
+                              style={'color': '#ff4d7c' if abs(data['change_percent']) > 5 else '#00ff9d', 
+                                     'margin': '0', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#0f172a', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("🤖 Model Confidence", style={'color': '#94a3b8', 'margin': '0 0 5px 0', 'fontSize': '14px'}),
+                        html.P("High confidence prediction" if data['confidence'] > 85 else "Moderate confidence",
+                              style={'color': '#00ff9d' if data['confidence'] > 85 else '#ffa500', 
+                                     'margin': '0', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#0f172a', 'borderRadius': '8px', 'margin': '0 5px'})
+                ], style={'display': 'flex', 'gap': '10px'})
+            ], style={
+                'backgroundColor': '#1e293b', 
+                'padding': '20px', 
+                'borderRadius': '12px',
+                'border': '1px solid #334155'
+            })
             
         ], style={
-            'backgroundColor': '#1a1a2e', 
-            'padding': '25px', 
-            'borderRadius': '10px',
-            'border': '2px solid #00e6ff',
-            'marginBottom': '20px'
-        }),
-        
-        # Risk Analysis
-        html.Div([
-            html.H3("⚠️ 10-Year Risk Analysis & Alerts", style={'color': '#00e6ff', 'marginBottom': '15px'}),
-            html.Div([
-                html.Div([
-                    html.H5("10-Year Volatility", style={'color': '#cccccc'}),
-                    html.P("High long-term volatility" if data['volatility'] > 0.02 else "Stable long-term pattern", 
-                          style={'color': '#ffa500' if data['volatility'] > 0.02 else '#00ff9d'})
-                ], style={'flex': 1, 'padding': '10px'}),
-                
-                html.Div([
-                    html.H5("Price Movement", style={'color': '#cccccc'}),
-                    html.P("Significant move expected" if abs(data['change_percent']) > 5 else "Normal movement",
-                          style={'color': '#ff4d7c' if abs(data['change_percent']) > 5 else '#00ff9d'})
-                ], style={'flex': 1, 'padding': '10px'}),
-                
-                html.Div([
-                    html.H5("Model Confidence", style={'color': '#cccccc'}),
-                    html.P("High confidence prediction" if data['confidence'] > 85 else "Moderate confidence",
-                          style={'color': '#00ff9d' if data['confidence'] > 85 else '#ffa500'})
-                ], style={'flex': 1, 'padding': '10px'})
-            ], style={'display': 'flex', 'justifyContent': 'space-around'})
-        ], style={
-            'backgroundColor': '#1a1a2e', 
-            'padding': '20px', 
-            'borderRadius': '10px',
-            'border': '1px solid #ffa500'
+            'backgroundColor': '#1e293b', 
+            'padding': '30px', 
+            'borderRadius': '16px',
+            'border': '1px solid #334155',
+            'marginBottom': '30px',
+            'boxShadow': '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         })
     ])
 
@@ -804,6 +1071,10 @@ def create_prediction_display(data):
 @server.route('/assets/<path:path>')
 def send_assets(path):
     return send_from_directory('assets', path)
+
+@server.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
 
 # Serve templates
 @server.route('/templates/<path:path>')
