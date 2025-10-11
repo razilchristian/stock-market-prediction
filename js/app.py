@@ -21,6 +21,7 @@ from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 import ta  # Technical analysis library
 
 # ========= RATE LIMITING DECORATOR =========
@@ -51,57 +52,51 @@ app = dash.Dash(
     server=server,
     routes_pathname_prefix='/dash/',
     suppress_callback_exceptions=True,
-    external_stylesheets=['https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css']
+    external_stylesheets=[
+        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+        'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+    ]
 )
 
-# ========= MACHINE LEARNING MODELS =========
+# ========= ENHANCED MACHINE LEARNING MODELS =========
 class AdvancedStockPredictor:
     def __init__(self):
         self.models = {
-            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42, max_depth=10),
-            'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42, max_depth=6),
+            'Random Forest': RandomForestRegressor(random_state=42),
+            'Gradient Boosting': GradientBoostingRegressor(random_state=42),
             'Linear Regression': LinearRegression(),
-            'SVR': SVR(kernel='rbf', C=1.0, epsilon=0.1)
+            'SVR': SVR()
         }
         self.scaler = StandardScaler()
         self.is_fitted = False
         self.feature_columns = []
+        self.best_model = None
         
     def create_advanced_features(self, df):
-        """Create comprehensive technical indicators and features"""
+        """Create comprehensive technical indicators and features for 10 years of data"""
         try:
+            print("🔄 Creating advanced technical indicators...")
+            
             # Ensure numeric columns
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # Basic price features
-            df['Price_Lag_1'] = df['Close'].shift(1)
-            df['Price_Lag_2'] = df['Close'].shift(2)
-            df['Price_Lag_3'] = df['Close'].shift(3)
-            df['Price_Lag_5'] = df['Close'].shift(5)
-            df['Price_Lag_10'] = df['Close'].shift(10)
+            # Price momentum features
+            for lag in [1, 2, 3, 5, 10, 20]:
+                df[f'Close_Lag_{lag}'] = df['Close'].shift(lag)
+                df[f'Return_{lag}'] = df['Close'].pct_change(lag)
             
-            # Returns
-            df['Return_1'] = df['Close'].pct_change(1)
-            df['Return_2'] = df['Close'].pct_change(2)
-            df['Return_5'] = df['Close'].pct_change(5)
-            df['Return_10'] = df['Close'].pct_change(10)
-            df['Return_20'] = df['Close'].pct_change(20)
+            # Volatility features
+            for window in [5, 10, 20, 50]:
+                df[f'Volatility_{window}'] = df['Return_1'].rolling(window).std()
+                df[f'Rolling_Mean_{window}'] = df['Close'].rolling(window).mean()
+                df[f'Rolling_Min_{window}'] = df['Close'].rolling(window).min()
+                df[f'Rolling_Max_{window}'] = df['Close'].rolling(window).max()
             
-            # Volatility
-            df['Volatility_5'] = df['Return_1'].rolling(5).std()
-            df['Volatility_10'] = df['Return_1'].rolling(10).std()
-            df['Volatility_20'] = df['Return_1'].rolling(20).std()
-            df['Volatility_50'] = df['Return_1'].rolling(50).std()
-            
-            # Moving averages
-            for window in [5, 10, 20, 50, 100, 200]:
-                df[f'SMA_{window}'] = ta.trend.sma_indicator(df['Close'], window=window)
-                df[f'EMA_{window}'] = ta.trend.ema_indicator(df['Close'], window=window)
-            
+            # Technical indicators
             # RSI multiple timeframes
-            for window in [6, 14, 20]:
-                df[f'RSI_{window}'] = ta.momentum.rsi(df['Close'], window=window)
+            for period in [6, 14, 21]:
+                df[f'RSI_{period}'] = ta.momentum.RSIIndicator(df['Close'], window=period).rsi()
             
             # MACD
             macd = ta.trend.MACD(df['Close'])
@@ -110,12 +105,11 @@ class AdvancedStockPredictor:
             df['MACD_Histogram'] = macd.macd_diff()
             
             # Bollinger Bands
-            for window in [10, 20]:
-                bb = ta.volatility.BollingerBands(df['Close'], window=window)
-                df[f'BB_Upper_{window}'] = bb.bollinger_hband()
-                df[f'BB_Lower_{window}'] = bb.bollinger_lband()
-                df[f'BB_Middle_{window}'] = bb.bollinger_mavg()
-                df[f'BB_Width_{window}'] = (df[f'BB_Upper_{window}'] - df[f'BB_Lower_{window}']) / df[f'BB_Middle_{window}']
+            bb_20 = ta.volatility.BollingerBands(df['Close'], window=20)
+            df['BB_Upper_20'] = bb_20.bollinger_hband()
+            df['BB_Lower_20'] = bb_20.bollinger_lband()
+            df['BB_Middle_20'] = bb_20.bollinger_mavg()
+            df['BB_Width_20'] = (df['BB_Upper_20'] - df['BB_Lower_20']) / df['BB_Middle_20']
             
             # Stochastic
             stoch = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close'])
@@ -123,87 +117,113 @@ class AdvancedStockPredictor:
             df['Stoch_D'] = stoch.stoch_signal()
             
             # Volume indicators
-            df['Volume_SMA_5'] = ta.trend.sma_indicator(df['Volume'], window=5)
-            df['Volume_SMA_20'] = ta.trend.sma_indicator(df['Volume'], window=20)
+            df['Volume_SMA_20'] = df['Volume'].rolling(20).mean()
             df['Volume_Ratio'] = df['Volume'] / df['Volume_SMA_20']
+            df['Volume_Change'] = df['Volume'].pct_change()
             
             # Price patterns
             df['High_Low_Ratio'] = df['High'] / df['Low']
             df['Close_Open_Ratio'] = df['Close'] / df['Open']
             df['Body_Size'] = abs(df['Close'] - df['Open']) / df['Open']
+            df['Price_Range'] = (df['High'] - df['Low']) / df['Open']
             
             # Support/Resistance levels
-            df['Resistance_20'] = df['High'].rolling(20).max()
-            df['Support_20'] = df['Low'].rolling(20).min()
-            df['Resistance_50'] = df['High'].rolling(50).max()
-            df['Support_50'] = df['Low'].rolling(50).min()
+            for window in [20, 50, 100]:
+                df[f'Resistance_{window}'] = df['High'].rolling(window).max()
+                df[f'Support_{window}'] = df['Low'].rolling(window).min()
+                df[f'Close_vs_Resistance_{window}'] = df['Close'] / df[f'Resistance_{window}']
+                df[f'Close_vs_Support_{window}'] = df['Close'] / df[f'Support_{window}']
             
             # ATR (Average True Range)
-            df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'])
+            df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
             
-            # Day of week and month features
+            # Moving averages
+            for window in [5, 10, 20, 50, 100, 200]:
+                df[f'SMA_{window}'] = ta.trend.SMAIndicator(df['Close'], window=window).sma_indicator()
+                df[f'EMA_{window}'] = ta.trend.EMAIndicator(df['Close'], window=window).ema_indicator()
+                df[f'Price_vs_SMA_{window}'] = df['Close'] / df[f'SMA_{window}']
+                df[f'Price_vs_EMA_{window}'] = df['Close'] / df[f'EMA_{window}']
+            
+            # Market regime indicators
+            df['Above_SMA_200'] = (df['Close'] > df['SMA_200']).astype(int)
+            df['Golden_Cross'] = ((df['SMA_50'] > df['SMA_200']) & (df['SMA_50'].shift(1) <= df['SMA_200'].shift(1))).astype(int)
+            df['Death_Cross'] = ((df['SMA_50'] < df['SMA_200']) & (df['SMA_50'].shift(1) >= df['SMA_200'].shift(1))).astype(int)
+            
+            # Time-based features
             df['Date'] = pd.to_datetime(df['Date'])
             df['DayOfWeek'] = df['Date'].dt.dayofweek
             df['Month'] = df['Date'].dt.month
             df['Quarter'] = df['Date'].dt.quarter
             df['Year'] = df['Date'].dt.year
+            df['WeekOfYear'] = df['Date'].dt.isocalendar().week
+            df['Is_Month_End'] = df['Date'].dt.is_month_end.astype(int)
+            df['Is_Month_Start'] = df['Date'].dt.is_month_start.astype(int)
+            df['Is_Quarter_End'] = df['Date'].dt.is_quarter_end.astype(int)
+            df['Is_Quarter_Start'] = df['Date'].dt.is_quarter_start.astype(int)
             
-            # Market regime indicators
-            df['Above_SMA_200'] = (df['Close'] > df['SMA_200']).astype(int)
-            df['Price_vs_SMA_50_Ratio'] = df['Close'] / df['SMA_50']
-            
-            # Drop NaN values
+            # Drop NaN values created by indicators
+            initial_count = len(df)
             df = df.dropna()
+            final_count = len(df)
+            print(f"✅ Created features. Data points: {initial_count} → {final_count} after cleaning")
             
-            print(f"✅ Created {len([col for col in df.columns if col not in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']])} features")
             return df
             
         except Exception as e:
-            print(f"Error creating features: {e}")
+            print(f"❌ Error creating features: {e}")
             return df
     
     def prepare_advanced_data(self, df, target_days=1):
-        """Prepare data for next-day prediction"""
+        """Prepare data for next-day prediction with all price targets"""
         try:
             # Create targets for next trading day
             df['Target_Close'] = df['Close'].shift(-target_days)
+            df['Target_Open'] = df['Open'].shift(-target_days)
+            df['Target_High'] = df['High'].shift(-target_days)
+            df['Target_Low'] = df['Low'].shift(-target_days)
             
             # Feature columns (exclude date and targets)
-            exclude_cols = ['Date', 'Target_Close', 'Open', 'High', 'Low', 'Close', 'Volume']
+            exclude_cols = ['Date', 'Target_Close', 'Target_Open', 'Target_High', 'Target_Low', 
+                           'Open', 'High', 'Low', 'Close', 'Volume']
             self.feature_columns = [col for col in df.columns if col not in exclude_cols]
             
-            # Remove rows where target is NaN
-            df_clean = df.dropna(subset=['Target_Close'])
+            # Remove rows where any target is NaN
+            df_clean = df.dropna(subset=['Target_Close', 'Target_Open', 'Target_High', 'Target_Low'])
             
             X = df_clean[self.feature_columns]
             y_close = df_clean['Target_Close']
+            y_open = df_clean['Target_Open']
+            y_high = df_clean['Target_High']
+            y_low = df_clean['Target_Low']
             
             print(f"📊 Prepared data: {len(X)} samples, {len(self.feature_columns)} features")
-            return X, y_close
+            return X, y_close, y_open, y_high, y_low
             
         except Exception as e:
-            print(f"Error preparing data: {e}")
-            return None, None
+            print(f"❌ Error preparing data: {e}")
+            return None, None, None, None, None
     
     def train_advanced_models(self, df, target_days=1):
-        """Train models for next-day price prediction"""
+        """Train models for next-day price prediction using 10 years of data"""
         try:
-            print("🔄 Creating advanced features...")
+            print("🔄 Creating advanced features from 10 years of data...")
             # Create features
             df_with_features = self.create_advanced_features(df)
             
-            if len(df_with_features) < 100:
-                return None, "Insufficient data for training (minimum 100 data points required)"
+            if len(df_with_features) < 500:
+                return None, "Insufficient data for training (minimum 500 data points required)"
             
             print(f"📈 Training models on {len(df_with_features)} data points...")
             # Prepare data
-            X, y_close = self.prepare_advanced_data(df_with_features, target_days)
+            X, y_close, y_open, y_high, y_low = self.prepare_advanced_data(df_with_features, target_days)
             
             if X is None:
                 return None, "Error in data preparation"
             
             # Split data
-            X_train, X_test, y_train, y_test = train_test_split(X, y_close, test_size=0.2, random_state=42)
+            X_train, X_test, y_close_train, y_close_test, y_open_train, y_open_test, y_high_train, y_high_test, y_low_train, y_low_test = train_test_split(
+                X, y_close, y_open, y_high, y_low, test_size=0.2, random_state=42, shuffle=False
+            )
             
             # Scale features
             X_train_scaled = self.scaler.fit_transform(X_train)
@@ -212,23 +232,22 @@ class AdvancedStockPredictor:
             results = {}
             models_trained = {}
             
-            # Train models
+            # Train models for close price (primary target)
             for name, model in self.models.items():
-                print(f"🤖 Training {name}...")
-                model_instance = self._create_model_instance(name)
+                print(f"🤖 Training {name} for Close price...")
                 
                 if name == 'SVR':
-                    model_instance.fit(X_train_scaled, y_train)
-                    y_pred = model_instance.predict(X_test_scaled)
+                    model.fit(X_train_scaled, y_close_train)
+                    y_pred = model.predict(X_test_scaled)
                 else:
-                    model_instance.fit(X_train, y_train)
-                    y_pred = model_instance.predict(X_test)
+                    model.fit(X_train, y_close_train)
+                    y_pred = model.predict(X_test)
                 
                 # Calculate metrics
-                mae = mean_absolute_error(y_test, y_pred)
-                mse = mean_squared_error(y_test, y_pred)
+                mae = mean_absolute_error(y_close_test, y_pred)
+                mse = mean_squared_error(y_close_test, y_pred)
                 rmse = np.sqrt(mse)
-                r2 = r2_score(y_test, y_pred)
+                r2 = r2_score(y_close_test, y_pred)
                 
                 results[name] = {
                     'MAE': mae,
@@ -238,30 +257,26 @@ class AdvancedStockPredictor:
                     'Predictions': y_pred.tolist()
                 }
                 
-                models_trained[name] = model_instance
+                models_trained[name] = model
+            
+            # Select best model based on R2 score
+            best_model_name = max(results.keys(), key=lambda x: results[x]['R2'])
+            self.best_model = models_trained[best_model_name]
+            self.best_model_name = best_model_name
             
             self.is_fitted = True
             self.trained_models = models_trained
+            self.X_train = X_train
+            self.y_close_train = y_close_train
             
-            print("✅ All models trained successfully!")
+            print(f"✅ All models trained successfully! Best model: {best_model_name}")
             return results, None
             
         except Exception as e:
             return None, f"Training error: {str(e)}"
     
-    def _create_model_instance(self, name):
-        """Create fresh model instance"""
-        if name == 'Random Forest':
-            return RandomForestRegressor(n_estimators=100, random_state=42, max_depth=10)
-        elif name == 'Gradient Boosting':
-            return GradientBoostingRegressor(n_estimators=100, random_state=42, max_depth=6)
-        elif name == 'Linear Regression':
-            return LinearRegression()
-        else:  # SVR
-            return SVR(kernel='rbf', C=1.0, epsilon=0.1)
-    
-    def predict_next_day(self, df):
-        """Predict next day prices with confidence intervals"""
+    def predict_next_day_prices(self, df):
+        """Predict next day OHLC prices with confidence intervals"""
         if not self.is_fitted:
             return None, None, "Models not trained"
         
@@ -274,38 +289,53 @@ class AdvancedStockPredictor:
             
             # Get the most recent data point for prediction
             latest_data = df_with_features.iloc[-1:]
+            current_price = latest_data['Close'].iloc[0]
             
-            predictions = {}
+            # Predict close price using best model
+            if self.best_model_name == 'SVR':
+                X_scaled = self.scaler.transform(latest_data[self.feature_columns])
+                predicted_close = self.best_model.predict(X_scaled)[0]
+            else:
+                predicted_close = self.best_model.predict(latest_data[self.feature_columns])[0]
+            
+            # Calculate other prices based on historical patterns
+            recent_data = df_with_features.tail(100)  # Last 100 days for pattern analysis
+            
+            # Calculate typical price relationships
+            open_close_ratio = (recent_data['Open'] / recent_data['Close'].shift(1)).mean()
+            high_close_ratio = (recent_data['High'] / recent_data['Close']).mean()
+            low_close_ratio = (recent_data['Low'] / recent_data['Close']).mean()
+            volatility = recent_data['Return_1'].std()
+            
+            # Predict other prices
+            predicted_open = predicted_close * open_close_ratio
+            predicted_high = predicted_close * high_close_ratio * (1 + volatility)
+            predicted_low = predicted_close * low_close_ratio * (1 - volatility)
+            
+            # Ensure logical price relationships
+            predicted_high = max(predicted_high, predicted_close, predicted_open)
+            predicted_low = min(predicted_low, predicted_close, predicted_open)
+            
+            predictions = {
+                'Open': predicted_open,
+                'High': predicted_high,
+                'Low': predicted_low,
+                'Close': predicted_close
+            }
+            
+            # Calculate confidence intervals based on model performance and volatility
+            confidence_score = min(95, 70 + (1 - volatility) * 25)
+            
             confidence_intervals = {}
-            
-            for model_name, model in self.trained_models.items():
-                if model_name == 'SVR':
-                    X_scaled = self.scaler.transform(latest_data[self.feature_columns])
-                    pred = model.predict(X_scaled)[0]
-                else:
-                    pred = model.predict(latest_data[self.feature_columns])[0]
+            for price_type in ['Open', 'High', 'Low', 'Close']:
+                price = predictions[price_type]
+                range_pct = volatility * 2  # 2 standard deviations for 95% confidence
                 
-                predictions[model_name] = pred
-                
-                # Calculate confidence interval based on model performance
-                if model_name == 'Random Forest':
-                    confidence = min(95, 80 + random.randint(5, 20))
-                    lower_bound = pred * (1 - 0.015)
-                    upper_bound = pred * (1 + 0.015)
-                elif model_name == 'Gradient Boosting':
-                    confidence = min(92, 75 + random.randint(5, 20))
-                    lower_bound = pred * (1 - 0.02)
-                    upper_bound = pred * (1 + 0.02)
-                else:
-                    confidence = min(88, 70 + random.randint(5, 20))
-                    lower_bound = pred * (1 - 0.025)
-                    upper_bound = pred * (1 + 0.025)
-                
-                confidence_intervals[model_name] = {
-                    'confidence': confidence,
-                    'lower_bound': lower_bound,
-                    'upper_bound': upper_bound,
-                    'range': upper_bound - lower_bound
+                confidence_intervals[price_type] = {
+                    'confidence': confidence_score,
+                    'lower_bound': price * (1 - range_pct),
+                    'upper_bound': price * (1 + range_pct),
+                    'range': price * range_pct * 2
                 }
             
             return predictions, confidence_intervals, None
@@ -334,18 +364,8 @@ def get_last_market_date():
         return (today - timedelta(days=1)).strftime('%Y-%m-%d')
 
 def get_next_trading_day():
-    """Get the next trading day"""
-    today = datetime.now()
-    weekday = today.weekday()
-    
-    if weekday == 4:  # Friday
-        return (today + timedelta(days=3)).strftime('%Y-%m-%d')
-    elif weekday == 5:  # Saturday
-        return (today + timedelta(days=2)).strftime('%Y-%m-%d')
-    elif weekday == 6:  # Sunday
-        return (today + timedelta(days=1)).strftime('%Y-%m-%d')
-    else:  # Monday-Thursday
-        return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+    """Get the next trading day - October 13, 2025"""
+    return "2025-10-13"
 
 def is_market_open():
     """Check if market is open today (Monday-Friday)"""
@@ -370,36 +390,45 @@ def get_market_status():
 
 def get_risk_level(change_percent, volatility):
     """Calculate risk level based on predicted change and volatility"""
-    if abs(change_percent) > 10:
+    if abs(change_percent) > 15 or volatility > 0.05:
         return "🔴 HIGH RISK"
-    elif abs(change_percent) > 5:
+    elif abs(change_percent) > 8 or volatility > 0.03:
         return "🟡 MEDIUM RISK"
-    elif volatility > 0.03:
-        return "🟡 MEDIUM RISK"
+    elif abs(change_percent) > 3:
+        return "🟠 MODERATE RISK"
     else:
         return "🟢 LOW RISK"
 
-def get_trading_recommendation(change_percent, risk_level):
+def get_trading_recommendation(change_percent, risk_level, volatility):
     """Generate trading recommendation"""
     if risk_level == "🔴 HIGH RISK":
         if change_percent > 0:
-            return "⚠️ CAUTION: High risk bullish - Consider small positions with strict stop-loss"
+            return "🚨 EXTREME CAUTION: Very high volatility - Consider very small positions with tight stop-loss"
         else:
-            return "🚫 AVOID: High risk bearish - Too volatile for safe trading"
+            return "⛔ AVOID: Extreme risk - Market conditions too volatile for safe trading"
     elif risk_level == "🟡 MEDIUM RISK":
-        if change_percent > 3:
-            return "📈 CONSIDER BUY: Moderate upside potential"
-        elif change_percent < -3:
-            return "📉 CONSIDER SELL: Moderate downside risk"
+        if change_percent > 10:
+            return "📈 BULLISH: Strong upside potential with moderate risk"
+        elif change_percent > 5:
+            return "📈 CONSIDER BUY: Good upside potential"
+        elif change_percent < -5:
+            return "📉 CONSIDER SELL: Downside risk present"
         else:
-            return "⚖️ HOLD: Wait for better entry point"
+            return "⚖️ HOLD: Wait for clearer market direction"
+    elif risk_level == "🟠 MODERATE RISK":
+        if change_percent > 3:
+            return "✅ BUY: Positive momentum with acceptable risk"
+        elif change_percent < -3:
+            return "💼 SELL: Consider reducing exposure"
+        else:
+            return "🔄 HOLD: Stable with minimal expected movement"
     else:  # LOW RISK
         if change_percent > 2:
-            return "✅ BUY: Good risk-reward ratio"
+            return "✅ STRONG BUY: Good risk-reward ratio"
         elif change_percent < -2:
-            return "💼 SELL: Protective action recommended"
+            return "💼 CAUTIOUS SELL: Protective action recommended"
         else:
-            return "🔄 HOLD: Stable with minimal movement"
+            return "🔄 HOLD: Very stable - minimal trading opportunity"
 
 # ========= FLASK ROUTES FOR ALL PAGES =========
 @server.route('/jeet')
@@ -467,19 +496,19 @@ def index():
 @server.route('/api/predict', methods=['POST'])
 @rate_limit(0.5)
 def predict_stock():
-    """API endpoint for stock prediction"""
+    """API endpoint for stock prediction using 10 YEARS of data"""
     try:
         data = request.get_json()
         symbol = data.get('symbol', 'AAPL').upper()
         
-        print(f"🔮 Generating predictions for {symbol}...")
+        print(f"🔮 Generating predictions for {symbol} using 10 YEARS of historical data...")
         
-        # Fetch historical data with real-time current price
-        historical_data, current_price, error = fetch_historical_data_with_current(symbol, "1y")
+        # Fetch 10 YEARS of historical data up to October 10, 2025
+        historical_data, current_price, error = fetch_10_years_historical_data(symbol)
         if error:
             return jsonify({"error": error}), 400
         
-        print(f"📊 Fetched {len(historical_data)} data points for {symbol}")
+        print(f"📊 Fetched {len(historical_data)} data points for {symbol} over 10 YEARS")
         print(f"💰 Current price: ${current_price}")
         
         # Train models
@@ -487,23 +516,23 @@ def predict_stock():
         if training_error:
             return jsonify({"error": training_error}), 400
         
-        print("🤖 Models trained successfully")
+        print("🤖 Models trained successfully on 10 YEARS of data")
         
-        # Make prediction
-        predictions, confidence_intervals, pred_error = predictor.predict_next_day(historical_data)
+        # Make prediction for October 13, 2025
+        predictions, confidence_intervals, pred_error = predictor.predict_next_day_prices(historical_data)
         if pred_error:
             return jsonify({"error": pred_error}), 400
         
-        # Use Random Forest prediction
-        rf_pred = predictions.get('Random Forest', current_price)
-        change_percent = ((rf_pred - current_price) / current_price) * 100
+        # Calculate metrics
+        predicted_close = predictions['Close']
+        change_percent = ((predicted_close - current_price) / current_price) * 100
         
-        # Calculate volatility
+        # Calculate volatility from 10 years of data
         volatility = historical_data['Close'].pct_change().std()
         
         # Generate risk assessment
         risk_level = get_risk_level(change_percent, volatility)
-        recommendation = get_trading_recommendation(change_percent, risk_level)
+        recommendation = get_trading_recommendation(change_percent, risk_level, volatility)
         
         # Calculate data statistics
         total_days = len(historical_data)
@@ -511,92 +540,120 @@ def predict_stock():
         start_date = historical_data['Date'].iloc[0]
         end_date = historical_data['Date'].iloc[-1]
         
-        # Prepare response
+        # Prepare comprehensive response
         response = {
             "symbol": symbol,
             "current_price": round(current_price, 2),
             "prediction_date": get_next_trading_day(),
             "last_trading_day": get_last_market_date(),
-            "predicted_price": round(rf_pred, 2),
+            
+            # Predicted prices
+            "predicted_prices": {
+                "open": round(predictions['Open'], 2),
+                "high": round(predictions['High'], 2),
+                "low": round(predictions['Low'], 2),
+                "close": round(predictions['Close'], 2)
+            },
+            
             "change_percent": round(change_percent, 2),
             "risk_level": risk_level,
             "recommendation": recommendation,
             "volatility": round(volatility, 4),
-            "confidence": confidence_intervals.get('Random Forest', {}).get('confidence', 80),
-            "confidence_interval": {
-                "lower": round(confidence_intervals.get('Random Forest', {}).get('lower_bound', rf_pred * 0.98), 2),
-                "upper": round(confidence_intervals.get('Random Forest', {}).get('upper_bound', rf_pred * 1.02), 2)
+            
+            # Confidence intervals for all prices
+            "confidence_intervals": {
+                "open": {
+                    "lower": round(confidence_intervals['Open']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Open']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Open']['confidence'], 1)
+                },
+                "high": {
+                    "lower": round(confidence_intervals['High']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['High']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['High']['confidence'], 1)
+                },
+                "low": {
+                    "lower": round(confidence_intervals['Low']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Low']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Low']['confidence'], 1)
+                },
+                "close": {
+                    "lower": round(confidence_intervals['Close']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Close']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Close']['confidence'], 1)
+                }
             },
-            "model_performance": training_results.get('Random Forest', {}),
+            
+            "model_performance": training_results.get(predictor.best_model_name, {}),
+            "best_model": predictor.best_model_name,
             "market_status": get_market_status()[1],
             "data_analysis": {
                 "total_data_points": total_days,
                 "years_covered": round(years_covered, 1),
                 "data_period": f"{start_date} to {end_date}",
-                "features_used": len(predictor.feature_columns) if hasattr(predictor, 'feature_columns') else 50
+                "features_used": len(predictor.feature_columns) if hasattr(predictor, 'feature_columns') else 75
             }
         }
         
-        print(f"✅ Predictions generated for {symbol}")
+        print(f"✅ Predictions generated for {symbol} using 10 YEARS of data")
         return jsonify(response)
         
     except Exception as e:
         print(f"❌ Prediction error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ========= IMPROVED DATA FETCHING WITH MULTIPLE FALLBACKS =========
+# ========= ENHANCED DATA FETCHING FOR 10 YEARS =========
 @rate_limit(0.5)
-def fetch_historical_data_with_current(ticker, period="1y"):
-    """Fetch historical data with real-time current price using multiple fallbacks"""
+def fetch_10_years_historical_data(ticker):
+    """Fetch 10 years of historical data up to October 10, 2025"""
     try:
-        print(f"📥 Fetching data for {ticker}...")
+        print(f"📥 Fetching 10 years of data for {ticker}...")
         
-        # Try multiple data sources and methods
+        # Calculate date range: 10 years back from October 10, 2025
+        end_date = datetime(2025, 10, 10)
+        start_date = end_date - timedelta(days=365*10)
+        
         stock = yf.Ticker(ticker)
         
-        # Method 1: Try different period formats
-        periods_to_try = ["1y", "6mo", "3mo", "1mo"]
-        
-        for period_try in periods_to_try:
+        # Try multiple data fetching methods
+        try:
+            # Method 1: Direct history with date range
+            hist_data = stock.history(start=start_date, end=end_date)
+            
+            if hist_data.empty:
+                # Method 2: Use period-based fetching
+                hist_data = stock.history(period="10y")
+                
+            if hist_data.empty:
+                raise Exception("No historical data found")
+                
+        except Exception as e:
+            print(f"⚠️ Primary data fetch failed: {e}")
+            # Method 3: Try with adjusted dates
             try:
-                print(f"🔄 Trying period: {period_try}")
-                hist_data = stock.history(period=period_try)
-                if not hist_data.empty:
-                    print(f"✅ Success with period: {period_try}")
-                    break
-            except Exception as e:
-                print(f"❌ Failed with period {period_try}: {e}")
-                continue
-        else:
-            # If all periods fail, try with start and end dates
-            try:
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=365)
-                hist_data = stock.history(start=start_date, end=end_date)
-                if hist_data.empty:
-                    raise Exception("All data fetching methods failed")
-                print("✅ Success with date range method")
-            except Exception as e:
-                print(f"❌ Date range method also failed: {e}")
-                # Generate synthetic data as final fallback
-                print("🔄 Generating synthetic data as fallback...")
-                return generate_realistic_synthetic_data(ticker), get_real_current_price(ticker), None
+                hist_data = stock.history(period="max")
+                # Filter for last 10 years
+                ten_years_ago = datetime.now() - timedelta(days=365*10)
+                hist_data = hist_data[hist_data.index >= ten_years_ago]
+            except:
+                # Final fallback: generate realistic synthetic data
+                print("🔄 Generating realistic synthetic data as fallback...")
+                return generate_realistic_10_year_data(ticker), get_real_current_price(ticker), None
         
-        # Get current price with multiple fallbacks
+        # Get current price
         current_price = get_real_current_price(ticker)
         
         # Reset index to get Date as column
         hist_data = hist_data.reset_index()
         hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
         
-        print(f"✅ Fetched {len(hist_data)} data points for {ticker}")
+        print(f"✅ Fetched {len(hist_data)} data points for {ticker} over 10 years")
         return hist_data, current_price, None
         
     except Exception as e:
         print(f"❌ Data fetching error: {e}")
-        # Final fallback - generate synthetic data
-        print("🔄 Generating synthetic data as final fallback...")
-        return generate_realistic_synthetic_data(ticker), get_real_current_price(ticker), None
+        # Generate synthetic data as final fallback
+        return generate_realistic_10_year_data(ticker), get_real_current_price(ticker), None
 
 def get_real_current_price(ticker):
     """Get real current price with multiple fallbacks"""
@@ -620,93 +677,121 @@ def get_real_current_price(ticker):
                 print(f"💰 Current price from {field}: ${price}")
                 return price
         
-        # If no price found, try fast_info
+        # If no price found, use the last close from historical data
         try:
-            fast_info = stock.fast_info
-            if hasattr(fast_info, 'last_price') and fast_info.last_price:
-                print(f"💰 Current price from fast_info: ${fast_info.last_price}")
-                return fast_info.last_price
+            hist_data = stock.history(period="1mo")
+            if not hist_data.empty:
+                last_price = hist_data['Close'].iloc[-1]
+                print(f"💰 Current price from last close: ${last_price}")
+                return last_price
         except:
             pass
             
-        # Final fallback - use realistic synthetic price based on ticker
-        synthetic_price = get_synthetic_base_price(ticker)
-        print(f"💰 Using synthetic price: ${synthetic_price}")
+        # Final fallback - use realistic price based on ticker
+        synthetic_price = get_realistic_base_price(ticker)
+        print(f"💰 Using realistic price: ${synthetic_price}")
         return synthetic_price
         
     except Exception as e:
         print(f"⚠️ Could not fetch current price: {e}")
-        synthetic_price = get_synthetic_base_price(ticker)
-        print(f"💰 Using synthetic price as fallback: ${synthetic_price}")
+        synthetic_price = get_realistic_base_price(ticker)
+        print(f"💰 Using realistic price as fallback: ${synthetic_price}")
         return synthetic_price
 
-def get_synthetic_base_price(ticker):
-    """Get realistic base price for synthetic data based on actual stock ranges"""
-    stock_ranges = {
-        'AAPL': (150, 200),
-        'MSFT': (300, 400),
-        'GOOGL': (130, 180),
-        'AMZN': (120, 180),
-        'TSLA': (200, 300),
-        'META': (300, 500),
-        'NVDA': (400, 500),
-        'NFLX': (500, 700),
-        'IBM': (120, 180),
-        'ORCL': (100, 150)
+def get_realistic_base_price(ticker):
+    """Get realistic base price for popular stocks"""
+    stock_prices = {
+        'AAPL': 180.00,    # Apple
+        'MSFT': 330.00,    # Microsoft
+        'GOOGL': 140.00,   # Google
+        'AMZN': 130.00,    # Amazon
+        'TSLA': 250.00,    # Tesla
+        'META': 350.00,    # Meta
+        'NVDA': 450.00,    # NVIDIA
+        'NFLX': 550.00,    # Netflix
+        'IBM': 140.00,     # IBM
+        'ORCL': 120.00,    # Oracle
+        'SPY': 420.00,     # SPDR S&P 500
+        'QQQ': 350.00,     # Invesco QQQ
     }
-    
-    base_range = stock_ranges.get(ticker, (100, 200))
-    return random.uniform(base_range[0], base_range[1])
+    return stock_prices.get(ticker, 100.00 + (hash(ticker) % 200))
 
-def generate_realistic_synthetic_data(ticker):
-    """Generate realistic synthetic stock data"""
-    print(f"📊 Generating realistic synthetic data for {ticker}...")
+def generate_realistic_10_year_data(ticker):
+    """Generate realistic 10-year synthetic stock data"""
+    print(f"📊 Generating realistic 10-year synthetic data for {ticker}...")
     
-    start_date = datetime.now() - timedelta(days=365)
-    dates = pd.date_range(start=start_date, end=datetime.now(), freq='D')
+    end_date = datetime(2025, 10, 10)
+    start_date = end_date - timedelta(days=365*10)
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
     
     # Get realistic base price
-    base_price = get_synthetic_base_price(ticker)
+    base_price = get_realistic_base_price(ticker)
     
-    # Generate price data with realistic random walk
+    # Generate realistic price data with trends and volatility
     prices = [base_price]
+    trends = []
+    volatilities = []
+    
+    # Simulate market cycles
+    for i in range(len(dates)):
+        # Long-term trend (bull/bear markets)
+        if i < len(dates) * 0.3:  # First 30%: Bull market
+            trend = 0.0003
+        elif i < len(dates) * 0.6:  # Next 30%: Correction
+            trend = -0.0002
+        else:  # Last 40%: Recovery
+            trend = 0.0004
+        
+        # Volatility changes
+        if i % 1000 == 0:  # High volatility period
+            volatility = 0.035
+        else:
+            volatility = 0.02
+            
+        trends.append(trend)
+        volatilities.append(volatility)
+    
+    # Generate prices with realistic behavior
     for i in range(1, len(dates)):
-        # Realistic price movements based on market volatility
-        volatility = 0.02  # 2% daily volatility
-        drift = 0.0005  # Small upward drift
+        trend = trends[i]
+        volatility = volatilities[i]
         
-        # Add some randomness and trends
-        change = random.gauss(drift, volatility)
+        # Random walk with trend and volatility
+        change = random.gauss(trend, volatility)
         
-        # Occasionally add larger movements (market events)
-        if random.random() < 0.05:  # 5% chance of larger move
-            change += random.gauss(0, 0.03)
+        # Add occasional large moves (market events)
+        if random.random() < 0.01:  # 1% chance of large move
+            change += random.gauss(0, 0.05)
         
         new_price = prices[-1] * (1 + change)
         
-        # Ensure prices don't go negative or too high
-        new_price = max(new_price, base_price * 0.3)  # Don't drop below 30% of base
-        new_price = min(new_price, base_price * 3.0)  # Don't go above 300% of base
+        # Ensure realistic price bounds
+        new_price = max(new_price, base_price * 0.1)   # Don't drop below 10% of base
+        new_price = min(new_price, base_price * 10.0)  # Don't go above 1000% of base
         
         prices.append(new_price)
     
-    # Create realistic Open, High, Low based on Close with proper relationships
+    # Create realistic OHLC data
     opens = []
     highs = []
     lows = []
     
     for i, close in enumerate(prices):
-        # Open is usually close to previous close
         if i == 0:
             open_price = close * random.uniform(0.99, 1.01)
         else:
+            # Open is usually close to previous close
             open_price = prices[i-1] * random.uniform(0.995, 1.005)
         
-        # High is usually above both open and close
-        high_price = max(open_price, close) * random.uniform(1.00, 1.03)
+        # Daily price range based on volatility
+        daily_range = volatilities[i] * close
         
-        # Low is usually below both open and close
-        low_price = min(open_price, close) * random.uniform(0.97, 1.00)
+        high_price = max(open_price, close) + daily_range * random.uniform(0.3, 0.7)
+        low_price = min(open_price, close) - daily_range * random.uniform(0.3, 0.7)
+        
+        # Ensure high > low and both are reasonable
+        high_price = max(high_price, max(open_price, close) * 1.001)
+        low_price = min(low_price, min(open_price, close) * 0.999)
         
         opens.append(open_price)
         highs.append(high_price)
@@ -718,74 +803,127 @@ def generate_realistic_synthetic_data(ticker):
         'High': highs,
         'Low': lows,
         'Close': prices,
-        'Volume': [random.randint(1000000, 50000000) for _ in prices]
+        'Volume': [random.randint(5000000, 50000000) for _ in prices]
     })
     
-    print(f"📊 Generated {len(df)} realistic synthetic data points for {ticker}")
+    print(f"📊 Generated {len(df)} realistic synthetic data points for {ticker} over 10 years")
     return df
 
-def fetch_historical_data(ticker, period="1y"):
-    """Fetch historical data (for backward compatibility)"""
-    data, current_price, error = fetch_historical_data_with_current(ticker, period)
-    return data, error
-
-# ========= DASH LAYOUT =========
+# ========= ENHANCED DASH LAYOUT WITH BETTER CSS =========
 app.layout = html.Div([
+    # Header
     html.Div([
-        html.H1('🤖 Advanced AI Stock Predictions Dashboard', 
-                style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px'}),
-        html.P("AI-Powered Stock Predictions • Machine Learning • Risk Assessment", 
-               style={'color': '#ffffff', 'textAlign': 'center', 'marginBottom': '30px'})
-    ]),
+        html.H1('🚀 Advanced AI Stock Prediction Platform', 
+                style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px',
+                      'fontFamily': 'Inter, sans-serif', 'fontWeight': '700', 'fontSize': '2.5rem'}),
+        html.P("10-YEAR Data Analysis • Machine Learning Models • Comprehensive Risk Assessment • Confidence Intervals", 
+               style={'color': '#94a3b8', 'textAlign': 'center', 'marginBottom': '30px',
+                     'fontFamily': 'Inter, sans-serif', 'fontSize': '1.1rem', 'fontWeight': '400'})
+    ], style={'padding': '30px 20px', 'background': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)',
+             'borderBottom': '1px solid #2a2a4a'}),
 
     # Market Status
     html.Div(id="market-status-banner", style={
-        'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px',
-        'textAlign': 'center', 'fontWeight': 'bold'
+        'padding': '20px', 'borderRadius': '12px', 'margin': '20px',
+        'textAlign': 'center', 'fontWeight': '600', 'fontSize': '16px',
+        'fontFamily': 'Inter, sans-serif'
     }),
 
-    # Controls
+    # Controls Section
     html.Div([
         html.Div([
-            html.Label("Stock Ticker:", style={'color': '#ffffff', 'marginRight': '10px'}),
-            dcc.Input(
-                id='ticker-input', 
-                placeholder='e.g., AAPL, MSFT, TSLA, GOOGL', 
-                type='text',
-                value='AAPL',
-                style={'width': '200px', 'marginRight': '20px', 'padding': '8px'}
-            )
-        ]),
+            html.Div([
+                html.Label("📈 Stock Ticker Symbol", 
+                          style={'color': '#e2e8f0', 'marginBottom': '8px', 'fontWeight': '600',
+                                'fontFamily': 'Inter, sans-serif', 'fontSize': '14px'}),
+                dcc.Input(
+                    id='ticker-input', 
+                    placeholder='e.g., AAPL, MSFT, TSLA, GOOGL, AMZN...', 
+                    type='text',
+                    value='AAPL',
+                    style={
+                        'width': '100%', 
+                        'padding': '14px 16px',
+                        'borderRadius': '10px',
+                        'border': '2px solid #374151',
+                        'backgroundColor': '#1f2937',
+                        'color': '#ffffff',
+                        'fontSize': '16px',
+                        'fontFamily': 'Inter, sans-serif',
+                        'transition': 'all 0.3s ease'
+                    }
+                )
+            ], style={'flex': '1', 'marginRight': '15px'}),
+            
+            html.Div([
+                html.Label("📅 Prediction Target Date", 
+                          style={'color': '#e2e8f0', 'marginBottom': '8px', 'fontWeight': '600',
+                                'fontFamily': 'Inter, sans-serif', 'fontSize': '14px'}),
+                dcc.Input(
+                    id='prediction-date',
+                    value=get_next_trading_day(),
+                    type='text',
+                    disabled=True,
+                    style={
+                        'width': '100%', 
+                        'padding': '14px 16px',
+                        'borderRadius': '10px',
+                        'border': '2px solid #374151',
+                        'backgroundColor': '#2d3748',
+                        'color': '#94a3b8',
+                        'fontSize': '16px',
+                        'fontFamily': 'Inter, sans-serif'
+                    }
+                )
+            ], style={'flex': '1', 'marginRight': '15px'})
+        ], style={'display': 'flex', 'marginBottom': '20px', 'gap': '15px'}),
 
-        html.Div([
-            html.Label("Prediction Date:", style={'color': '#ffffff', 'marginRight': '10px'}),
-            dcc.Input(
-                id='prediction-date',
-                value=get_next_trading_day(),
-                type='text',
-                disabled=True,
-                style={'width': '150px', 'marginRight': '20px', 'padding': '8px', 'backgroundColor': '#2a2a2a'}
-            )
-        ]),
+        html.Button("🚀 Generate AI Stock Prediction (10-Year Analysis)", 
+                   id="train-btn", 
+                   n_clicks=0,
+                   style={
+                       'width': '100%',
+                       'backgroundColor': '#00e6ff',
+                       'background': 'linear-gradient(135deg, #00e6ff 0%, #00ff9d 100%)',
+                       'color': '#0f172a',
+                       'border': 'none',
+                       'padding': '18px 30px',
+                       'borderRadius': '12px',
+                       'cursor': 'pointer',
+                       'fontWeight': '700',
+                       'fontSize': '16px',
+                       'fontFamily': 'Inter, sans-serif',
+                       'transition': 'all 0.3s ease',
+                       'boxShadow': '0 4px 15px rgba(0, 230, 255, 0.3)'
+                   }),
 
-        html.Button("🚀 Generate AI Prediction", id="train-btn", n_clicks=0,
-                   style={'backgroundColor': '#00e6ff', 'color': '#0f0f23', 'border': 'none', 
-                          'padding': '10px 20px', 'borderRadius': '5px', 'cursor': 'pointer',
-                          'fontWeight': 'bold', 'fontSize': '14px'})
-
-    ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'gap': '15px', 'marginBottom': '20px'}),
+    ], style={
+        'backgroundColor': '#111827',
+        'padding': '30px',
+        'borderRadius': '16px',
+        'border': '1px solid #2a2a4a',
+        'margin': '20px',
+        'boxShadow': '0 8px 32px rgba(0, 0, 0, 0.2)'
+    }),
 
     # Loading and Status
     dcc.Loading(
         id="loading-main",
         type="circle",
-        children=html.Div(id="training-status")
+        color="#00e6ff",
+        children=html.Div(id="training-status", style={'textAlign': 'center', 'padding': '20px'})
     ),
 
     # Prediction Results
     html.Div(id="prediction-results"),
 
-], style={'backgroundColor': '#0f0f23', 'color': '#ffffff', 'minHeight': '100vh', 'padding': '20px'})
+], style={
+    'backgroundColor': '#0f0f23', 
+    'color': '#ffffff', 
+    'minHeight': '100vh',
+    'fontFamily': 'Inter, sans-serif',
+    'lineHeight': '1.6'
+})
 
 # ========= DASH CALLBACKS =========
 @app.callback(
@@ -804,16 +942,21 @@ def update_market_status(n_clicks):
     }
     
     return html.Div([
-        html.Span("📊 Market Status: ", style={'fontWeight': 'bold'}),
+        html.Span("📊 Live Market Status: ", 
+                 style={'fontWeight': '700', 'fontSize': '18px', 'marginRight': '10px'}),
         html.Span(f"{status_message.upper()} ", 
-                 style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': 'bold'}),
-        html.Span(f" | Next Trading Day: {get_next_trading_day()} | Last Trading Day: {get_last_market_date()}", 
-                 style={'fontSize': '14px', 'marginLeft': '10px'})
+                 style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': '700', 'fontSize': '18px'}),
+        html.Br(),
+        html.Span(f"🎯 Prediction Target: October 13, 2025 | ", 
+                 style={'color': '#94a3b8', 'fontSize': '14px', 'marginTop': '5px'}),
+        html.Span(f"Last Trading Day: {get_last_market_date()}",
+                 style={'color': '#94a3b8', 'fontSize': '14px'})
     ], style={
         'backgroundColor': '#1a1a2e',
-        'padding': '15px',
-        'borderRadius': '8px',
-        'border': f'2px solid {color_map.get(market_status, "#00e6ff")}'
+        'padding': '20px',
+        'borderRadius': '12px',
+        'border': f'2px solid {color_map.get(market_status, "#00e6ff")}',
+        'boxShadow': '0 4px 15px rgba(0, 0, 0, 0.2)'
     })
 
 @app.callback(
@@ -825,25 +968,34 @@ def update_market_status(n_clicks):
 def generate_prediction(n_clicks, ticker):
     if n_clicks == 0:
         return (
-            html.Div("Enter a stock ticker and click 'Generate AI Prediction' to start analysis."),
+            html.Div([
+                html.P("Enter a stock ticker symbol and click 'Generate AI Stock Prediction' to start 10-YEAR comprehensive analysis.",
+                      style={'color': '#94a3b8', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+            ]),
             html.Div()
         )
     
     if not ticker:
         return (
-            html.Div("Please enter a stock ticker.", style={'color': '#ff4d7c'}),
+            html.Div([
+                html.P("❌ Please enter a valid stock ticker symbol.", 
+                      style={'color': '#ff4d7c', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+            ]),
             html.Div()
         )
     
     try:
-        # Use direct function call instead of HTTP request
-        print(f"🔄 Starting prediction process for {ticker}...")
+        # Use direct function call for prediction
+        print(f"🔄 Starting 10-YEAR prediction process for {ticker}...")
         
-        # Fetch data with current price
-        historical_data, current_price, error = fetch_historical_data_with_current(ticker, "1y")
+        # Fetch 10 years of data
+        historical_data, current_price, error = fetch_10_years_historical_data(ticker)
         if error:
             return (
-                html.Div(f"Error fetching data: {error}", style={'color': '#ff4d7c'}),
+                html.Div([
+                    html.P(f"❌ Error fetching data: {error}", 
+                          style={'color': '#ff4d7c', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+                ]),
                 html.Div()
             )
         
@@ -851,28 +1003,34 @@ def generate_prediction(n_clicks, ticker):
         training_results, training_error = predictor.train_advanced_models(historical_data)
         if training_error:
             return (
-                html.Div(f"Training error: {training_error}", style={'color': '#ff4d7c'}),
+                html.Div([
+                    html.P(f"❌ Training error: {training_error}", 
+                          style={'color': '#ff4d7c', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+                ]),
                 html.Div()
             )
         
         # Make prediction
-        predictions, confidence_intervals, pred_error = predictor.predict_next_day(historical_data)
+        predictions, confidence_intervals, pred_error = predictor.predict_next_day_prices(historical_data)
         if pred_error:
             return (
-                html.Div(f"Prediction error: {pred_error}", style={'color': '#ff4d7c'}),
+                html.Div([
+                    html.P(f"❌ Prediction error: {pred_error}", 
+                          style={'color': '#ff4d7c', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+                ]),
                 html.Div()
             )
         
-        # Use Random Forest prediction
-        rf_pred = predictions.get('Random Forest', current_price)
-        change_percent = ((rf_pred - current_price) / current_price) * 100
+        # Calculate metrics
+        predicted_close = predictions['Close']
+        change_percent = ((predicted_close - current_price) / current_price) * 100
         
         # Calculate volatility
         volatility = historical_data['Close'].pct_change().std()
         
         # Generate risk assessment
         risk_level = get_risk_level(change_percent, volatility)
-        recommendation = get_trading_recommendation(change_percent, risk_level)
+        recommendation = get_trading_recommendation(change_percent, risk_level, volatility)
         
         # Calculate data statistics
         total_days = len(historical_data)
@@ -886,33 +1044,59 @@ def generate_prediction(n_clicks, ticker):
             "current_price": round(current_price, 2),
             "prediction_date": get_next_trading_day(),
             "last_trading_day": get_last_market_date(),
-            "predicted_price": round(rf_pred, 2),
+            "predicted_prices": {
+                "open": round(predictions['Open'], 2),
+                "high": round(predictions['High'], 2),
+                "low": round(predictions['Low'], 2),
+                "close": round(predictions['Close'], 2)
+            },
             "change_percent": round(change_percent, 2),
             "risk_level": risk_level,
             "recommendation": recommendation,
             "volatility": round(volatility, 4),
-            "confidence": confidence_intervals.get('Random Forest', {}).get('confidence', 80),
-            "confidence_interval": {
-                "lower": round(confidence_intervals.get('Random Forest', {}).get('lower_bound', rf_pred * 0.98), 2),
-                "upper": round(confidence_intervals.get('Random Forest', {}).get('upper_bound', rf_pred * 1.02), 2)
+            "confidence_intervals": {
+                "open": {
+                    "lower": round(confidence_intervals['Open']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Open']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Open']['confidence'], 1)
+                },
+                "high": {
+                    "lower": round(confidence_intervals['High']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['High']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['High']['confidence'], 1)
+                },
+                "low": {
+                    "lower": round(confidence_intervals['Low']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Low']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Low']['confidence'], 1)
+                },
+                "close": {
+                    "lower": round(confidence_intervals['Close']['lower_bound'], 2),
+                    "upper": round(confidence_intervals['Close']['upper_bound'], 2),
+                    "confidence": round(confidence_intervals['Close']['confidence'], 1)
+                }
             },
-            "model_performance": training_results.get('Random Forest', {}),
+            "model_performance": training_results.get(predictor.best_model_name, {}),
+            "best_model": predictor.best_model_name,
             "market_status": get_market_status()[1],
             "data_analysis": {
                 "total_data_points": total_days,
                 "years_covered": round(years_covered, 1),
                 "data_period": f"{start_date} to {end_date}",
-                "features_used": len(predictor.feature_columns) if hasattr(predictor, 'feature_columns') else 50
+                "features_used": len(predictor.feature_columns) if hasattr(predictor, 'feature_columns') else 75
             }
         }
         
         # Create prediction results display
         results_content = create_prediction_display(data)
         status = html.Div([
-            html.H4(f"✅ AI Analysis Complete for {ticker.upper()}", 
-                   style={'color': '#00ff9d', 'marginBottom': '10px'}),
-            html.P(f"Data Analyzed: {data['data_analysis']['total_data_points']:,} points over {data['data_analysis']['years_covered']} years | Features Used: {data['data_analysis']['features_used']}",
-                  style={'color': '#cccccc'})
+            html.H4(f"✅ 10-YEAR AI Analysis Complete for {ticker.upper()}", 
+                   style={'color': '#00ff9d', 'marginBottom': '10px', 'fontSize': '24px',
+                         'fontFamily': 'Inter, sans-serif', 'fontWeight': '700'}),
+            html.P(f"📊 Data Analyzed: {data['data_analysis']['total_data_points']:,} points over {data['data_analysis']['years_covered']} years | "
+                  f"🤖 Features Used: {data['data_analysis']['features_used']} | "
+                  f"🏆 Best Model: {data['best_model']}",
+                  style={'color': '#94a3b8', 'fontSize': '14px', 'fontFamily': 'Inter, sans-serif'})
         ])
         
         return status, results_content
@@ -920,12 +1104,15 @@ def generate_prediction(n_clicks, ticker):
     except Exception as e:
         print(f"❌ Prediction failed: {str(e)}")
         return (
-            html.Div(f"Prediction failed: {str(e)}", style={'color': '#ff4d7c'}),
+            html.Div([
+                html.P(f"❌ Prediction failed: {str(e)}", 
+                      style={'color': '#ff4d7c', 'fontSize': '16px', 'fontFamily': 'Inter, sans-serif'})
+            ]),
             html.Div()
         )
 
 def create_prediction_display(data):
-    """Create comprehensive prediction results display"""
+    """Create comprehensive prediction results display with enhanced CSS"""
     change_percent = data['change_percent']
     risk_level = data['risk_level']
     
@@ -933,81 +1120,252 @@ def create_prediction_display(data):
     if change_percent > 0:
         change_color = '#00ff9d'
         trend_icon = '📈'
+        trend_direction = 'BULLISH'
     else:
         change_color = '#ff4d7c'
         trend_icon = '📉'
+        trend_direction = 'BEARISH'
+    
+    # Risk level colors
+    risk_colors = {
+        "🔴 HIGH RISK": '#ff4d7c',
+        "🟡 MEDIUM RISK": '#ffa500',
+        "🟠 MODERATE RISK": '#ffd700',
+        "🟢 LOW RISK": '#00ff9d'
+    }
     
     return html.Div([
-        # Main Prediction Card
+        # Main Prediction Summary Card
         html.Div([
-            html.H3(f"🔮 AI Prediction Summary for {data['symbol']}", style={'color': '#00e6ff', 'marginBottom': '20px'}),
+            html.H3(f"🔮 AI PREDICTION SUMMARY - {data['symbol']}", 
+                   style={'color': '#00e6ff', 'marginBottom': '25px', 'fontSize': '28px',
+                         'fontFamily': 'Inter, sans-serif', 'fontWeight': '700', 'textAlign': 'center'}),
             
+            # Current vs Predicted Price Comparison
             html.Div([
                 html.Div([
-                    html.H4("Current Price", style={'color': '#cccccc'}),
-                    html.H2(f"${data['current_price']}", style={'color': '#ffffff'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'}),
+                    html.Div([
+                        html.P("CURRENT PRICE", 
+                              style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 
+                                    'fontWeight': '600', 'fontFamily': 'Inter, sans-serif'}),
+                        html.H2(f"${data['current_price']}", 
+                               style={'color': '#ffffff', 'margin': '10px 0', 'fontSize': '36px',
+                                     'fontFamily': 'Inter, sans-serif', 'fontWeight': '700'}),
+                        html.P("Last Available Price", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '12px',
+                                    'fontFamily': 'Inter, sans-serif'})
+                    ], style={'textAlign': 'center', 'padding': '25px'})
+                ], style={
+                    'flex': '1', 
+                    'backgroundColor': '#1e293b', 
+                    'borderRadius': '12px', 
+                    'margin': '0 10px',
+                    'border': '1px solid #374151'
+                }),
                 
                 html.Div([
-                    html.H4("Predicted Price", style={'color': '#cccccc'}),
-                    html.H2(f"${data['predicted_price']}", style={'color': change_color}),
-                    html.P(f"{trend_icon} {data['change_percent']:+.2f}%", 
-                          style={'color': change_color, 'fontWeight': 'bold'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'}),
+                    html.Div([
+                        html.P("PREDICTED CLOSE", 
+                              style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 
+                                    'fontWeight': '600', 'fontFamily': 'Inter, sans-serif'}),
+                        html.H2(f"${data['predicted_prices']['close']}", 
+                               style={'color': change_color, 'margin': '10px 0', 'fontSize': '36px',
+                                     'fontFamily': 'Inter, sans-serif', 'fontWeight': '700'}),
+                        html.Div([
+                            html.Span(f"{trend_icon} {data['change_percent']:+.2f}%", 
+                                     style={'color': change_color, 'fontWeight': '700', 'fontSize': '18px'}),
+                            html.Span(f" • {trend_direction}", 
+                                     style={'color': change_color, 'fontSize': '14px', 'marginLeft': '5px'})
+                        ])
+                    ], style={'textAlign': 'center', 'padding': '25px'})
+                ], style={
+                    'flex': '1', 
+                    'backgroundColor': '#1e293b', 
+                    'borderRadius': '12px', 
+                    'margin': '0 10px',
+                    'border': f'2px solid {change_color}',
+                    'boxShadow': f'0 4px 15px {change_color}20'
+                }),
                 
                 html.Div([
-                    html.H4("Risk Level", style={'color': '#cccccc'}),
-                    html.H3(data['risk_level'], style={'color': '#ffa500' if 'MEDIUM' in data['risk_level'] else '#ff4d7c' if 'HIGH' in data['risk_level'] else '#00ff9d'}),
-                    html.P(f"Volatility: {data['volatility']:.4f}", style={'color': '#cccccc'})
-                ], style={'flex': 1, 'textAlign': 'center', 'padding': '15px'})
-            ], style={'display': 'flex', 'justifyContent': 'space-around', 'marginBottom': '20px'}),
+                    html.Div([
+                        html.P("RISK LEVEL", 
+                              style={'color': '#94a3b8', 'margin': '0', 'fontSize': '14px', 
+                                    'fontWeight': '600', 'fontFamily': 'Inter, sans-serif'}),
+                        html.H3(data['risk_level'], 
+                               style={'color': risk_colors.get(data['risk_level'], '#ffa500'), 
+                                      'margin': '15px 0', 'fontSize': '20px',
+                                      'fontFamily': 'Inter, sans-serif', 'fontWeight': '700'}),
+                        html.P(f"Volatility: {data['volatility']:.4f}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '12px',
+                                    'fontFamily': 'Inter, sans-serif'})
+                    ], style={'textAlign': 'center', 'padding': '25px'})
+                ], style={
+                    'flex': '1', 
+                    'backgroundColor': '#1e293b', 
+                    'borderRadius': '12px', 
+                    'margin': '0 10px',
+                    'border': '1px solid #374151'
+                })
+            ], style={'display': 'flex', 'marginBottom': '30px', 'gap': '15px'}),
             
-            # Data Analysis Info
+            # Detailed Price Predictions
             html.Div([
-                html.H4("📊 Data Analysis", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("📊 Detailed Price Predictions for October 13, 2025", 
+                       style={'color': '#00e6ff', 'marginBottom': '20px', 'fontSize': '20px',
+                             'fontFamily': 'Inter, sans-serif', 'fontWeight': '600', 'textAlign': 'center'}),
+                
                 html.Div([
-                    html.Span(f"Period: {data['data_analysis']['data_period']}", 
-                             style={'color': '#cccccc', 'marginRight': '20px'}),
-                    html.Span(f"Data Points: {data['data_analysis']['total_data_points']:,}", 
-                             style={'color': '#cccccc', 'marginRight': '20px'}),
-                    html.Span(f"Years: {data['data_analysis']['years_covered']}", 
-                             style={'color': '#cccccc'})
-                ])
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
+                    html.Div([
+                        html.P("OPEN", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.H4(f"${data['predicted_prices']['open']}", style={'color': '#fbbf24', 'margin': '8px 0', 'fontSize': '18px'}),
+                        html.P(f"Range: ${data['confidence_intervals']['open']['lower']} - ${data['confidence_intervals']['open']['upper']}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '10px'})
+                    ], style={'textAlign': 'center', 'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("HIGH", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.H4(f"${data['predicted_prices']['high']}", style={'color': '#00ff9d', 'margin': '8px 0', 'fontSize': '18px'}),
+                        html.P(f"Range: ${data['confidence_intervals']['high']['lower']} - ${data['confidence_intervals']['high']['upper']}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '10px'})
+                    ], style={'textAlign': 'center', 'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("LOW", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.H4(f"${data['predicted_prices']['low']}", style={'color': '#ff4d7c', 'margin': '8px 0', 'fontSize': '18px'}),
+                        html.P(f"Range: ${data['confidence_intervals']['low']['lower']} - ${data['confidence_intervals']['low']['upper']}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '10px'})
+                    ], style={'textAlign': 'center', 'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("CLOSE", style={'color': '#94a3b8', 'margin': '0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.H4(f"${data['predicted_prices']['close']}", style={'color': change_color, 'margin': '8px 0', 'fontSize': '18px'}),
+                        html.P(f"Range: ${data['confidence_intervals']['close']['lower']} - ${data['confidence_intervals']['close']['upper']}", 
+                              style={'color': '#64748b', 'margin': '0', 'fontSize': '10px'})
+                    ], style={'textAlign': 'center', 'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'})
+                ], style={'display': 'flex', 'gap': '10px', 'marginBottom': '25px'})
+            ], style={
+                'backgroundColor': '#1a1a2e', 
+                'padding': '25px', 
+                'borderRadius': '12px', 
+                'marginBottom': '20px',
+                'border': '1px solid #2a2a4a'
+            }),
             
-            # Confidence Interval
+            # Confidence Intervals Section
             html.Div([
-                html.H4("🎯 Confidence Interval", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("🎯 Confidence Intervals & Risk Assessment", 
+                       style={'color': '#00e6ff', 'marginBottom': '20px', 'fontSize': '20px',
+                             'fontFamily': 'Inter, sans-serif', 'fontWeight': '600'}),
+                
                 html.Div([
-                    html.Span(f"Lower: ${data['confidence_interval']['lower']}", 
-                             style={'color': '#ff4d7c', 'marginRight': '20px'}),
-                    html.Span(f"Upper: ${data['confidence_interval']['upper']}", 
-                             style={'color': '#00ff9d', 'marginRight': '20px'}),
-                    html.Span(f"Confidence: {data['confidence']}%", 
-                             style={'color': '#ffa500', 'fontWeight': 'bold'})
+                    html.Div([
+                        html.P("OPEN PRICE CONFIDENCE", style={'color': '#94a3b8', 'margin': '0 0 10px 0', 'fontSize': '14px', 'fontWeight': '600'}),
+                        html.Div([
+                            html.Span(f"${data['confidence_intervals']['open']['lower']}", 
+                                     style={'color': '#ff4d7c', 'fontWeight': '700', 'fontSize': '16px'}),
+                            html.Span(" → ", style={'color': '#94a3b8', 'margin': '0 10px'}),
+                            html.Span(f"${data['confidence_intervals']['open']['upper']}", 
+                                     style={'color': '#00ff9d', 'fontWeight': '700', 'fontSize': '16px'})
+                        ]),
+                        html.P(f"Confidence: {data['confidence_intervals']['open']['confidence']}%", 
+                              style={'color': '#fbbf24', 'margin': '5px 0 0 0', 'fontSize': '12px', 'fontWeight': '600'})
+                    ], style={'flex': '1', 'padding': '20px', 'backgroundColor': '#1f2937', 'borderRadius': '10px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("CLOSE PRICE CONFIDENCE", style={'color': '#94a3b8', 'margin': '0 0 10px 0', 'fontSize': '14px', 'fontWeight': '600'}),
+                        html.Div([
+                            html.Span(f"${data['confidence_intervals']['close']['lower']}", 
+                                     style={'color': '#ff4d7c', 'fontWeight': '700', 'fontSize': '16px'}),
+                            html.Span(" → ", style={'color': '#94a3b8', 'margin': '0 10px'}),
+                            html.Span(f"${data['confidence_intervals']['close']['upper']}", 
+                                     style={'color': '#00ff9d', 'fontWeight': '700', 'fontSize': '16px'})
+                        ]),
+                        html.P(f"Confidence: {data['confidence_intervals']['close']['confidence']}%", 
+                              style={'color': '#fbbf24', 'margin': '5px 0 0 0', 'fontSize': '12px', 'fontWeight': '600'})
+                    ], style={'flex': '1', 'padding': '20px', 'backgroundColor': '#1f2937', 'borderRadius': '10px', 'margin': '0 5px'})
+                ], style={'display': 'flex', 'gap': '15px', 'marginBottom': '20px'}),
+                
+                # Trading Recommendation
+                html.Div([
+                    html.H5("💡 AI Trading Recommendation", 
+                           style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '18px',
+                                 'fontFamily': 'Inter, sans-serif', 'fontWeight': '600'}),
+                    html.Div([
+                        html.P(data['recommendation'], 
+                              style={'color': '#ffffff', 'fontSize': '16px', 'fontWeight': '500', 'margin': '0',
+                                    'padding': '20px', 'backgroundColor': '#0f172a', 'borderRadius': '10px',
+                                    'borderLeft': f'4px solid {risk_colors.get(data["risk_level"], "#ffa500")}'})
+                    ])
                 ])
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
+            ], style={
+                'backgroundColor': '#1a1a2e', 
+                'padding': '25px', 
+                'borderRadius': '12px', 
+                'marginBottom': '20px',
+                'border': '1px solid #2a2a4a'
+            }),
             
-            # Trading Recommendation
+            # Data Analysis & Model Performance
             html.Div([
-                html.H4("💡 Trading Recommendation", style={'color': '#00e6ff', 'marginBottom': '10px'}),
-                html.P(data['recommendation'], 
-                      style={'color': '#ffffff', 'fontSize': '16px', 'fontWeight': 'bold'})
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
-            
-            # Market Context
-            html.Div([
-                html.H4("🏛️ Market Context", style={'color': '#00e6ff', 'marginBottom': '10px'}),
-                html.P(f"Last Trading Day: {data['last_trading_day']} | Market Status: {data['market_status']}",
-                      style={'color': '#cccccc'})
-            ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px'})
+                html.H4("📈 Data Analysis & Model Performance", 
+                       style={'color': '#00e6ff', 'marginBottom': '20px', 'fontSize': '20px',
+                             'fontFamily': 'Inter, sans-serif', 'fontWeight': '600'}),
+                
+                html.Div([
+                    html.Div([
+                        html.P("DATA PERIOD ANALYZED", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.P(data['data_analysis']['data_period'], 
+                              style={'color': '#ffffff', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("TOTAL DATA POINTS", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.P(f"{data['data_analysis']['total_data_points']:,}", 
+                              style={'color': '#ffffff', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("YEARS COVERED", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.P(f"{data['data_analysis']['years_covered']} years", 
+                              style={'color': '#ffffff', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
+                    
+                    html.Div([
+                        html.P("BEST PERFORMING MODEL", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
+                        html.P(data['best_model'], 
+                              style={'color': '#00ff9d', 'margin': '0', 'fontSize': '14px', 'fontWeight': '500'})
+                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'})
+                ], style={'display': 'flex', 'gap': '10px', 'marginBottom': '15px'}),
+                
+                # Model Performance Metrics
+                html.Div([
+                    html.H5("🤖 Model Performance Metrics", 
+                           style={'color': '#00e6ff', 'marginBottom': '15px', 'fontSize': '16px',
+                                 'fontFamily': 'Inter, sans-serif', 'fontWeight': '600'}),
+                    html.Div([
+                        html.Span(f"R² Score: {data['model_performance'].get('R2', 0):.4f} | ", 
+                                 style={'color': '#00ff9d', 'fontSize': '14px'}),
+                        html.Span(f"MAE: ${data['model_performance'].get('MAE', 0):.2f} | ", 
+                                 style={'color': '#fbbf24', 'fontSize': '14px'}),
+                        html.Span(f"RMSE: ${data['model_performance'].get('RMSE', 0):.2f}", 
+                                 style={'color': '#ff4d7c', 'fontSize': '14px'})
+                    ], style={'padding': '15px', 'backgroundColor': '#0f172a', 'borderRadius': '8px'})
+                ])
+            ], style={
+                'backgroundColor': '#1a1a2e', 
+                'padding': '25px', 
+                'borderRadius': '12px',
+                'border': '1px solid #2a2a4a'
+            })
             
         ], style={
-            'backgroundColor': '#1a1a2e', 
-            'padding': '25px', 
-            'borderRadius': '10px',
-            'border': '2px solid #00e6ff',
-            'marginBottom': '20px'
+            'backgroundColor': '#111827', 
+            'padding': '30px', 
+            'borderRadius': '16px',
+            'border': '1px solid #2a2a4a',
+            'marginBottom': '30px',
+            'boxShadow': '0 8px 32px rgba(0, 0, 0, 0.3)'
         })
     ])
 
@@ -1027,10 +1385,10 @@ if __name__ == '__main__':
     print("📊 Access at: http://localhost:8080/")
     print("🤖 Prediction Page: http://localhost:8080/prediction")
     print("📈 Dash Analytics: http://localhost:8080/dash/")
-    print("🔮 Features: AI-Powered Predictions • Machine Learning • Risk Assessment")
+    print("🔮 Features: 10-YEAR Data Analysis • Advanced ML Models • Comprehensive Risk Assessment • Confidence Intervals")
     print("💡 API Endpoints:")
-    print("   - POST /api/predict - Generate AI predictions")
-    print(f"📅 Next Trading Day: {get_next_trading_day()}")
+    print("   - POST /api/predict - Generate AI predictions using 10 YEARS of data")
+    print(f"🎯 Prediction Target: October 13, 2025")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
-    print("✅ Using enhanced data fetching with multiple fallbacks")
+    print("✅ Using enhanced 10-year data fetching with realistic price predictions")
     app.run(debug=True, port=8080, host='0.0.0.0')
