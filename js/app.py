@@ -116,6 +116,12 @@ class AdvancedStockPredictor:
             # ATR (Average True Range)
             df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'])
             
+            # Day of week features
+            df['Date'] = pd.to_datetime(df['Date'])
+            df['DayOfWeek'] = df['Date'].dt.dayofweek
+            df['Month'] = df['Date'].dt.month
+            df['Quarter'] = df['Date'].dt.quarter
+            
             # Drop NaN values
             df = df.dropna()
             
@@ -283,6 +289,48 @@ class AdvancedStockPredictor:
 
 # Initialize predictor
 predictor = AdvancedStockPredictor()
+
+# ========= HELPER FUNCTIONS =========
+def get_next_trading_day():
+    """Get the next trading day (Monday-Friday)"""
+    today = datetime.now()
+    
+    # If today is Friday, next trading day is Monday
+    if today.weekday() == 4:  # Friday
+        next_day = today + timedelta(days=3)
+    # If today is Saturday, next trading day is Monday
+    elif today.weekday() == 5:  # Saturday
+        next_day = today + timedelta(days=2)
+    # If today is Sunday, next trading day is Monday
+    elif today.weekday() == 6:  # Sunday
+        next_day = today + timedelta(days=1)
+    else:
+        next_day = today + timedelta(days=1)
+    
+    return next_day.strftime('%Y-%m-%d')
+
+def is_market_open():
+    """Check if market is open today (Monday-Friday)"""
+    today = datetime.now()
+    return today.weekday() < 5  # 0-4 = Monday-Friday
+
+def get_market_status():
+    """Get current market status"""
+    today = datetime.now()
+    if today.weekday() >= 5:
+        return "closed", "Market is closed on weekends"
+    
+    # Check market hours (9:30 AM - 4:00 PM ET)
+    current_time = datetime.now().time()
+    market_open = datetime.strptime('09:30', '%H:%M').time()
+    market_close = datetime.strptime('16:00', '%H:%M').time()
+    
+    if current_time < market_open:
+        return "pre_market", "Pre-market hours"
+    elif current_time > market_close:
+        return "after_hours", "After-hours trading"
+    else:
+        return "open", "Market is open"
 
 # ========= API ROUTES FOR HTML PAGES =========
 @server.route('/api/stock-quotes')
@@ -552,13 +600,20 @@ def predict_stock():
         # Get current price
         current_price = historical_data['Close'].iloc[-1]
         
+        # Get next trading day
+        next_trading_day = get_next_trading_day()
+        market_status, status_message = get_market_status()
+        
         # Prepare response
         response = {
             "symbol": symbol,
             "current_price": current_price,
+            "prediction_date": next_trading_day,
+            "market_status": market_status,
+            "status_message": status_message,
             "predictions": {},
             "confidence": {},
-            "insight": generate_ai_insight(symbol, predictions, current_price)
+            "insight": generate_ai_insight(symbol, predictions, current_price, market_status)
         }
         
         # Add predictions for each price type
@@ -574,31 +629,33 @@ def predict_stock():
         for price_type, confidences in confidence_scores.items():
             response["confidence"][price_type] = confidences.get('Random Forest', 80)
         
-        print(f"✅ Predictions generated for {symbol}")
+        print(f"✅ Predictions generated for {symbol} for {next_trading_day}")
         return jsonify(response)
         
     except Exception as e:
         print(f"❌ Prediction error: {e}")
         return jsonify({"error": str(e)}), 500
 
-def generate_ai_insight(symbol, predictions, current_price):
-    """Generate AI insight based on predictions"""
+def generate_ai_insight(symbol, predictions, current_price, market_status):
+    """Generate AI insight based on predictions and market status"""
     try:
         close_pred = predictions['Close']['Random Forest']
         change_percent = ((close_pred - current_price) / current_price) * 100
         
+        base_insight = f"🤖 AI Analysis for {symbol} | Market: {market_status.upper()}\n"
+        
         if change_percent > 5:
-            return f"🚀 Strong bullish momentum detected for {symbol}. Technical indicators show potential breakout above key resistance levels. Consider accumulation strategy."
+            return base_insight + f"🚀 STRONG BULLISH: Expected gain of {change_percent:.1f}%. Technical indicators show breakout potential above key resistance levels. Consider accumulation strategy."
         elif change_percent > 2:
-            return f"📈 {symbol} shows positive momentum with favorable technical setup. RSI and MACD indicators support upward movement. Good entry opportunity."
+            return base_insight + f"📈 BULLISH: Expected gain of {change_percent:.1f}%. RSI and MACD indicators support upward movement. Good entry opportunity."
         elif change_percent > -2:
-            return f"⚖️ {symbol} demonstrates neutral outlook. Market conditions suggest sideways movement with potential for gradual appreciation. Monitor key support levels."
+            return base_insight + f"⚖️ NEUTRAL: Expected change of {change_percent:.1f}%. Market conditions suggest sideways movement. Monitor key support levels."
         elif change_percent > -5:
-            return f"⚠️ Caution advised for {symbol}. Technical indicators show bearish pressure. Consider waiting for better risk-reward setup or implement hedging strategies."
+            return base_insight + f"⚠️ CAUTION: Expected decline of {change_percent:.1f}%. Technical indicators show bearish pressure. Consider waiting for better risk-reward setup."
         else:
-            return f"🔻 Bearish patterns detected for {symbol}. Significant downward pressure indicated. Consider defensive positioning or explore alternative opportunities."
+            return base_insight + f"🔻 BEARISH: Expected decline of {change_percent:.1f}%. Significant downward pressure indicated. Consider defensive positioning."
     except:
-        return f"🤖 AI analysis completed for {symbol}. Our models have processed 10 years of historical data and 100+ technical indicators to generate this forecast."
+        return f"🤖 AI analysis completed. Our models have processed 10 years of historical data and 100+ technical indicators to generate this forecast. Market Status: {market_status.upper()}"
 
 # ========= HELPERS =========
 def fetch_historical_data(ticker, period="10y"):
@@ -649,8 +706,17 @@ def calculate_technical_indicators(df):
 app.layout = html.Div([
     html.Div([
         html.H1('🤖 Advanced AI Stock Predictions Dashboard', className="title"),
-        html.P("Next-Day Price Prediction • Machine Learning • Technical Analysis", className="model-info")
+        html.P("Daily Price Prediction • Machine Learning • Technical Analysis", className="model-info")
     ], style={'textAlign': 'center', 'marginBottom': '30px'}),
+
+    # Market Status
+    html.Div(id="market-status-banner", style={
+        'padding': '15px',
+        'borderRadius': '8px',
+        'marginBottom': '20px',
+        'textAlign': 'center',
+        'fontWeight': 'bold'
+    }),
 
     # Controls
     html.Div([
@@ -669,7 +735,7 @@ app.layout = html.Div([
             html.Label("Prediction Date:", htmlFor="prediction-date"),
             dcc.Input(
                 id='prediction-date',
-                value='2025-10-10',
+                value=get_next_trading_day(),
                 type='text',
                 disabled=True,
                 style={'width': '150px', 'marginRight': '10px', 'backgroundColor': '#2a2a2a'}
@@ -708,13 +774,14 @@ app.layout = html.Div([
             'padding': '20px', 
             'borderRadius': '10px',
             'border': '1px solid #00e6ff',
-            'marginBottom': '20px'
+            'marginBottom': '20px',
+            'whiteSpace': 'pre-line'
         })
     ]),
 
     # Next Day Predictions
     html.Div([
-        html.H3("🔮 Next Day Price Predictions (2025-10-10)"),
+        html.H3("🔮 Next Trading Day Price Predictions"),
         html.Div(id="next-day-predictions")
     ], className="card", style={'marginBottom': '20px'}),
 
@@ -739,6 +806,32 @@ app.layout = html.Div([
 ], style={'backgroundColor': '#0f0f23', 'color': '#ffffff', 'minHeight': '100vh', 'padding': '20px'})
 
 # ========= DASH CALLBACKS =========
+@app.callback(
+    Output('market-status-banner', 'children'),
+    [Input('train-btn', 'n_clicks')]
+)
+def update_market_status(n_clicks):
+    """Update market status banner"""
+    market_status, status_message = get_market_status()
+    
+    color_map = {
+        'open': '#00ff9d',
+        'pre_market': '#ffa500',
+        'after_hours': '#ffa500',
+        'closed': '#ff4d7c'
+    }
+    
+    return html.Div([
+        html.Span("📊 Market Status: ", style={'fontWeight': 'bold'}),
+        html.Span(f"{status_message.upper()} ", style={'color': color_map.get(market_status, '#ffffff')}),
+        html.Span(f" | Next Trading Day: {get_next_trading_day()}", style={'fontSize': '14px'})
+    ], style={
+        'backgroundColor': '#1a1a2e',
+        'padding': '15px',
+        'borderRadius': '8px',
+        'border': f'2px solid {color_map.get(market_status, "#00e6ff")}'
+    })
+
 @app.callback(
     [Output('training-status', 'children'),
      Output('ai-insight', 'children'),
@@ -812,7 +905,8 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
         
         # Generate displays
         current_price = historical_data['Close'].iloc[-1]
-        insight_content = generate_ai_insight(ticker, predictions, current_price)
+        market_status, status_message = get_market_status()
+        insight_content = generate_ai_insight(ticker, predictions, current_price, market_status)
         predictions_content = generate_next_day_predictions_display(predictions, confidence_scores, current_price)
         metrics_content = generate_advanced_metrics_display(training_results, model_name)
         technical_content = generate_advanced_technical_display(historical_data)
@@ -820,7 +914,8 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
         
         status = html.Div([
             html.H4(f"✅ Successfully trained models for {ticker}"),
-            html.P(f"Data Period: 10 Years | Data Points: {len(historical_data)} | Prediction Date: 2025-10-10")
+            html.P(f"Data Period: 10 Years | Data Points: {len(historical_data)} | Prediction Date: {get_next_trading_day()}"),
+            html.P(f"Market Status: {status_message}", style={'color': '#00e6ff'})
         ], style={'color': '#00ff9d'})
         
         return status, html.P(insight_content), predictions_content, metrics_content, technical_content, table_content
@@ -841,6 +936,7 @@ def generate_next_day_predictions_display(predictions, confidence_scores, curren
         return html.P("No predictions available.", style={'color': '#ff4d7c'})
     
     prediction_data = []
+    next_trading_day = get_next_trading_day()
     
     for price_type, model_predictions in predictions.items():
         rf_pred = model_predictions.get('Random Forest', current_price)
@@ -850,14 +946,14 @@ def generate_next_day_predictions_display(predictions, confidence_scores, curren
         prediction_data.append({
             'Price Type': price_type,
             'Current Price': f"${current_price:.2f}",
-            'Predicted Price': f"${rf_pred:.2f}",
+            f'Predicted Price ({next_trading_day})': f"${rf_pred:.2f}",
             'Change %': f"{change_percent:+.2f}%",
             'Confidence': f"{confidence}%",
             'Signal': '🟢 BULLISH' if change_percent > 2 else '🟡 NEUTRAL' if change_percent > -2 else '🔴 BEARISH'
         })
     
     return dash_table.DataTable(
-        columns=[{"name": col, "id": col} for col in ['Price Type', 'Current Price', 'Predicted Price', 'Change %', 'Confidence', 'Signal']],
+        columns=[{"name": col, "id": col} for col in ['Price Type', 'Current Price', f'Predicted Price ({next_trading_day})', 'Change %', 'Confidence', 'Signal']],
         data=prediction_data,
         style_header={
             'backgroundColor': '#001f3d',
@@ -995,7 +1091,7 @@ if __name__ == '__main__':
     print("📊 Access at: http://localhost:8080/")
     print("🤖 Prediction Page: http://localhost:8080/prediction")
     print("📈 Dash Analytics: http://localhost:8080/dash/")
-    print("🔮 Features: Next-Day Price Prediction, 10 Years Data, ML Models")
+    print("🔮 Features: Daily Price Prediction, 10 Years Data, ML Models")
     print("💡 API Endpoints:")
     print("   - GET  /api/stocks - Get stock list")
     print("   - POST /api/predict - Generate predictions")
@@ -1006,4 +1102,6 @@ if __name__ == '__main__':
     print("   - GET  /api/ai-insights - AI insights")
     print("   - GET  /api/superstar-stocks - Superstar stocks")
     print("   - GET  /api/trading-alerts - Trading alerts")
+    print(f"📅 Next Trading Day: {get_next_trading_day()}")
+    print(f"🏛️  Market Status: {get_market_status()[1]}")
     app.run(debug=True, port=8080, host='0.0.0.0')
