@@ -46,7 +46,7 @@ MARKETSTACK_API_KEY = "775c00986af45bdb518927502e1eb471"
 TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9"
 
 # ========= FLASK SERVER & DASH APP =========
-server = Flask(__name__, template_folder='templates')
+server = Flask(__name__, template_folder='js/templates')  # UPDATED: Correct template path
 app = dash.Dash(
     __name__,
     server=server,
@@ -435,7 +435,7 @@ def get_trading_recommendation(change_percent, risk_level, volatility):
 def debug_templates():
     """Debug endpoint to check template files"""
     import os
-    template_dir = 'templates'
+    template_dir = 'js/templates'  # UPDATED: Correct template path
     if os.path.exists(template_dir):
         files = os.listdir(template_dir)
         return f"""
@@ -448,19 +448,19 @@ def debug_templates():
         </ul>
         """
     else:
-        return "Templates directory not found", 500
+        return f"Templates directory '{template_dir}' not found", 500
 
 @server.route('/test-route/<path:template_name>')
 def test_route(template_name):
     """Test if a specific template exists"""
     import os
-    template_path = os.path.join('templates', template_name)
+    template_path = os.path.join('js/templates', template_name)  # UPDATED: Correct template path
     exists = os.path.exists(template_path)
     return jsonify({
         "template": template_name,
         "full_path": os.path.abspath(template_path),
         "exists": exists,
-        "files_in_templates": os.listdir('templates') if os.path.exists('templates') else []
+        "files_in_templates": os.listdir('js/templates') if os.path.exists('js/templates') else []
     })
 
 # ========= FLASK ROUTES FOR ALL PAGES =========
@@ -1497,7 +1497,7 @@ def send_assets(path):
 # Serve templates
 @server.route('/templates/<path:path>')
 def send_templates(path):
-    return send_from_directory('templates', path)
+    return send_from_directory('js/templates', path)  # UPDATED: Correct template path
 
 # Main entry
 if __name__ == '__main__':
@@ -1511,7 +1511,7 @@ if __name__ == '__main__':
     print(f"🎯 Prediction Target: October 13, 2025")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     print("✅ Using enhanced current price fetching with 5 different methods")
-    print("✅ All routes fixed with debugging - portfolio, mystock, deposit, insight, prediction, news, videos, Superstars, Alerts, help, profile pages should work now!")
+    print("✅ CORRECTED TEMPLATE PATH: js/templates/")
     print("🔧 Debug URLs:")
     print("   - /debug-templates - Check available template files")
     print("   - /test-route/<template_name> - Test specific template")
