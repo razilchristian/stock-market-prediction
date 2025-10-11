@@ -518,33 +518,36 @@ def help_page():
 def profile_page():
     return render_template('profile.html')
 
-# ========= FALLBACK ROUTE =========
-@server.route('/<page_name>')
-def fallback_route(page_name):
-    """Fallback route for all pages"""
-    valid_pages = {
-        'portfolio': 'portfolio.html',
-        'mystock': 'mystock.html', 
-        'deposit': 'deposit.html',
-        'insight': 'insight.html',
-        'prediction': 'prediction.html',
-        'news': 'news.html',
-        'videos': 'videos.html',
-        'superstars': 'Superstars.html',
-        'alerts': 'Alerts.html',
-        'help': 'help.html',
-        'profile': 'profile.html',
-        'login': 'login.html',
-        'faq': 'FAQ.html'
-    }
+@server.route('/test-all-routes')
+def test_all_routes():
+    """Test if all routes are working"""
+    routes_to_test = [
+        ('/', 'jeet.html'),
+        ('/jeet', 'jeet.html'),
+        ('/portfolio', 'portfolio.html'),
+        ('/mystock', 'mystock.html'),
+        ('/deposit', 'deposit.html'),
+        ('/insight', 'insight.html'),
+        ('/prediction', 'prediction.html'),
+        ('/news', 'news.html'),
+        ('/videos', 'videos.html'),
+        ('/superstars', 'Superstars.html'),
+        ('/alerts', 'Alerts.html'),
+        ('/help', 'help.html'),
+        ('/profile', 'profile.html'),
+        ('/login', 'login.html'),
+        ('/faq', 'FAQ.html')
+    ]
     
-    if page_name in valid_pages:
+    results = []
+    for route, template in routes_to_test:
         try:
-            return render_template(valid_pages[page_name])
+            render_template(template)
+            results.append(f"✅ {route} → {template} - OK")
         except Exception as e:
-            return f"Error loading {valid_pages[page_name]}: {str(e)}", 500
-    else:
-        return "Page not found", 404
+            results.append(f"❌ {route} → {template} - ERROR: {str(e)}")
+    
+    return "<h1>Route Test Results</h1><ul><li>" + "</li><li>".join(results) + "</li></ul>"
 
 # ========= API ROUTES =========
 @server.route('/api/predict', methods=['POST'])
