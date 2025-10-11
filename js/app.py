@@ -9,16 +9,26 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import warnings
 import os
+import time
+from functools import wraps
 warnings.filterwarnings('ignore')
 
-# Machine Learning imports
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
-import ta  # Technical analysis library
+# ========= RATE LIMITING DECORATOR =========
+def rate_limit(max_per_second):
+    min_interval = 1.0 / max_per_second
+    def decorate(func):
+        last_time_called = [0.0]
+        @wraps(func)
+        def rate_limited_function(*args, **kwargs):
+            elapsed = time.time() - last_time_called[0]
+            left_to_wait = min_interval - elapsed
+            if left_to_wait > 0:
+                time.sleep(left_to_wait)
+            ret = func(*args, **kwargs)
+            last_time_called[0] = time.time()
+            return ret
+        return rate_limited_function
+    return decorate
 
 # ========= CONFIG =========
 MARKETSTACK_API_KEY = "775c00986af45bdb518927502e1eb471"
@@ -292,69 +302,61 @@ predictor = AdvancedStockPredictor()
 
 # ========= HELPER FUNCTIONS =========
 def get_last_market_date():
-    """Get the last actual market trading date from historical data"""
+    """Get the last actual market trading date - fixed version"""
     try:
-        # Fetch a sample stock to get actual trading dates
-        stock = yf.Ticker('AAPL')
-        hist_data = stock.history(period='10y')
+        # Use a simple approach - get yesterday's date and adjust for weekend
+        today = datetime.now()
         
-        if hist_data.empty:
-            # Fallback to business days if no data
-            from pandas.tseries.offsets import BDay
-            return (datetime.now() - BDay(1)).strftime('%Y-%m-%d')
-        
-        # Get the last available trading date
-        last_date = hist_data.index[-1]
-        return last_date.strftime('%Y-%m-%d')
+        # If today is Monday, last trading day was Friday
+        if today.weekday() == 0:  # Monday
+            last_trading_day = today - timedelta(days=3)
+        # If today is Sunday, last trading day was Friday  
+        elif today.weekday() == 6:  # Sunday
+            last_trading_day = today - timedelta(days=2)
+        # If today is Saturday, last trading day was Friday
+        elif today.weekday() == 5:  # Saturday
+            last_trading_day = today - timedelta(days=1)
+        else:  # Tuesday-Friday
+            last_trading_day = today - timedelta(days=1)
+            
+        return last_trading_day.strftime('%Y-%m-%d')
         
     except Exception as e:
-        print(f"Error getting last market date: {e}")
-        # Fallback to previous business day
-        from pandas.tseries.offsets import BDay
-        return (datetime.now() - BDay(1)).strftime('%Y-%m-%d')
+        print(f"Error in get_last_market_date: {e}")
+        # Fallback to simple calculation
+        today = datetime.now()
+        if today.weekday() == 0:  # Monday
+            return (today - timedelta(days=3)).strftime('%Y-%m-%d')
+        else:
+            return (today - timedelta(days=1)).strftime('%Y-%m-%d')
 
 def get_next_trading_day():
-    """Get the next trading day based on actual market calendar"""
+    """Get the next trading day - fixed version"""
     try:
-        # Fetch upcoming trading days
-        stock = yf.Ticker('AAPL')
-        
-        # Get recent historical data to understand trading pattern
-        hist_data = stock.history(period='1mo')
-        
-        if hist_data.empty:
-            # Fallback logic if no data available
-            today = datetime.now()
-            if today.weekday() == 4:  # Friday
-                next_day = today + timedelta(days=3)
-            elif today.weekday() == 5:  # Saturday
-                next_day = today + timedelta(days=2)
-            elif today.weekday() == 6:  # Sunday
-                next_day = today + timedelta(days=1)
-            else:
-                next_day = today + timedelta(days=1)
-            return next_day.strftime('%Y-%m-%d')
-        
-        # Use the last available date and add one business day
-        last_date = hist_data.index[-1]
-        from pandas.tseries.offsets import BDay
-        next_trading_day = last_date + BDay(1)
-        
-        return next_trading_day.strftime('%Y-%m-%d')
-        
-    except Exception as e:
-        print(f"Error calculating next trading day: {e}")
-        # Fallback to simple weekday calculation
         today = datetime.now()
+        
+        # If today is Friday, next trading day is Monday
         if today.weekday() == 4:  # Friday
             next_day = today + timedelta(days=3)
+        # If today is Saturday, next trading day is Monday
         elif today.weekday() == 5:  # Saturday
             next_day = today + timedelta(days=2)
+        # If today is Sunday, next trading day is Monday
         elif today.weekday() == 6:  # Sunday
             next_day = today + timedelta(days=1)
-        else:
+        else:  # Monday-Thursday
             next_day = today + timedelta(days=1)
+            
         return next_day.strftime('%Y-%m-%d')
+        
+    except Exception as e:
+        print(f"Error in get_next_trading_day: {e}")
+        # Simple fallback
+        today = datetime.now()
+        if today.weekday() == 4:  # Friday
+            return (today + timedelta(days=3)).strftime('%Y-%m-%d')
+        else:
+            return (today + timedelta(days=1)).strftime('%Y-%m-%d')
 
 def is_market_open():
     """Check if market is open today (Monday-Friday)"""
@@ -382,39 +384,33 @@ def get_market_status():
 def get_trading_calendar_info():
     """Get information about trading calendar"""
     try:
-        stock = yf.Ticker('AAPL')
-        hist_data = stock.history(period='10y')
+        # Use simple date calculations instead of API calls
+        last_trading_day = get_last_market_date()
+        next_trading_day = get_next_trading_day()
         
-        if hist_data.empty:
-            return {
-                'last_trading_day': get_last_market_date(),
-                'total_trading_days': 'N/A',
-                'data_period': '10 years'
-            }
-        
-        last_trading_day = hist_data.index[-1].strftime('%Y-%m-%d')
-        total_trading_days = len(hist_data)
-        start_date = hist_data.index[0].strftime('%Y-%m-%d')
-        end_date = hist_data.index[-1].strftime('%Y-%m-%d')
+        # Calculate approximate trading days in 10 years
+        # (approx 252 trading days per year)
+        total_trading_days_approx = 252 * 10
         
         return {
             'last_trading_day': last_trading_day,
-            'total_trading_days': total_trading_days,
-            'data_period': f"{start_date} to {end_date}",
-            'start_date': start_date,
-            'end_date': end_date
+            'next_trading_day': next_trading_day,
+            'total_trading_days': f"~{total_trading_days_approx}",
+            'data_period': '10 years (approx 2520 trading days)'
         }
         
     except Exception as e:
         print(f"Error getting trading calendar info: {e}")
         return {
             'last_trading_day': get_last_market_date(),
-            'total_trading_days': 'N/A',
+            'next_trading_day': get_next_trading_day(),
+            'total_trading_days': '~2520',
             'data_period': '10 years'
         }
 
 # ========= API ROUTES FOR HTML PAGES =========
 @server.route('/api/stock-quotes')
+@rate_limit(1)  # Limit to 1 request per second
 def get_stock_quotes():
     """Get stock quotes for portfolio, mystock pages"""
     try:
@@ -425,20 +421,20 @@ def get_stock_quotes():
         for symbol in symbol_list:
             try:
                 stock = yf.Ticker(symbol)
-                info = stock.info
-                hist = stock.history(period='1d')
+                # Use shorter period to avoid rate limiting
+                hist = stock.history(period='2d')
                 
-                if not hist.empty:
+                if not hist.empty and len(hist) >= 2:
                     current_price = hist['Close'].iloc[-1]
-                    prev_close = info.get('previousClose', current_price)
+                    prev_close = hist['Close'].iloc[-2]
                     change_percent = ((current_price - prev_close) / prev_close) * 100
                     
                     quotes.append({
                         "symbol": symbol,
-                        "name": info.get('longName', symbol),
+                        "name": symbol,  # Skip info call to avoid rate limits
                         "close": round(current_price, 2),
                         "percent_change": round(change_percent, 2),
-                        "open": info.get('open', current_price)
+                        "open": round(hist['Open'].iloc[-1], 2)
                     })
                 else:
                     # Fallback data
@@ -597,6 +593,7 @@ def faq_page():
     return render_template('FAQ.html')
 
 @server.route('/api/stocks')
+@rate_limit(1)  # Limit to 1 request per second
 def get_stocks():
     """API endpoint to get stock data for prediction page"""
     try:
@@ -606,21 +603,30 @@ def get_stocks():
         
         for ticker in popular_tickers:
             try:
-                # Fetch current data
+                # Fetch current data with minimal API calls
                 stock_data = yf.Ticker(ticker)
-                info = stock_data.info
-                hist = stock_data.history(period='1d')
+                hist = stock_data.history(period='2d')
                 
-                if not hist.empty:
+                if not hist.empty and len(hist) >= 2:
                     current_price = hist['Close'].iloc[-1]
-                    prev_close = info.get('previousClose', current_price)
+                    prev_close = hist['Close'].iloc[-2]
                     change_percent = ((current_price - prev_close) / prev_close) * 100
                     
                     stocks.append({
                         "symbol": ticker,
-                        "name": info.get('longName', ticker),
+                        "name": ticker,  # Skip info call to avoid rate limits
                         "price": round(current_price, 2),
                         "change": round(change_percent, 2)
+                    })
+                    # Small delay between requests
+                    time.sleep(0.5)
+                else:
+                    # Add fallback data
+                    stocks.append({
+                        "symbol": ticker,
+                        "name": ticker,
+                        "price": 100.00,
+                        "change": 0.00
                     })
             except Exception as e:
                 print(f"Error fetching data for {ticker}: {e}")
@@ -651,6 +657,7 @@ def get_stocks():
         return jsonify(fallback_stocks)
 
 @server.route('/api/predict', methods=['POST'])
+@rate_limit(0.5)  # Limit to 1 request every 2 seconds
 def predict_stock():
     """API endpoint for stock prediction"""
     try:
@@ -659,8 +666,8 @@ def predict_stock():
         
         print(f"🔮 Generating predictions for {symbol}...")
         
-        # Fetch 10 years of historical data
-        historical_data, error = fetch_historical_data(symbol, "10y")
+        # Fetch 2 years of historical data instead of 10 to reduce load
+        historical_data, error = fetch_historical_data(symbol, "2y")
         if error:
             return jsonify({"error": error}), 400
         
@@ -738,11 +745,12 @@ def generate_ai_insight(symbol, predictions, current_price, market_status):
         else:
             return base_insight + f"🔻 BEARISH: Expected decline of {change_percent:.1f}%. Significant downward pressure indicated. Consider defensive positioning."
     except:
-        return f"🤖 AI analysis completed. Our models have processed 10 years of historical data and 100+ technical indicators to generate this forecast. Market Status: {market_status.upper()}"
+        return f"🤖 AI analysis completed. Our models have processed historical data and technical indicators to generate this forecast. Market Status: {market_status.upper()}"
 
 # ========= HELPERS =========
-def fetch_historical_data(ticker, period="10y"):
-    """Fetch 10 years of historical data using yfinance"""
+@rate_limit(0.5)  # Limit to 1 request every 2 seconds
+def fetch_historical_data(ticker, period="2y"):
+    """Fetch historical data using yfinance with rate limiting"""
     try:
         stock = yf.Ticker(ticker)
         hist_data = stock.history(period=period)
@@ -891,7 +899,7 @@ app.layout = html.Div([
 
     # Historical Data
     html.Div([
-        html.H3("📋 Historical Data (Last 10 Years)"),
+        html.H3("📋 Historical Data (Last 2 Years)"),
         html.Div(id="historical-data-table")
     ], className="card"),
 
@@ -959,7 +967,7 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
     if n_clicks == 0:
         return (
             html.Div("Enter a ticker and click 'Train & Predict Next Day' to start analysis."),
-            html.P("Our AI analyzes 10 years of historical data to predict next-day prices with high accuracy."),
+            html.P("Our AI analyzes historical data to predict next-day prices with high accuracy."),
             html.Div(),
             html.Div(),
             html.Div(),
@@ -977,8 +985,8 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
         )
     
     try:
-        # Fetch 10 years of historical data
-        historical_data, error = fetch_historical_data(ticker, "10y")
+        # Fetch 2 years of historical data (reduced from 10 years)
+        historical_data, error = fetch_historical_data(ticker, "2y")
         if error:
             return (
                 html.Div(f"Error: {error}", style={'color': '#ff4d7c'}),
@@ -1027,7 +1035,7 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
         
         status = html.Div([
             html.H4(f"✅ Successfully trained models for {ticker}"),
-            html.P(f"Data Period: {calendar_info['data_period']} | Data Points: {len(historical_data)} | Prediction Date: {get_next_trading_day()}"),
+            html.P(f"Data Period: 2 Years | Data Points: {len(historical_data)} | Prediction Date: {get_next_trading_day()}"),
             html.P(f"Market Status: {status_message}", style={'color': '#00e6ff'})
         ], style={'color': '#00ff9d'})
         
@@ -1206,7 +1214,7 @@ if __name__ == '__main__':
     print("📊 Access at: http://localhost:8080/")
     print("🤖 Prediction Page: http://localhost:8080/prediction")
     print("📈 Dash Analytics: http://localhost:8080/dash/")
-    print("🔮 Features: Daily Price Prediction, 10 Years Data, ML Models")
+    print("🔮 Features: Daily Price Prediction, 2 Years Data, ML Models")
     print("💡 API Endpoints:")
     print("   - GET  /api/stocks - Get stock list")
     print("   - POST /api/predict - Generate predictions")
@@ -1221,4 +1229,5 @@ if __name__ == '__main__':
     print(f"📆 Last Trading Day: {calendar_info['last_trading_day']}")
     print(f"📈 Total Trading Days (10Y): {calendar_info['total_trading_days']}")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
+    print("⚠️  Note: Using rate limiting to avoid API restrictions")
     app.run(debug=True, port=8080, host='0.0.0.0')
