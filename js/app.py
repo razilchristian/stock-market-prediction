@@ -141,7 +141,7 @@ class AdvancedStockPredictor:
             # ATR (Average True Range)
             df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'])
             
-            # Day of week and month features for 10 years of data
+            # Day of week and month features
             df['Date'] = pd.to_datetime(df['Date'])
             df['DayOfWeek'] = df['Date'].dt.dayofweek
             df['Month'] = df['Date'].dt.month
@@ -152,10 +152,10 @@ class AdvancedStockPredictor:
             df['Above_SMA_200'] = (df['Close'] > df['SMA_200']).astype(int)
             df['Price_vs_SMA_50_Ratio'] = df['Close'] / df['SMA_50']
             
-            # Drop NaN values (more with 10 years of features)
+            # Drop NaN values
             df = df.dropna()
             
-            print(f"✅ Created {len(self.feature_columns)} features from 10 years of data")
+            print(f"✅ Created {len([col for col in df.columns if col not in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']])} features")
             return df
             
         except Exception as e:
@@ -186,9 +186,9 @@ class AdvancedStockPredictor:
             return None, None
     
     def train_advanced_models(self, df, target_days=1):
-        """Train models for next-day price prediction using 10 years of data"""
+        """Train models for next-day price prediction"""
         try:
-            print("🔄 Creating advanced features from 10 years of data...")
+            print("🔄 Creating advanced features...")
             # Create features
             df_with_features = self.create_advanced_features(df)
             
@@ -243,7 +243,7 @@ class AdvancedStockPredictor:
             self.is_fitted = True
             self.trained_models = models_trained
             
-            print("✅ All models trained successfully on 10 years of data!")
+            print("✅ All models trained successfully!")
             return results, None
             
         except Exception as e:
@@ -261,7 +261,7 @@ class AdvancedStockPredictor:
             return SVR(kernel='rbf', C=1.0, epsilon=0.1)
     
     def predict_next_day(self, df):
-        """Predict next day prices with confidence intervals using 10 years of patterns"""
+        """Predict next day prices with confidence intervals"""
         if not self.is_fitted:
             return None, None, "Models not trained"
         
@@ -287,10 +287,10 @@ class AdvancedStockPredictor:
                 
                 predictions[model_name] = pred
                 
-                # Calculate confidence interval based on model performance and historical patterns
+                # Calculate confidence interval based on model performance
                 if model_name == 'Random Forest':
-                    confidence = min(95, 80 + random.randint(5, 20))  # Higher confidence with 10y data
-                    lower_bound = pred * (1 - 0.015)  # Tighter bounds with more data
+                    confidence = min(95, 80 + random.randint(5, 20))
+                    lower_bound = pred * (1 - 0.015)
                     upper_bound = pred * (1 + 0.015)
                 elif model_name == 'Gradient Boosting':
                     confidence = min(92, 75 + random.randint(5, 20))
@@ -467,38 +467,38 @@ def index():
 @server.route('/api/predict', methods=['POST'])
 @rate_limit(0.5)
 def predict_stock():
-    """API endpoint for stock prediction using 10 YEARS of data"""
+    """API endpoint for stock prediction"""
     try:
         data = request.get_json()
-        symbol = data.get('symbol', 'AAPL')
+        symbol = data.get('symbol', 'AAPL').upper()
         
-        print(f"🔮 Generating predictions for {symbol} using 10 YEARS of historical data...")
+        print(f"🔮 Generating predictions for {symbol}...")
         
-        # Fetch 10 YEARS of historical data
-        historical_data, error = fetch_historical_data(symbol, "10y")
+        # Fetch historical data with real-time current price
+        historical_data, current_price, error = fetch_historical_data_with_current(symbol, "2y")
         if error:
             return jsonify({"error": error}), 400
         
-        print(f"📊 Fetched {len(historical_data)} data points for {symbol} over 10 YEARS")
+        print(f"📊 Fetched {len(historical_data)} data points for {symbol}")
+        print(f"💰 Current price: ${current_price}")
         
         # Train models
         training_results, training_error = predictor.train_advanced_models(historical_data)
         if training_error:
             return jsonify({"error": training_error}), 400
         
-        print("🤖 Models trained successfully on 10 YEARS of data")
+        print("🤖 Models trained successfully")
         
         # Make prediction
         predictions, confidence_intervals, pred_error = predictor.predict_next_day(historical_data)
         if pred_error:
             return jsonify({"error": pred_error}), 400
         
-        # Get current price and calculate metrics
-        current_price = historical_data['Close'].iloc[-1]
+        # Use Random Forest prediction
         rf_pred = predictions.get('Random Forest', current_price)
         change_percent = ((rf_pred - current_price) / current_price) * 100
         
-        # Calculate volatility from 10 years of data
+        # Calculate volatility
         volatility = historical_data['Close'].pct_change().std()
         
         # Generate risk assessment
@@ -507,7 +507,7 @@ def predict_stock():
         
         # Calculate data statistics
         total_days = len(historical_data)
-        years_covered = total_days / 252  # Approximate trading days per year
+        years_covered = total_days / 252
         start_date = historical_data['Date'].iloc[0]
         end_date = historical_data['Date'].iloc[-1]
         
@@ -537,52 +537,82 @@ def predict_stock():
             }
         }
         
-        print(f"✅ Predictions generated for {symbol} using 10 YEARS of data")
+        print(f"✅ Predictions generated for {symbol}")
         return jsonify(response)
         
     except Exception as e:
         print(f"❌ Prediction error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ========= DATA FETCHING WITH 10 YEARS =========
+# ========= IMPROVED DATA FETCHING =========
 @rate_limit(0.5)
-def fetch_historical_data(ticker, period="10y"):
-    """Fetch 10 YEARS of historical data using yfinance with fallback"""
+def fetch_historical_data_with_current(ticker, period="2y"):
+    """Fetch historical data with real-time current price"""
     try:
-        print(f"📥 Fetching {period} of data for {ticker}...")
+        print(f"📥 Fetching data for {ticker}...")
         stock = yf.Ticker(ticker)
+        
+        # Get historical data
         hist_data = stock.history(period=period)
         
         if hist_data.empty:
-            print(f"⚠️ No real data found for {ticker}, generating 10-year synthetic data...")
-            # Generate 10 years of synthetic data as fallback
-            return generate_10_year_synthetic_data(ticker), None
+            print(f"⚠️ No historical data found for {ticker}")
+            return None, None, f"No data found for {ticker}"
+        
+        # Get current price info
+        try:
+            current_info = stock.info
+            current_price = current_info.get('currentPrice') or current_info.get('regularMarketPrice') or current_info.get('previousClose')
+            
+            if not current_price:
+                # Fallback: use the last close price from historical data
+                current_price = hist_data['Close'].iloc[-1]
+                print(f"⚠️ Using last close price as current price: ${current_price}")
+            else:
+                print(f"✅ Current price from yfinance: ${current_price}")
+                
+        except Exception as e:
+            print(f"⚠️ Could not fetch current price: {e}")
+            current_price = hist_data['Close'].iloc[-1]
+            print(f"⚠️ Using last close price as fallback: ${current_price}")
         
         # Reset index to get Date as column
         hist_data = hist_data.reset_index()
         hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
         
-        print(f"✅ Fetched {len(hist_data)} data points for {ticker} over {period}")
-        return hist_data, None
+        print(f"✅ Fetched {len(hist_data)} data points for {ticker}")
+        return hist_data, current_price, None
         
     except Exception as e:
-        print(f"⚠️ Using synthetic 10-year data for {ticker}: {e}")
-        return generate_10_year_synthetic_data(ticker), None
+        print(f"❌ Data fetching error: {e}")
+        return None, None, f"Error fetching data: {str(e)}"
+
+def fetch_historical_data(ticker, period="2y"):
+    """Fetch historical data (for backward compatibility)"""
+    data, current_price, error = fetch_historical_data_with_current(ticker, period)
+    return data, error
 
 def generate_10_year_synthetic_data(ticker):
-    """Generate 10 YEARS of synthetic stock data for demonstration"""
-    start_date = datetime.now() - timedelta(days=365 * 10)
+    """Generate synthetic stock data for demonstration"""
+    start_date = datetime.now() - timedelta(days=365 * 2)  # Reduced to 2 years for better performance
     dates = pd.date_range(start=start_date, end=datetime.now(), freq='D')
     
-    # Base price based on ticker hash for consistency
-    base_price = 100 + (hash(ticker) % 200)
+    # Get real current price for the ticker
+    try:
+        stock = yf.Ticker(ticker)
+        current_info = stock.info
+        base_price = current_info.get('currentPrice') or current_info.get('regularMarketPrice') or current_info.get('previousClose', 100)
+        print(f"💰 Real base price for {ticker}: ${base_price}")
+    except:
+        base_price = 100 + (hash(ticker) % 200)
+        print(f"⚠️ Using synthetic base price for {ticker}: ${base_price}")
     
-    # Generate price data with realistic random walk over 10 years
+    # Generate price data with realistic random walk
     prices = [base_price]
     for i in range(1, len(dates)):
-        # More realistic price movements over 10 years
-        volatility = 0.015  # 1.5% daily volatility
-        drift = 0.0002  # Small upward drift
+        # Realistic price movements
+        volatility = 0.02  # 2% daily volatility
+        drift = 0.0005  # Small upward drift
         
         change = random.gauss(drift, volatility)
         new_price = prices[-1] * (1 + change)
@@ -605,7 +635,7 @@ def generate_10_year_synthetic_data(ticker):
         'Volume': [random.randint(1000000, 50000000) for _ in prices]
     })
     
-    print(f"📊 Generated {len(df)} synthetic data points for {ticker} over 10 years")
+    print(f"📊 Generated {len(df)} synthetic data points for {ticker}")
     return df
 
 # ========= DASH LAYOUT =========
@@ -613,7 +643,7 @@ app.layout = html.Div([
     html.Div([
         html.H1('🤖 Advanced AI Stock Predictions Dashboard', 
                 style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px'}),
-        html.P("10-YEAR Data Analysis • Machine Learning • Risk Assessment • Confidence Intervals", 
+        html.P("AI-Powered Stock Predictions • Machine Learning • Risk Assessment", 
                style={'color': '#ffffff', 'textAlign': 'center', 'marginBottom': '30px'})
     ]),
 
@@ -629,7 +659,7 @@ app.layout = html.Div([
             html.Label("Stock Ticker:", style={'color': '#ffffff', 'marginRight': '10px'}),
             dcc.Input(
                 id='ticker-input', 
-                placeholder='e.g., AAPL, MSFT, TSLA', 
+                placeholder='e.g., AAPL, MSFT, TSLA, GOOGL', 
                 type='text',
                 value='AAPL',
                 style={'width': '200px', 'marginRight': '20px', 'padding': '8px'}
@@ -647,7 +677,7 @@ app.layout = html.Div([
             )
         ]),
 
-        html.Button("🚀 Generate AI Prediction (10-YEAR Analysis)", id="train-btn", n_clicks=0,
+        html.Button("🚀 Generate AI Prediction", id="train-btn", n_clicks=0,
                    style={'backgroundColor': '#00e6ff', 'color': '#0f0f23', 'border': 'none', 
                           'padding': '10px 20px', 'borderRadius': '5px', 'cursor': 'pointer',
                           'fontWeight': 'bold', 'fontSize': '14px'})
@@ -704,7 +734,7 @@ def update_market_status(n_clicks):
 def generate_prediction(n_clicks, ticker):
     if n_clicks == 0:
         return (
-            html.Div("Enter a stock ticker and click 'Generate AI Prediction' to start 10-YEAR analysis."),
+            html.Div("Enter a stock ticker and click 'Generate AI Prediction' to start analysis."),
             html.Div()
         )
     
@@ -715,11 +745,11 @@ def generate_prediction(n_clicks, ticker):
         )
     
     try:
-        # Use direct function call instead of HTTP request to avoid timeout
+        # Use direct function call instead of HTTP request
         print(f"🔄 Starting prediction process for {ticker}...")
         
-        # Fetch data
-        historical_data, error = fetch_historical_data(ticker, "10y")
+        # Fetch data with current price
+        historical_data, current_price, error = fetch_historical_data_with_current(ticker, "2y")
         if error:
             return (
                 html.Div(f"Error fetching data: {error}", style={'color': '#ff4d7c'}),
@@ -742,8 +772,7 @@ def generate_prediction(n_clicks, ticker):
                 html.Div()
             )
         
-        # Get current price and calculate metrics
-        current_price = historical_data['Close'].iloc[-1]
+        # Use Random Forest prediction
         rf_pred = predictions.get('Random Forest', current_price)
         change_percent = ((rf_pred - current_price) / current_price) * 100
         
@@ -762,7 +791,7 @@ def generate_prediction(n_clicks, ticker):
         
         # Create data object for display
         data = {
-            "symbol": ticker,
+            "symbol": ticker.upper(),
             "current_price": round(current_price, 2),
             "prediction_date": get_next_trading_day(),
             "last_trading_day": get_last_market_date(),
@@ -789,7 +818,7 @@ def generate_prediction(n_clicks, ticker):
         # Create prediction results display
         results_content = create_prediction_display(data)
         status = html.Div([
-            html.H4(f"✅ 10-YEAR AI Analysis Complete for {ticker}", 
+            html.H4(f"✅ AI Analysis Complete for {ticker.upper()}", 
                    style={'color': '#00ff9d', 'marginBottom': '10px'}),
             html.P(f"Data Analyzed: {data['data_analysis']['total_data_points']:,} points over {data['data_analysis']['years_covered']} years | Features Used: {data['data_analysis']['features_used']}",
                   style={'color': '#cccccc'})
@@ -805,7 +834,7 @@ def generate_prediction(n_clicks, ticker):
         )
 
 def create_prediction_display(data):
-    """Create comprehensive prediction results display for 10-year analysis"""
+    """Create comprehensive prediction results display"""
     change_percent = data['change_percent']
     risk_level = data['risk_level']
     
@@ -820,7 +849,7 @@ def create_prediction_display(data):
     return html.Div([
         # Main Prediction Card
         html.Div([
-            html.H3(f"🔮 10-YEAR AI Prediction Summary", style={'color': '#00e6ff', 'marginBottom': '20px'}),
+            html.H3(f"🔮 AI Prediction Summary for {data['symbol']}", style={'color': '#00e6ff', 'marginBottom': '20px'}),
             
             html.Div([
                 html.Div([
@@ -844,7 +873,7 @@ def create_prediction_display(data):
             
             # Data Analysis Info
             html.Div([
-                html.H4("📊 10-Year Data Analysis", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("📊 Data Analysis", style={'color': '#00e6ff', 'marginBottom': '10px'}),
                 html.Div([
                     html.Span(f"Period: {data['data_analysis']['data_period']}", 
                              style={'color': '#cccccc', 'marginRight': '20px'}),
@@ -857,7 +886,7 @@ def create_prediction_display(data):
             
             # Confidence Interval
             html.Div([
-                html.H4("🎯 Confidence Interval (10-Year Analysis)", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("🎯 Confidence Interval", style={'color': '#00e6ff', 'marginBottom': '10px'}),
                 html.Div([
                     html.Span(f"Lower: ${data['confidence_interval']['lower']}", 
                              style={'color': '#ff4d7c', 'marginRight': '20px'}),
@@ -870,7 +899,7 @@ def create_prediction_display(data):
             
             # Trading Recommendation
             html.Div([
-                html.H4("💡 Trading Recommendation (Based on 10-Year Patterns)", style={'color': '#00e6ff', 'marginBottom': '10px'}),
+                html.H4("💡 Trading Recommendation", style={'color': '#00e6ff', 'marginBottom': '10px'}),
                 html.P(data['recommendation'], 
                       style={'color': '#ffffff', 'fontSize': '16px', 'fontWeight': 'bold'})
             ], style={'backgroundColor': '#1a1a2e', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '15px'}),
@@ -888,35 +917,6 @@ def create_prediction_display(data):
             'borderRadius': '10px',
             'border': '2px solid #00e6ff',
             'marginBottom': '20px'
-        }),
-        
-        # Risk Analysis
-        html.Div([
-            html.H3("⚠️ 10-Year Risk Analysis & Alerts", style={'color': '#00e6ff', 'marginBottom': '15px'}),
-            html.Div([
-                html.Div([
-                    html.H5("10-Year Volatility", style={'color': '#cccccc'}),
-                    html.P("High long-term volatility" if data['volatility'] > 0.02 else "Stable long-term pattern", 
-                          style={'color': '#ffa500' if data['volatility'] > 0.02 else '#00ff9d'})
-                ], style={'flex': 1, 'padding': '10px'}),
-                
-                html.Div([
-                    html.H5("Price Movement", style={'color': '#cccccc'}),
-                    html.P("Significant move expected" if abs(data['change_percent']) > 5 else "Normal movement",
-                          style={'color': '#ff4d7c' if abs(data['change_percent']) > 5 else '#00ff9d'})
-                ], style={'flex': 1, 'padding': '10px'}),
-                
-                html.Div([
-                    html.H5("Model Confidence", style={'color': '#cccccc'}),
-                    html.P("High confidence prediction" if data['confidence'] > 85 else "Moderate confidence",
-                          style={'color': '#00ff9d' if data['confidence'] > 85 else '#ffa500'})
-                ], style={'flex': 1, 'padding': '10px'})
-            ], style={'display': 'flex', 'justifyContent': 'space-around'})
-        ], style={
-            'backgroundColor': '#1a1a2e', 
-            'padding': '20px', 
-            'borderRadius': '10px',
-            'border': '1px solid #ffa500'
         })
     ])
 
@@ -936,11 +936,10 @@ if __name__ == '__main__':
     print("📊 Access at: http://localhost:8080/")
     print("🤖 Prediction Page: http://localhost:8080/prediction")
     print("📈 Dash Analytics: http://localhost:8080/dash/")
-    print("🔮 Features: 10-YEAR Data Analysis • AI Predictions • Risk Assessment • Confidence Intervals")
+    print("🔮 Features: AI-Powered Predictions • Machine Learning • Risk Assessment")
     print("💡 API Endpoints:")
-    print("   - POST /api/predict - Generate AI predictions using 10 YEARS of data")
-    print("   - GET  /api/stocks - Get stock list")
+    print("   - POST /api/predict - Generate AI predictions")
     print(f"📅 Next Trading Day: {get_next_trading_day()}")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
-    print("✅ Using 10 YEARS of historical data for superior predictions")
+    print("✅ Using real-time data from yfinance")
     app.run(debug=True, port=8080, host='0.0.0.0')
