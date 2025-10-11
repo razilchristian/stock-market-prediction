@@ -7,50 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 * {
   margin: 0;
   padding: 0;
@@ -199,6 +155,50 @@ body {
   background: var(--text-primary);
   border-radius: 2px;
   transition: all 0.3s ease;
+}
+
+/* Mobile Menu Animation */
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
 }
 
 /* Main Content */
@@ -760,51 +760,117 @@ body {
     padding: 16px;
   }
 }
-</style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
 
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(400px);
   opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  overflow: hidden;
 }
 
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
 }
 
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
 }
 
+.notification-content.success {
+  border-left: 4px solid var(--up-color);
+}
+
+.notification-content.error {
+  border-left: 4px solid var(--down-color);
+}
+
+.notification-content.warning {
+  border-left: 4px solid #ff9800;
+}
+
+.notification-content.info {
+  border-left: 4px solid #2196f3;
+}
+
+.notification-icon {
+  font-size: 1.2em;
+}
+
+.notification-content.success .notification-icon {
+  color: var(--up-color);
+}
+
+.notification-content.error .notification-icon {
+  color: var(--down-color);
+}
+
+.notification-content.warning .notification-icon {
+  color: #ff9800;
+}
+
+.notification-content.info .notification-icon {
+  color: #2196f3;
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 14px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.notification-close:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.error-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.error-icon {
+  font-size: 48px;
+  color: var(--down-color);
+  margin-bottom: 16px;
+}
+
+.no-articles {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.news-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  height: 100%;
+}
+</style>
 </head>
 <body>
 <div class="container">
@@ -876,7 +942,7 @@ body {
           <input type="text" class="search-bar" placeholder="Search financial news..." id="searchInput">
         </div>
         <div class="action-buttons">
-          <button class="btn btn-primary" onclick="fetchNews()">
+          <button class="btn btn-primary" onclick="refreshNews()">
             <i class="fas fa-sync-alt"></i>Refresh
           </button>
           <button class="btn btn-secondary" onclick="toggleTheme()">
@@ -963,7 +1029,6 @@ body {
 // Configuration
 const CONFIG = {
     NEWS_API_KEY: '593e59a34ba545eeabdd4d2943998f59',
-    FINNHUB_API_KEY: 'cn5q9q1r01qo9mptrf70cn5q9q1r01qo9mptrf7g',
     CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
     MAX_ARTICLES: 50,
     DEBOUNCE_DELAY: 300
@@ -973,14 +1038,12 @@ const CONFIG = {
 const AppState = {
     allArticles: [],
     featuredArticles: [],
-    filteredArticles: [],
     currentFilters: {
-        category: 'general',
+        category: 'business',
         country: 'us',
         sortBy: 'publishedAt'
     },
-    cache: new Map(),
-    isInitialized: false
+    cache: new Map()
 };
 
 // Market data for ticker
@@ -1132,23 +1195,8 @@ class MarketTickerManager {
         // Reset animation
         ticker.style.animation = 'none';
         setTimeout(() => {
-            ticker.style.animation = 'scrollTicker 30s linear infinite';
+            ticker.style.animation = 'ticker-scroll 30s linear infinite';
         }, 10);
-    }
-
-    static updateTicker(symbol, newPrice, newChange) {
-        const tickerItems = document.querySelectorAll('.ticker-item');
-        tickerItems.forEach(item => {
-            const symbolElem = item.querySelector('.ticker-symbol');
-            if (symbolElem.textContent === symbol) {
-                const priceElem = item.querySelector('.ticker-price');
-                const changeElem = item.querySelector('.ticker-change');
-                
-                priceElem.textContent = `$${newPrice.toFixed(2)}`;
-                changeElem.textContent = `${newChange >= 0 ? '+' : ''}${newChange.toFixed(2)}%`;
-                changeElem.className = `ticker-change ${newChange >= 0 ? 'positive' : 'negative'}`;
-            }
-        });
     }
 }
 
@@ -1164,7 +1212,7 @@ class NewsAPIService {
         }
 
         try {
-            const { category = 'general', country = 'us', sortBy = 'publishedAt' } = filters;
+            const { category = 'business', country = 'us', sortBy = 'publishedAt' } = filters;
             const url = `https://newsapi.org/v2/top-headlines?country=${country}&category=${category}&pageSize=${CONFIG.MAX_ARTICLES}&sortBy=${sortBy}&apiKey=${CONFIG.NEWS_API_KEY}`;
             
             const response = await fetch(url);
@@ -1190,7 +1238,8 @@ class NewsAPIService {
             }
         } catch (error) {
             console.error('News API error:', error);
-            throw error;
+            // Return fallback articles if API fails
+            return this.getFallbackArticles();
         }
     }
 
@@ -1202,7 +1251,7 @@ class NewsAPIService {
         return [
             {
                 title: "Market Update: Major Indices Show Mixed Results",
-                description: "Global markets experienced volatility as investors await key economic data releases.",
+                description: "Global markets experienced volatility as investors await key economic data releases. Technology sector leads gains while energy stocks face pressure.",
                 url: "#",
                 urlToImage: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800",
                 publishedAt: new Date().toISOString(),
@@ -1210,11 +1259,27 @@ class NewsAPIService {
             },
             {
                 title: "Tech Sector Leads Market Gains",
-                description: "Technology companies outperform as AI investments continue to drive growth.",
+                description: "Technology companies outperform as AI investments continue to drive growth. Major tech giants report strong quarterly earnings.",
                 url: "#",
                 urlToImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800",
                 publishedAt: new Date().toISOString(),
                 source: { name: "Tech News" }
+            },
+            {
+                title: "Federal Reserve Holds Interest Rates Steady",
+                description: "Central bank maintains current rates amid mixed economic signals. Investors watch for future policy guidance.",
+                url: "#",
+                urlToImage: "https://images.unsplash.com/photo-1591696205602-2f950c417dad?w=800",
+                publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+                source: { name: "Bloomberg" }
+            },
+            {
+                title: "Cryptocurrency Market Shows Recovery Signs",
+                description: "Digital assets gain momentum as institutional adoption increases. Bitcoin and Ethereum lead the rally.",
+                url: "#",
+                urlToImage: "https://images.unsplash.com/photo-1516245834210-c4c142787335?w=800",
+                publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+                source: { name: "Crypto Daily" }
             }
         ];
     }
@@ -1262,8 +1327,8 @@ class NewsDisplayManager {
     }
 
     static createNewsGridLoadingHTML() {
-        return Array(9).fill().map(() => `
-            <div class="news-card loading">
+        return Array(6).fill().map(() => `
+            <div class="news-card">
                 <div class="shimmer" style="height: 200px; border-radius: 12px 12px 0 0;"></div>
                 <div style="padding: 20px;">
                     <div class="shimmer" style="height: 20px; margin-bottom: 12px; border-radius: 4px;"></div>
@@ -1342,8 +1407,8 @@ class NewsDisplayManager {
 
         if (type === 'side') {
             return `
-                <div class="featured-side-item">
-                    <a href="${article.url}" target="_blank" class="news-link">
+                <a href="${article.url}" target="_blank" class="news-link">
+                    <div class="featured-side-item">
                         <img src="${imageUrl}" alt="${title}" class="featured-side-image">
                         <div class="featured-side-content">
                             <h3 class="featured-side-title">${title}</h3>
@@ -1352,8 +1417,8 @@ class NewsDisplayManager {
                                 <span>${date}</span>
                             </div>
                         </div>
-                    </a>
-                </div>
+                    </div>
+                </a>
             `;
         }
 
@@ -1419,7 +1484,7 @@ class NewsDisplayManager {
                     <i class="fas fa-exclamation-triangle error-icon"></i>
                     <h3>Unable to Load News</h3>
                     <p>${message}</p>
-                    <button class="btn btn-primary retry-btn" onclick="NewsManager.refreshNews()">
+                    <button class="btn btn-primary" onclick="NewsManager.refreshNews()">
                         <i class="fas fa-redo"></i> Try Again
                     </button>
                 </div>
@@ -1455,8 +1520,7 @@ class SearchManager {
         const filtered = AppState.allArticles.filter(article => 
             article.title?.toLowerCase().includes(query) ||
             article.description?.toLowerCase().includes(query) ||
-            article.source?.name?.toLowerCase().includes(query) ||
-            article.content?.toLowerCase().includes(query)
+            article.source?.name?.toLowerCase().includes(query)
         );
         
         if (filtered.length > 0) {
@@ -1515,19 +1579,8 @@ class NewsManager {
 
         } catch (error) {
             console.error('Failed to load news:', error);
-            
-            // Use fallback data
-            const fallbackArticles = NewsAPIService.getFallbackArticles();
-            AppState.allArticles = fallbackArticles;
-            AppState.featuredArticles = fallbackArticles.slice(0, 2);
-            
-            NewsDisplayManager.displayFeaturedNews(AppState.featuredArticles);
-            NewsDisplayManager.displayNewsGrid([]);
-            
-            NotificationManager.show(
-                'Using fallback news data. Some features may be limited.',
-                'warning'
-            );
+            NewsDisplayManager.showErrorState('Failed to load news. Please try again.');
+            NotificationManager.show('Failed to load news articles', 'error');
         } finally {
             if (loadingState) {
                 loadingState.style.display = 'none';
@@ -1568,20 +1621,12 @@ class FilterManager {
 
     handleFilterChange() {
         const filters = {
-            category: this.categorySelect?.value || 'general',
+            category: this.categorySelect?.value || 'business',
             country: this.countrySelect?.value || 'us',
             sortBy: this.sortSelect?.value || 'publishedAt'
         };
 
         NewsManager.updateFilters(filters);
-    }
-
-    getCurrentFilters() {
-        return {
-            category: this.categorySelect?.value || 'general',
-            country: this.countrySelect?.value || 'us',
-            sortBy: this.sortSelect?.value || 'publishedAt'
-        };
     }
 }
 
@@ -1628,15 +1673,7 @@ class NewsApplication {
         // Load initial news
         await NewsManager.loadNews();
         
-        AppState.isInitialized = true;
         console.log('✅ News Application initialized successfully');
-    }
-
-    refreshAll() {
-        CacheManager.clear();
-        MarketTickerManager.initialize();
-        NewsManager.refreshNews();
-        this.searchManager.clearSearch();
     }
 }
 
@@ -1649,11 +1686,6 @@ function refreshNews() {
     NewsManager.refreshNews();
 }
 
-function clearCache() {
-    CacheManager.clear();
-    NotificationManager.show('Cache cleared successfully', 'success');
-}
-
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
     window.newsApp = new NewsApplication();
@@ -1664,134 +1696,6 @@ window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
     NotificationManager.show('An unexpected error occurred', 'error');
 });
-
-// Add notification styles
-const notificationStyles = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0;
-        min-width: 300px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateX(400px);
-        opacity: 0;
-        transition: all 0.3s ease;
-        z-index: 10000;
-        overflow: hidden;
-    }
-    
-    .notification.show {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    
-    .notification-content {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .notification-content.success {
-        border-left: 4px solid var(--up-color);
-    }
-    
-    .notification-content.error {
-        border-left: 4px solid var(--down-color);
-    }
-    
-    .notification-content.warning {
-        border-left: 4px solid #ff9800;
-    }
-    
-    .notification-content.info {
-        border-left: 4px solid #2196f3;
-    }
-    
-    .notification-icon {
-        font-size: 1.2em;
-    }
-    
-    .notification-content.success .notification-icon {
-        color: var(--up-color);
-    }
-    
-    .notification-content.error .notification-icon {
-        color: var(--down-color);
-    }
-    
-    .notification-content.warning .notification-icon {
-        color: #ff9800;
-    }
-    
-    .notification-content.info .notification-icon {
-        color: #2196f3;
-    }
-    
-    .notification-message {
-        flex: 1;
-        font-size: 14px;
-    }
-    
-    .notification-close {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-    }
-    
-    .notification-close:hover {
-        background: var(--border-color);
-        color: var(--text-primary);
-    }
-    
-    .error-state {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 60px 20px;
-    }
-    
-    .error-icon {
-        font-size: 48px;
-        color: var(--down-color);
-        margin-bottom: 16px;
-    }
-    
-    .no-articles {
-        text-align: center;
-        padding: 40px 20px;
-        color: var(--text-muted);
-    }
-    
-    .shimmer {
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-    }
-    
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
-    
-    .news-card.loading {
-        opacity: 0.7;
-        pointer-events: none;
-    }
-`;
-
-// Add styles to document
-const styleSheet = document.createElement('style');
-styleSheet.textContent = notificationStyles;
-document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>
-
-
