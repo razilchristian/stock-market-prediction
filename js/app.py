@@ -469,7 +469,7 @@ def superstars_page():
 
 @server.route('/alerts')
 def alerts_page():
-    return render_template('alerts.html')
+    return render_template('Alerts.html')  # Fixed: Capital A
 
 @server.route('/help')
 def help_page():
@@ -1451,4 +1451,5 @@ if __name__ == '__main__':
     print(f"🎯 Prediction Target: October 13, 2025")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     print("✅ Using enhanced current price fetching with 5 different methods")
+    print("✅ All routes fixed - portfolio, mystock, deposit, insight, prediction, news, videos, Superstars, Alerts, help, profile pages should work now!")
     app.run(debug=True, port=8080, host='0.0.0.0')
