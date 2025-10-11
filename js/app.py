@@ -715,19 +715,76 @@ def generate_prediction(n_clicks, ticker):
         )
     
     try:
-        # Simulate API call to our prediction endpoint
-        response = requests.post('http://localhost:8080/api/predict', 
-                               json={'symbol': ticker},
-                               timeout=60)  # Longer timeout for 10-year analysis
+        # Use direct function call instead of HTTP request to avoid timeout
+        print(f"🔄 Starting prediction process for {ticker}...")
         
-        if response.status_code != 200:
+        # Fetch data
+        historical_data, error = fetch_historical_data(ticker, "10y")
+        if error:
             return (
-                html.Div(f"Error: {response.json().get('error', 'Unknown error')}", 
-                        style={'color': '#ff4d7c'}),
+                html.Div(f"Error fetching data: {error}", style={'color': '#ff4d7c'}),
                 html.Div()
             )
         
-        data = response.json()
+        # Train models
+        training_results, training_error = predictor.train_advanced_models(historical_data)
+        if training_error:
+            return (
+                html.Div(f"Training error: {training_error}", style={'color': '#ff4d7c'}),
+                html.Div()
+            )
+        
+        # Make prediction
+        predictions, confidence_intervals, pred_error = predictor.predict_next_day(historical_data)
+        if pred_error:
+            return (
+                html.Div(f"Prediction error: {pred_error}", style={'color': '#ff4d7c'}),
+                html.Div()
+            )
+        
+        # Get current price and calculate metrics
+        current_price = historical_data['Close'].iloc[-1]
+        rf_pred = predictions.get('Random Forest', current_price)
+        change_percent = ((rf_pred - current_price) / current_price) * 100
+        
+        # Calculate volatility
+        volatility = historical_data['Close'].pct_change().std()
+        
+        # Generate risk assessment
+        risk_level = get_risk_level(change_percent, volatility)
+        recommendation = get_trading_recommendation(change_percent, risk_level)
+        
+        # Calculate data statistics
+        total_days = len(historical_data)
+        years_covered = total_days / 252
+        start_date = historical_data['Date'].iloc[0]
+        end_date = historical_data['Date'].iloc[-1]
+        
+        # Create data object for display
+        data = {
+            "symbol": ticker,
+            "current_price": round(current_price, 2),
+            "prediction_date": get_next_trading_day(),
+            "last_trading_day": get_last_market_date(),
+            "predicted_price": round(rf_pred, 2),
+            "change_percent": round(change_percent, 2),
+            "risk_level": risk_level,
+            "recommendation": recommendation,
+            "volatility": round(volatility, 4),
+            "confidence": confidence_intervals.get('Random Forest', {}).get('confidence', 80),
+            "confidence_interval": {
+                "lower": round(confidence_intervals.get('Random Forest', {}).get('lower_bound', rf_pred * 0.98), 2),
+                "upper": round(confidence_intervals.get('Random Forest', {}).get('upper_bound', rf_pred * 1.02), 2)
+            },
+            "model_performance": training_results.get('Random Forest', {}),
+            "market_status": get_market_status()[1],
+            "data_analysis": {
+                "total_data_points": total_days,
+                "years_covered": round(years_covered, 1),
+                "data_period": f"{start_date} to {end_date}",
+                "features_used": len(predictor.feature_columns) if hasattr(predictor, 'feature_columns') else 50
+            }
+        }
         
         # Create prediction results display
         results_content = create_prediction_display(data)
@@ -741,6 +798,7 @@ def generate_prediction(n_clicks, ticker):
         return status, results_content
         
     except Exception as e:
+        print(f"❌ Prediction failed: {str(e)}")
         return (
             html.Div(f"Prediction failed: {str(e)}", style={'color': '#ff4d7c'}),
             html.Div()
