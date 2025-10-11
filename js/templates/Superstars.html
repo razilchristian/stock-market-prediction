@@ -7,50 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
+/* Reset and Base Styles */
 * {
   margin: 0;
   padding: 0;
@@ -183,6 +140,7 @@ body {
   box-shadow: var(--shadow-glow);
 }
 
+/* Mobile Menu Animation */
 .menu-toggle {
   display: none;
   flex-direction: column;
@@ -199,6 +157,49 @@ body {
   background: var(--text-primary);
   border-radius: 2px;
   transition: all 0.3s ease;
+}
+
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
 }
 
 /* Main Content */
@@ -415,6 +416,12 @@ body {
   margin-bottom: 4px;
 }
 
+.investor-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .investor-type {
   font-size: 14px;
   color: var(--text-secondary);
@@ -503,6 +510,31 @@ body {
   font-family: 'Space Grotesk', sans-serif;
 }
 
+.investor-sectors {
+  margin-bottom: 20px;
+}
+
+.sectors-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.sectors-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sector-tag {
+  padding: 4px 8px;
+  background: var(--border-color);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .investor-actions {
   display: flex;
   gap: 12px;
@@ -544,6 +576,7 @@ body {
   position: relative;
   overflow: hidden;
   text-align: center;
+  cursor: pointer;
 }
 
 .performer-card::before {
@@ -617,6 +650,13 @@ body {
   color: var(--text-secondary);
 }
 
+.performer-networth {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 8px;
+  color: var(--text-primary);
+}
+
 /* Section Headers */
 .section-header {
   display: flex;
@@ -655,6 +695,383 @@ body {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+/* Investor Modal */
+.investor-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 800px;
+  background: var(--bg-card);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--active-color);
+  box-shadow: var(--shadow-glow);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card-hover);
+}
+
+.investor-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--bg-dark);
+  font-weight: 700;
+}
+
+.investor-info-large {
+  flex: 1;
+}
+
+.investor-info-large h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.investor-details {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+  background: var(--active-color);
+  color: var(--bg-dark);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.modal-stat {
+  text-align: center;
+  padding: 16px;
+  background: var(--bg-card-hover);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.modal-stat-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.modal-stat-value.positive {
+  color: var(--up-color);
+}
+
+.modal-stat-value.negative {
+  color: var(--down-color);
+}
+
+.modal-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.modal-section {
+  margin-bottom: 24px;
+}
+
+.modal-section h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.holdings-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.holding-detailed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-card-hover);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.holding-rank {
+  width: 32px;
+  height: 32px;
+  background: var(--active-color);
+  color: var(--bg-dark);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.holding-info {
+  flex: 1;
+}
+
+.holding-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.holding-value {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.profile-value {
+  font-weight: 500;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Additional Styles */
+.risk-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+}
+
+.since-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--border-color);
+  color: var(--text-muted);
+}
+
+.investor-avatar.individual {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.investor-avatar.institutional {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.investor-avatar.fii {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.performer-avatar.individual {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.performer-avatar.institutional {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.performer-avatar.fii {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, #cd7f32 0%, #e9a768 100%);
+}
+
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.notification-content.success {
+  border-left: 4px solid var(--up-color);
+}
+
+.notification-content.error {
+  border-left: 4px solid var(--down-color);
+}
+
+.notification-content.warning {
+  border-left: 4px solid #ff9800;
+}
+
+.notification-content.info {
+  border-left: 4px solid #2196f3;
+}
+
+.notification-icon {
+  font-size: 1.2em;
+}
+
+.notification-content.success .notification-icon {
+  color: var(--up-color);
+}
+
+.notification-content.error .notification-icon {
+  color: var(--down-color);
+}
+
+.notification-content.warning .notification-icon {
+  color: #ff9800;
+}
+
+.notification-content.info .notification-icon {
+  color: #2196f3;
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 14px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.notification-close:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.no-investors-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-investors-state i {
+  font-size: 48px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.investor-card.loading, .performer-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* Responsive Design */
@@ -713,6 +1130,19 @@ body {
   .filter-select {
     width: 100%;
   }
+  
+  .modal-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .investor-details {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
@@ -727,52 +1157,17 @@ body {
   .investor-stats {
     grid-template-columns: 1fr;
   }
+  
+  .modal-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .investor-details {
+    justify-content: center;
+  }
 }
 </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -844,10 +1239,10 @@ body {
           <input type="text" class="search-bar" placeholder="Search investors..." id="searchInput">
         </div>
         <div class="action-buttons">
-          <button class="btn btn-primary" onclick="loadInvestors()">
+          <button class="btn btn-primary" onclick="InvestorManager.refreshInvestors()">
             <i class="fas fa-sync-alt"></i>Refresh
           </button>
-          <button class="btn btn-secondary" onclick="toggleTheme()">
+          <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
             <i class="fas fa-palette"></i>Theme
           </button>
         </div>
@@ -903,6 +1298,15 @@ body {
       <p>Fetching the latest superstar portfolios...</p>
     </div>
   </main>
+</div>
+
+<!-- Investor Modal -->
+<div class="investor-modal" id="investorModal">
+  <div class="modal-content">
+    <div id="modalContent">
+      <!-- Modal content will be populated by JavaScript -->
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1087,8 +1491,7 @@ const AppState = {
     currentFilters: {
         type: 'all',
         sortBy: 'net-worth',
-        searchQuery: '',
-        riskProfile: 'all'
+        searchQuery: ''
     },
     currentInvestor: null,
     isInitialized: false,
@@ -1174,28 +1577,6 @@ class NotificationManager {
                 notification.remove();
             }
         }, 5000);
-    }
-}
-
-// Cache Manager
-class CacheManager {
-    static get(key) {
-        const cached = AppState.cache.get(key);
-        if (cached && Date.now() - cached.timestamp < CONFIG.CACHE_DURATION) {
-            return cached.data;
-        }
-        return null;
-    }
-
-    static set(key, data) {
-        AppState.cache.set(key, {
-            data,
-            timestamp: Date.now()
-        });
-    }
-
-    static clear() {
-        AppState.cache.clear();
     }
 }
 
@@ -1553,7 +1934,6 @@ class FilterManager {
     constructor() {
         this.typeSelect = document.getElementById('typeSelect');
         this.sortSelect = document.getElementById('sortSelect');
-        this.riskSelect = document.getElementById('riskSelect');
         this.searchInput = document.getElementById('searchInput');
         this.debouncedFilter = this.debounce(this.applyFilters.bind(this), CONFIG.DEBOUNCE_DELAY);
         this.init();
@@ -1565,9 +1945,6 @@ class FilterManager {
         }
         if (this.sortSelect) {
             this.sortSelect.addEventListener('change', () => this.handleFilterChange());
-        }
-        if (this.riskSelect) {
-            this.riskSelect.addEventListener('change', () => this.handleFilterChange());
         }
         if (this.searchInput) {
             this.searchInput.addEventListener('input', this.debouncedFilter);
@@ -1581,17 +1958,15 @@ class FilterManager {
     applyFilters() {
         const type = this.typeSelect?.value || 'all';
         const sortBy = this.sortSelect?.value || 'net-worth';
-        const riskProfile = this.riskSelect?.value || 'all';
         const searchQuery = this.searchInput?.value.toLowerCase().trim() || '';
 
-        AppState.currentFilters = { type, sortBy, riskProfile, searchQuery };
+        AppState.currentFilters = { type, sortBy, searchQuery };
         InvestorManager.filterInvestors();
     }
 
     clear() {
         if (this.typeSelect) this.typeSelect.value = 'all';
         if (this.sortSelect) this.sortSelect.value = 'net-worth';
-        if (this.riskSelect) this.riskSelect.value = 'all';
         if (this.searchInput) this.searchInput.value = '';
         
         this.applyFilters();
@@ -1614,17 +1989,12 @@ class FilterManager {
 // Investor Manager
 class InvestorManager {
     static filterInvestors() {
-        const { type, sortBy, riskProfile, searchQuery } = AppState.currentFilters;
+        const { type, sortBy, searchQuery } = AppState.currentFilters;
 
         // Apply filters
         AppState.filteredInvestors = AppState.investors.filter(investor => {
             // Type filter
             if (type !== 'all' && investor.type !== type) {
-                return false;
-            }
-            
-            // Risk profile filter
-            if (riskProfile !== 'all' && investor.riskProfile !== riskProfile) {
                 return false;
             }
             
@@ -1649,8 +2019,6 @@ class InvestorManager {
                     return b.quarterlyChange - a.quarterlyChange;
                 case 'portfolio-size':
                     return b.portfolioSize - a.portfolioSize;
-                case 'risk-profile':
-                    return this.getRiskScore(b.riskProfile) - this.getRiskScore(a.riskProfile);
                 default:
                     return 0;
             }
@@ -1663,17 +2031,6 @@ class InvestorManager {
         // Convert "₹28,000 Cr" to numeric value
         const numeric = netWorth.replace(/[^0-9.]/g, '');
         return parseFloat(numeric) * (netWorth.includes('Lakh') ? 0.01 : 1);
-    }
-
-    static getRiskScore(riskProfile) {
-        const scores = {
-            'Very High': 4,
-            'High': 3,
-            'Medium': 2,
-            'Low': 1,
-            'Very Low': 0
-        };
-        return scores[riskProfile] || 0;
     }
 
     static viewPortfolio(investorId) {
@@ -1770,19 +2127,6 @@ class InvestorApp {
     }
 }
 
-// Global functions for HTML event handlers
-function toggleTheme() {
-    ThemeManager.toggle();
-}
-
-function refreshInvestors() {
-    InvestorManager.refreshInvestors();
-}
-
-function clearFilters() {
-    InvestorManager.clearFilters();
-}
-
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     window.investorApp = new InvestorApp();
@@ -1793,195 +2137,6 @@ window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
     NotificationManager.show('An unexpected error occurred', 'error');
 });
-
-// Add notification and loading styles
-const additionalStyles = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0;
-        min-width: 300px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateX(400px);
-        opacity: 0;
-        transition: all 0.3s ease;
-        z-index: 10000;
-        overflow: hidden;
-    }
-    
-    .notification.show {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    
-    .notification-content {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .notification-content.success {
-        border-left: 4px solid var(--up-color);
-    }
-    
-    .notification-content.error {
-        border-left: 4px solid var(--down-color);
-    }
-    
-    .notification-content.warning {
-        border-left: 4px solid #ff9800;
-    }
-    
-    .notification-content.info {
-        border-left: 4px solid #2196f3;
-    }
-    
-    .notification-icon {
-        font-size: 1.2em;
-    }
-    
-    .notification-content.success .notification-icon {
-        color: var(--up-color);
-    }
-    
-    .notification-content.error .notification-icon {
-        color: var(--down-color);
-    }
-    
-    .notification-content.warning .notification-icon {
-        color: #ff9800;
-    }
-    
-    .notification-content.info .notification-icon {
-        color: #2196f3;
-    }
-    
-    .notification-message {
-        flex: 1;
-        font-size: 14px;
-    }
-    
-    .notification-close {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-    }
-    
-    .notification-close:hover {
-        background: var(--border-color);
-        color: var(--text-primary);
-    }
-    
-    .no-investors-state {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 60px 20px;
-    }
-    
-    .no-investors-state i {
-        font-size: 48px;
-        color: var(--text-muted);
-        margin-bottom: 16px;
-    }
-    
-    .investor-card.loading, .performer-card.loading {
-        opacity: 0.7;
-        pointer-events: none;
-    }
-    
-    .shimmer {
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-        border-radius: 4px;
-    }
-    
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
-    
-    .risk-badge {
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        color: white;
-    }
-    
-    .since-badge {
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        background: var(--border-color);
-        color: var(--text-muted);
-    }
-    
-    .investor-avatar.individual {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .investor-avatar.institutional {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    }
-    
-    .investor-avatar.fii {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    }
-    
-    .sectors-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-    }
-    
-    .sector-tag {
-        padding: 4px 8px;
-        background: var(--border-color);
-        border-radius: 12px;
-        font-size: 11px;
-        color: var(--text-muted);
-    }
-    
-    .performer-card {
-        position: relative;
-        cursor: pointer;
-        transition: transform 0.2s ease;
-    }
-    
-    .performer-card:hover {
-        transform: translateY(-2px);
-    }
-    
-    .rank-1 {
-        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-    }
-    
-    .rank-2 {
-        background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
-    }
-    
-    .rank-3 {
-        background: linear-gradient(135deg, #cd7f32 0%, #e9a768 100%);
-    }
-`;
-
-// Add styles to document
-const styleSheet = document.createElement('style');
-styleSheet.textContent = additionalStyles;
-document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>
-
-
