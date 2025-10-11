@@ -46,7 +46,9 @@ MARKETSTACK_API_KEY = "775c00986af45bdb518927502e1eb471"
 TWELVEDATA_API_KEY = "5f988a8aff6b4b58848dfcf67af727d9"
 
 # ========= FLASK SERVER & DASH APP =========
-server = Flask(__name__, template_folder='js/templates')  # UPDATED: Correct template path
+# Get the current directory where app.py is located
+current_dir = os.path.dirname(os.path.abspath(__file__))
+server = Flask(__name__, template_folder='templates')  # Templates are in js/templates
 app = dash.Dash(
     __name__,
     server=server,
@@ -435,7 +437,7 @@ def get_trading_recommendation(change_percent, risk_level, volatility):
 def debug_templates():
     """Debug endpoint to check template files"""
     import os
-    template_dir = 'js/templates'  # UPDATED: Correct template path
+    template_dir = 'templates'
     if os.path.exists(template_dir):
         files = os.listdir(template_dir)
         return f"""
@@ -454,13 +456,13 @@ def debug_templates():
 def test_route(template_name):
     """Test if a specific template exists"""
     import os
-    template_path = os.path.join('js/templates', template_name)  # UPDATED: Correct template path
+    template_path = os.path.join('templates', template_name)
     exists = os.path.exists(template_path)
     return jsonify({
         "template": template_name,
         "full_path": os.path.abspath(template_path),
         "exists": exists,
-        "files_in_templates": os.listdir('js/templates') if os.path.exists('js/templates') else []
+        "files_in_templates": os.listdir('templates') if os.path.exists('templates') else []
     })
 
 # ========= FLASK ROUTES FOR ALL PAGES =========
@@ -1064,8 +1066,8 @@ def update_market_status(n_clicks):
     return html.Div([
         html.Span("📊 Live Market Status: ", 
                  style={'fontWeight': '700', 'fontSize': '18px', 'marginRight': '10px'}),
-        html.Span(f"{status_message.upper()} ", 
-                 style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': '700', 'fontSize': '18px'}),
+                            html.Span(f"{status_message.upper()} ", 
+                             style={'color': color_map.get(market_status, '#ffffff'), 'fontWeight': '700', 'fontSize': '18px'}),
         html.Br(),
         html.Span(f"🎯 Prediction Target: October 13, 2025 | ", 
                  style={'color': '#94a3b8', 'fontSize': '14px', 'marginTop': '5px'}),
@@ -1497,7 +1499,7 @@ def send_assets(path):
 # Serve templates
 @server.route('/templates/<path:path>')
 def send_templates(path):
-    return send_from_directory('js/templates', path)  # UPDATED: Correct template path
+    return send_from_directory('templates', path)
 
 # Main entry
 if __name__ == '__main__':
@@ -1511,7 +1513,7 @@ if __name__ == '__main__':
     print(f"🎯 Prediction Target: October 13, 2025")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     print("✅ Using enhanced current price fetching with 5 different methods")
-    print("✅ CORRECTED TEMPLATE PATH: js/templates/")
+    print("✅ CORRECTED TEMPLATE PATH: templates/ (relative to js/ folder)")
     print("🔧 Debug URLs:")
     print("   - /debug-templates - Check available template files")
     print("   - /test-route/<template_name> - Test specific template")
