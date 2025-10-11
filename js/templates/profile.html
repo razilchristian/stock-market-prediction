@@ -7,50 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 * {
   margin: 0;
   padding: 0;
@@ -201,6 +157,54 @@ body {
   transition: all 0.3s ease;
 }
 
+/* Mobile Menu Animation */
+.menu-toggle span {
+  transition: all 0.3s ease;
+}
+
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
@@ -265,6 +269,12 @@ body {
   .profile-layout {
     grid-template-columns: 1fr;
   }
+}
+
+.profile-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 /* Profile Stats */
@@ -783,50 +793,6 @@ input:checked + .toggle-slider:before {
   }
 }
 </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -846,40 +812,40 @@ input:checked + .toggle-slider:before {
         </button>
 
         <nav class="nav-items">
-          <a href="jeet.html" class="nav-item">
+          <a href="/" class="nav-item">
             <i class="fas fa-home"></i>Dashboard
           </a>
-          <a href="portfolio.html" class="nav-item">
+          <a href="/portfolio" class="nav-item">
             <i class="fas fa-briefcase"></i>Portfolio
           </a>
-          <a href="mystock.html" class="nav-item">
+          <a href="/mystock" class="nav-item">
             <i class="fas fa-star"></i>My Stock
           </a>
-          <a href="deposit.html" class="nav-item">
+          <a href="/deposit" class="nav-item">
             <i class="fas fa-wallet"></i>Deposit
           </a>
-          <a href="insight.html" class="nav-item">
+          <a href="/insight" class="nav-item">
             <i class="fas fa-brain"></i>Insight
           </a>
-          <a href="prediction.html" class="nav-item">
+          <a href="/prediction" class="nav-item">
             <i class="fas fa-crystal-ball"></i>Prediction
           </a>
-          <a href="news.html" class="nav-item">
+          <a href="/news" class="nav-item">
             <i class="fas fa-newspaper"></i>News
           </a>
-          <a href="videos.html" class="nav-item">
+          <a href="/videos" class="nav-item">
             <i class="fas fa-play-circle"></i>Videos
           </a>
-          <a href="Superstars.html" class="nav-item">
+          <a href="/superstars" class="nav-item">
             <i class="fas fa-trophy"></i>Superstars
           </a>
-          <a href="alerts.html" class="nav-item">
+          <a href="/alerts" class="nav-item">
             <i class="fas fa-bell"></i>Alerts
           </a>
-          <a href="help.html" class="nav-item">
+          <a href="/help" class="nav-item">
             <i class="fas fa-question-circle"></i>Help
           </a>
-          <a href="profile.html" class="nav-item active">
+          <a href="/profile" class="nav-item active">
             <i class="fas fa-user"></i>Profile
           </a>
         </nav>
@@ -952,8 +918,8 @@ input:checked + .toggle-slider:before {
               <input type="file" id="avatarUpload" class="avatar-upload" accept="image/*">
             </div>
             <div class="user-info">
-              <h1 class="user-name" id="userName">Razil Christian</h1>
-              <p class="user-email" id="userEmail">razil.doe@example.com</p>
+              <h1 class="user-name" id="userName">John Doe</h1>
+              <p class="user-email" id="userEmail">john.doe@example.com</p>
               <div class="user-badge">
                 <i class="fas fa-shield-alt"></i>
                 <span>Verified Account</span>
@@ -1166,30 +1132,6 @@ input:checked + .toggle-slider:before {
 </div>
 
 <script>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
-
 // User data
 const userData = {
   username: "johndoe",
@@ -1227,31 +1169,7 @@ function loadUserData() {
 // Enable editing mode
 function enableEditing() {
   const inputs = document.querySelectorAll('.profile-form .form-input');
-  inputs.forEach(input =>
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
- input.disabled = false);
+  inputs.forEach(input => input.disabled = false);
   
   document.getElementById('editProfileBtn').style.display = 'none';
   document.getElementById('saveProfileBtn').style.display = 'flex';
@@ -1285,7 +1203,7 @@ function saveProfile() {
   userData.location = location;
   
   // Update display names
-  document.getElementById('userName').textContent = "John Doe"; // In real app, this would be from first/last name
+  document.getElementById('userName').textContent = "John Doe";
   document.getElementById('userEmail').textContent = email;
   
   // Disable inputs
@@ -1442,6 +1360,17 @@ function setupEventListeners() {
   
   menuToggle.addEventListener('click', () => {
     navItems.classList.toggle('show');
+    const spans = menuToggle.querySelectorAll('span');
+    spans.forEach(span => span.classList.toggle('active'));
+  });
+  
+  // Close menu when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
+      navItems.classList.remove('show');
+      const spans = menuToggle.querySelectorAll('span');
+      spans.forEach(span => span.classList.remove('active'));
+    }
   });
 }
 
@@ -1450,5 +1379,3 @@ document.addEventListener('DOMContentLoaded', initializePage);
 </script>
 </body>
 </html>
-
-
