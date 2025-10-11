@@ -134,7 +134,7 @@ class AdvancedStockPredictor:
     def prepare_advanced_data(self, df, target_days=1):
         """Prepare data for next-day prediction of all price columns"""
         try:
-            # Create targets for next day
+            # Create targets for next trading day
             df['Target_Open'] = df['Open'].shift(-target_days)
             df['Target_High'] = df['High'].shift(-target_days)
             df['Target_Low'] = df['Low'].shift(-target_days)
@@ -291,23 +291,70 @@ class AdvancedStockPredictor:
 predictor = AdvancedStockPredictor()
 
 # ========= HELPER FUNCTIONS =========
+def get_last_market_date():
+    """Get the last actual market trading date from historical data"""
+    try:
+        # Fetch a sample stock to get actual trading dates
+        stock = yf.Ticker('AAPL')
+        hist_data = stock.history(period='10y')
+        
+        if hist_data.empty:
+            # Fallback to business days if no data
+            from pandas.tseries.offsets import BDay
+            return (datetime.now() - BDay(1)).strftime('%Y-%m-%d')
+        
+        # Get the last available trading date
+        last_date = hist_data.index[-1]
+        return last_date.strftime('%Y-%m-%d')
+        
+    except Exception as e:
+        print(f"Error getting last market date: {e}")
+        # Fallback to previous business day
+        from pandas.tseries.offsets import BDay
+        return (datetime.now() - BDay(1)).strftime('%Y-%m-%d')
+
 def get_next_trading_day():
-    """Get the next trading day (Monday-Friday)"""
-    today = datetime.now()
-    
-    # If today is Friday, next trading day is Monday
-    if today.weekday() == 4:  # Friday
-        next_day = today + timedelta(days=3)
-    # If today is Saturday, next trading day is Monday
-    elif today.weekday() == 5:  # Saturday
-        next_day = today + timedelta(days=2)
-    # If today is Sunday, next trading day is Monday
-    elif today.weekday() == 6:  # Sunday
-        next_day = today + timedelta(days=1)
-    else:
-        next_day = today + timedelta(days=1)
-    
-    return next_day.strftime('%Y-%m-%d')
+    """Get the next trading day based on actual market calendar"""
+    try:
+        # Fetch upcoming trading days
+        stock = yf.Ticker('AAPL')
+        
+        # Get recent historical data to understand trading pattern
+        hist_data = stock.history(period='1mo')
+        
+        if hist_data.empty:
+            # Fallback logic if no data available
+            today = datetime.now()
+            if today.weekday() == 4:  # Friday
+                next_day = today + timedelta(days=3)
+            elif today.weekday() == 5:  # Saturday
+                next_day = today + timedelta(days=2)
+            elif today.weekday() == 6:  # Sunday
+                next_day = today + timedelta(days=1)
+            else:
+                next_day = today + timedelta(days=1)
+            return next_day.strftime('%Y-%m-%d')
+        
+        # Use the last available date and add one business day
+        last_date = hist_data.index[-1]
+        from pandas.tseries.offsets import BDay
+        next_trading_day = last_date + BDay(1)
+        
+        return next_trading_day.strftime('%Y-%m-%d')
+        
+    except Exception as e:
+        print(f"Error calculating next trading day: {e}")
+        # Fallback to simple weekday calculation
+        today = datetime.now()
+        if today.weekday() == 4:  # Friday
+            next_day = today + timedelta(days=3)
+        elif today.weekday() == 5:  # Saturday
+            next_day = today + timedelta(days=2)
+        elif today.weekday() == 6:  # Sunday
+            next_day = today + timedelta(days=1)
+        else:
+            next_day = today + timedelta(days=1)
+        return next_day.strftime('%Y-%m-%d')
 
 def is_market_open():
     """Check if market is open today (Monday-Friday)"""
@@ -331,6 +378,40 @@ def get_market_status():
         return "after_hours", "After-hours trading"
     else:
         return "open", "Market is open"
+
+def get_trading_calendar_info():
+    """Get information about trading calendar"""
+    try:
+        stock = yf.Ticker('AAPL')
+        hist_data = stock.history(period='10y')
+        
+        if hist_data.empty:
+            return {
+                'last_trading_day': get_last_market_date(),
+                'total_trading_days': 'N/A',
+                'data_period': '10 years'
+            }
+        
+        last_trading_day = hist_data.index[-1].strftime('%Y-%m-%d')
+        total_trading_days = len(hist_data)
+        start_date = hist_data.index[0].strftime('%Y-%m-%d')
+        end_date = hist_data.index[-1].strftime('%Y-%m-%d')
+        
+        return {
+            'last_trading_day': last_trading_day,
+            'total_trading_days': total_trading_days,
+            'data_period': f"{start_date} to {end_date}",
+            'start_date': start_date,
+            'end_date': end_date
+        }
+        
+    except Exception as e:
+        print(f"Error getting trading calendar info: {e}")
+        return {
+            'last_trading_day': get_last_market_date(),
+            'total_trading_days': 'N/A',
+            'data_period': '10 years'
+        }
 
 # ========= API ROUTES FOR HTML PAGES =========
 @server.route('/api/stock-quotes')
@@ -600,9 +681,10 @@ def predict_stock():
         # Get current price
         current_price = historical_data['Close'].iloc[-1]
         
-        # Get next trading day
+        # Get next trading day and calendar info
         next_trading_day = get_next_trading_day()
         market_status, status_message = get_market_status()
+        calendar_info = get_trading_calendar_info()
         
         # Prepare response
         response = {
@@ -611,6 +693,7 @@ def predict_stock():
             "prediction_date": next_trading_day,
             "market_status": market_status,
             "status_message": status_message,
+            "calendar_info": calendar_info,
             "predictions": {},
             "confidence": {},
             "insight": generate_ai_insight(symbol, predictions, current_price, market_status)
@@ -709,13 +792,22 @@ app.layout = html.Div([
         html.P("Daily Price Prediction • Machine Learning • Technical Analysis", className="model-info")
     ], style={'textAlign': 'center', 'marginBottom': '30px'}),
 
-    # Market Status
+    # Market Status and Calendar Info
     html.Div(id="market-status-banner", style={
         'padding': '15px',
         'borderRadius': '8px',
         'marginBottom': '20px',
         'textAlign': 'center',
         'fontWeight': 'bold'
+    }),
+
+    # Calendar Information
+    html.Div(id="calendar-info", style={
+        'backgroundColor': '#1a1a2e',
+        'padding': '15px',
+        'borderRadius': '8px',
+        'marginBottom': '20px',
+        'border': '1px solid #00e6ff'
     }),
 
     # Controls
@@ -807,12 +899,14 @@ app.layout = html.Div([
 
 # ========= DASH CALLBACKS =========
 @app.callback(
-    Output('market-status-banner', 'children'),
+    [Output('market-status-banner', 'children'),
+     Output('calendar-info', 'children')],
     [Input('train-btn', 'n_clicks')]
 )
-def update_market_status(n_clicks):
-    """Update market status banner"""
+def update_market_info(n_clicks):
+    """Update market status banner and calendar information"""
     market_status, status_message = get_market_status()
+    calendar_info = get_trading_calendar_info()
     
     color_map = {
         'open': '#00ff9d',
@@ -821,7 +915,7 @@ def update_market_status(n_clicks):
         'closed': '#ff4d7c'
     }
     
-    return html.Div([
+    market_banner = html.Div([
         html.Span("📊 Market Status: ", style={'fontWeight': 'bold'}),
         html.Span(f"{status_message.upper()} ", style={'color': color_map.get(market_status, '#ffffff')}),
         html.Span(f" | Next Trading Day: {get_next_trading_day()}", style={'fontSize': '14px'})
@@ -831,6 +925,24 @@ def update_market_status(n_clicks):
         'borderRadius': '8px',
         'border': f'2px solid {color_map.get(market_status, "#00e6ff")}'
     })
+    
+    calendar_display = html.Div([
+        html.H4("📅 Trading Calendar Information", style={'marginBottom': '10px', 'color': '#00e6ff'}),
+        html.Div([
+            html.Span("📆 Last Trading Day: ", style={'fontWeight': 'bold'}),
+            html.Span(f"{calendar_info['last_trading_day']}", style={'color': '#00ff9d'})
+        ], style={'marginBottom': '5px'}),
+        html.Div([
+            html.Span("📈 Total Trading Days (10Y): ", style={'fontWeight': 'bold'}),
+            html.Span(f"{calendar_info['total_trading_days']}", style={'color': '#00ff9d'})
+        ], style={'marginBottom': '5px'}),
+        html.Div([
+            html.Span("🕐 Data Period: ", style={'fontWeight': 'bold'}),
+            html.Span(f"{calendar_info['data_period']}", style={'color': '#00ff9d'})
+        ])
+    ])
+    
+    return market_banner, calendar_display
 
 @app.callback(
     [Output('training-status', 'children'),
@@ -906,15 +1018,16 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
         # Generate displays
         current_price = historical_data['Close'].iloc[-1]
         market_status, status_message = get_market_status()
+        calendar_info = get_trading_calendar_info()
         insight_content = generate_ai_insight(ticker, predictions, current_price, market_status)
-        predictions_content = generate_next_day_predictions_display(predictions, confidence_scores, current_price)
+        predictions_content = generate_next_day_predictions_display(predictions, confidence_scores, current_price, calendar_info)
         metrics_content = generate_advanced_metrics_display(training_results, model_name)
         technical_content = generate_advanced_technical_display(historical_data)
         table_content = generate_advanced_data_table(historical_data)
         
         status = html.Div([
             html.H4(f"✅ Successfully trained models for {ticker}"),
-            html.P(f"Data Period: 10 Years | Data Points: {len(historical_data)} | Prediction Date: {get_next_trading_day()}"),
+            html.P(f"Data Period: {calendar_info['data_period']} | Data Points: {len(historical_data)} | Prediction Date: {get_next_trading_day()}"),
             html.P(f"Market Status: {status_message}", style={'color': '#00e6ff'})
         ], style={'color': '#00ff9d'})
         
@@ -930,13 +1043,14 @@ def train_and_predict_next_day(n_clicks, ticker, model_name):
             html.Div()
         )
 
-def generate_next_day_predictions_display(predictions, confidence_scores, current_price):
+def generate_next_day_predictions_display(predictions, confidence_scores, current_price, calendar_info):
     """Generate display for next-day price predictions"""
     if not predictions:
         return html.P("No predictions available.", style={'color': '#ff4d7c'})
     
     prediction_data = []
     next_trading_day = get_next_trading_day()
+    last_trading_day = calendar_info['last_trading_day']
     
     for price_type, model_predictions in predictions.items():
         rf_pred = model_predictions.get('Random Forest', current_price)
@@ -945,7 +1059,7 @@ def generate_next_day_predictions_display(predictions, confidence_scores, curren
         
         prediction_data.append({
             'Price Type': price_type,
-            'Current Price': f"${current_price:.2f}",
+            f'Price ({last_trading_day})': f"${current_price:.2f}",
             f'Predicted Price ({next_trading_day})': f"${rf_pred:.2f}",
             'Change %': f"{change_percent:+.2f}%",
             'Confidence': f"{confidence}%",
@@ -953,7 +1067,7 @@ def generate_next_day_predictions_display(predictions, confidence_scores, curren
         })
     
     return dash_table.DataTable(
-        columns=[{"name": col, "id": col} for col in ['Price Type', 'Current Price', f'Predicted Price ({next_trading_day})', 'Change %', 'Confidence', 'Signal']],
+        columns=[{"name": col, "id": col} for col in ['Price Type', f'Price ({last_trading_day})', f'Predicted Price ({next_trading_day})', 'Change %', 'Confidence', 'Signal']],
         data=prediction_data,
         style_header={
             'backgroundColor': '#001f3d',
@@ -1087,6 +1201,7 @@ def send_templates(path):
 
 # Main entry
 if __name__ == '__main__':
+    calendar_info = get_trading_calendar_info()
     print("🚀 Starting Advanced AI Stock Prediction Dashboard...")
     print("📊 Access at: http://localhost:8080/")
     print("🤖 Prediction Page: http://localhost:8080/prediction")
@@ -1103,5 +1218,7 @@ if __name__ == '__main__':
     print("   - GET  /api/superstar-stocks - Superstar stocks")
     print("   - GET  /api/trading-alerts - Trading alerts")
     print(f"📅 Next Trading Day: {get_next_trading_day()}")
+    print(f"📆 Last Trading Day: {calendar_info['last_trading_day']}")
+    print(f"📈 Total Trading Days (10Y): {calendar_info['total_trading_days']}")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     app.run(debug=True, port=8080, host='0.0.0.0')
