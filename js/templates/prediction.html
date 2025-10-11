@@ -7,48 +7,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
 }
 
 :root {
@@ -86,13 +49,6 @@ body.light {
   --active-color: #0077cc;
   --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
 }
 
 body {
@@ -199,6 +155,50 @@ body {
   background: var(--text-primary);
   border-radius: 2px;
   transition: all 0.3s ease;
+}
+
+/* Mobile Menu Animation */
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
 }
 
 /* Main Content */
@@ -989,50 +989,6 @@ iframe {
   }
 }
 </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -1665,7 +1621,7 @@ class PredictionDisplay {
         if (!data.predictions) return '';
         
         return `
-            <div style="margin-top: 15px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
+            <div style="margin-top: 15px; padding: 10px; background: var(--bg-dark); border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; font-size: 12px;">
                     <span>Current: $${data.current_price?.toFixed(2)}</span>
                     <span>Predicted: $${data.predictions.Close?.predicted.toFixed(2)}</span>
@@ -1912,8 +1868,18 @@ function refreshPrediction() {
     PredictionManager.refresh();
 }
 
+function generatePrediction() {
+    PredictionManager.generate();
+}
+
 function generateAllPredictions() {
     PredictionManager.generateAll();
+}
+
+function hideLoader() {
+    if (window.stockApp) {
+        window.stockApp.hideLoader();
+    }
 }
 
 // Initialize the application
@@ -1929,5 +1895,3 @@ window.addEventListener('error', (event) => {
 </script>
 </body>
 </html>
-
-
