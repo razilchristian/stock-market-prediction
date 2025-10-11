@@ -430,7 +430,44 @@ def get_trading_recommendation(change_percent, risk_level, volatility):
         else:
             return "🔄 HOLD: Very stable - minimal trading opportunity"
 
+# ========= DEBUG ROUTES =========
+@server.route('/debug-templates')
+def debug_templates():
+    """Debug endpoint to check template files"""
+    import os
+    template_dir = 'templates'
+    if os.path.exists(template_dir):
+        files = os.listdir(template_dir)
+        return f"""
+        <h1>Template Debug Info</h1>
+        <p><strong>Template Directory:</strong> {os.path.abspath(template_dir)}</p>
+        <p><strong>Current Working Directory:</strong> {os.getcwd()}</p>
+        <p><strong>Files Found ({len(files)}):</strong></p>
+        <ul>
+            {"".join([f'<li>{file}</li>' for file in sorted(files)])}
+        </ul>
+        """
+    else:
+        return "Templates directory not found", 500
+
+@server.route('/test-route/<path:template_name>')
+def test_route(template_name):
+    """Test if a specific template exists"""
+    import os
+    template_path = os.path.join('templates', template_name)
+    exists = os.path.exists(template_path)
+    return jsonify({
+        "template": template_name,
+        "full_path": os.path.abspath(template_path),
+        "exists": exists,
+        "files_in_templates": os.listdir('templates') if os.path.exists('templates') else []
+    })
+
 # ========= FLASK ROUTES FOR ALL PAGES =========
+@server.route('/')
+def index():
+    return render_template('jeet.html')
+
 @server.route('/jeet')
 def jeet_page():
     return render_template('jeet.html')
@@ -469,7 +506,7 @@ def superstars_page():
 
 @server.route('/alerts')
 def alerts_page():
-    return render_template('Alerts.html')  # Fixed: Capital A
+    return render_template('Alerts.html')
 
 @server.route('/help')
 def help_page():
@@ -487,10 +524,33 @@ def login_page():
 def faq_page():
     return render_template('FAQ.html')
 
-# Make the root route redirect to jeet.html (dashboard)
-@server.route('/')
-def index():
-    return render_template('jeet.html')
+# ========= FALLBACK ROUTE =========
+@server.route('/<page_name>')
+def fallback_route(page_name):
+    """Fallback route for all pages"""
+    valid_pages = {
+        'portfolio': 'portfolio.html',
+        'mystock': 'mystock.html', 
+        'deposit': 'deposit.html',
+        'insight': 'insight.html',
+        'prediction': 'prediction.html',
+        'news': 'news.html',
+        'videos': 'videos.html',
+        'superstars': 'Superstars.html',
+        'alerts': 'Alerts.html',
+        'help': 'help.html',
+        'profile': 'profile.html',
+        'login': 'login.html',
+        'faq': 'FAQ.html'
+    }
+    
+    if page_name in valid_pages:
+        try:
+            return render_template(valid_pages[page_name])
+        except Exception as e:
+            return f"Error loading {valid_pages[page_name]}: {str(e)}", 500
+    else:
+        return "Page not found", 404
 
 # ========= API ROUTES =========
 @server.route('/api/predict', methods=['POST'])
@@ -1451,5 +1511,8 @@ if __name__ == '__main__':
     print(f"🎯 Prediction Target: October 13, 2025")
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     print("✅ Using enhanced current price fetching with 5 different methods")
-    print("✅ All routes fixed - portfolio, mystock, deposit, insight, prediction, news, videos, Superstars, Alerts, help, profile pages should work now!")
+    print("✅ All routes fixed with debugging - portfolio, mystock, deposit, insight, prediction, news, videos, Superstars, Alerts, help, profile pages should work now!")
+    print("🔧 Debug URLs:")
+    print("   - /debug-templates - Check available template files")
+    print("   - /test-route/<template_name> - Test specific template")
     app.run(debug=True, port=8080, host='0.0.0.0')
