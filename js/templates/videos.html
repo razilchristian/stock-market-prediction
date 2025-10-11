@@ -7,50 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
+/* Reset and Base Styles */
 * {
   margin: 0;
   padding: 0;
@@ -183,6 +140,7 @@ body {
   box-shadow: var(--shadow-glow);
 }
 
+/* Mobile Menu Animation */
 .menu-toggle {
   display: none;
   flex-direction: column;
@@ -199,6 +157,49 @@ body {
   background: var(--text-primary);
   border-radius: 2px;
   transition: all 0.3s ease;
+}
+
+.menu-toggle span.active:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.menu-toggle span.active:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle span.active:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Ensure mobile menu displays properly */
+@media (max-width: 768px) {
+  .nav-items {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border-top: 1px solid var(--border-color);
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+  
+  .nav-items.show {
+    display: flex;
+  }
+  
+  .nav-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
 }
 
 /* Main Content */
@@ -708,6 +709,153 @@ body {
   100% { background-position: 200% 0; }
 }
 
+/* Additional Styles for Notifications and UI Elements */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.notification-content.success {
+  border-left: 4px solid var(--up-color);
+}
+
+.notification-content.error {
+  border-left: 4px solid var(--down-color);
+}
+
+.notification-content.warning {
+  border-left: 4px solid #ff9800;
+}
+
+.notification-content.info {
+  border-left: 4px solid #2196f3;
+}
+
+.notification-icon {
+  font-size: 1.2em;
+}
+
+.notification-content.success .notification-icon {
+  color: var(--up-color);
+}
+
+.notification-content.error .notification-icon {
+  color: var(--down-color);
+}
+
+.notification-content.warning .notification-icon {
+  color: #ff9800;
+}
+
+.notification-content.info .notification-icon {
+  color: #2196f3;
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 14px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.notification-close:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.no-videos-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-videos-state i {
+  font-size: 48px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.video-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.featured-video-container.loading {
+  opacity: 0.7;
+}
+
+.video-category-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.modal-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.video-stats-small {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.video-stat-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.video-channel-date {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .navbar {
@@ -788,50 +936,6 @@ body {
   }
 }
 </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
 <div class="container">
@@ -903,10 +1007,10 @@ body {
           <input type="text" class="search-bar" placeholder="Search videos..." id="searchInput">
         </div>
         <div class="action-buttons">
-          <button class="btn btn-primary" onclick="loadVideos()">
+          <button class="btn btn-primary" onclick="VideoManager.refreshVideos()">
             <i class="fas fa-sync-alt"></i>Refresh
           </button>
-          <button class="btn btn-secondary" onclick="toggleTheme()">
+          <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
             <i class="fas fa-palette"></i>Theme
           </button>
         </div>
@@ -987,6 +1091,7 @@ body {
     <div class="modal-info">
       <h3 class="modal-title" id="modalTitle"></h3>
       <p class="modal-description" id="modalDescription"></p>
+      <div class="video-stats" id="modalStats"></div>
     </div>
   </div>
 </div>
@@ -1592,9 +1697,9 @@ class VideoManager {
             // Duration filter
             if (duration !== 'all') {
                 const minutes = this.parseDuration(video.duration);
-                if (duration === 'short' && minutes > 10) return false;
-                if (duration === 'medium' && (minutes <= 10 || minutes > 20)) return false;
-                if (duration === 'long' && minutes <= 20) return false;
+                if (duration === 'short' && minutes >= 5) return false;
+                if (duration === 'medium' && (minutes < 5 || minutes > 15)) return false;
+                if (duration === 'long' && minutes <= 15) return false;
             }
             
             // Search filter
@@ -1617,8 +1722,6 @@ class VideoManager {
                     return new Date(a.date) - new Date(b.date);
                 case 'popular':
                     return this.parseViews(b.views) - this.parseViews(a.views);
-                case 'duration':
-                    return this.parseDuration(b.duration) - this.parseDuration(a.duration);
                 default:
                     return 0;
             }
@@ -1720,19 +1823,6 @@ class VideoApp {
     }
 }
 
-// Global functions for HTML event handlers
-function toggleTheme() {
-    ThemeManager.toggle();
-}
-
-function refreshVideos() {
-    VideoManager.refreshVideos();
-}
-
-function clearFilters() {
-    VideoManager.clearFilters();
-}
-
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     window.videoApp = new VideoApp();
@@ -1743,173 +1833,6 @@ window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
     NotificationManager.show('An unexpected error occurred', 'error');
 });
-
-// Add notification and loading styles
-const additionalStyles = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0;
-        min-width: 300px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateX(400px);
-        opacity: 0;
-        transition: all 0.3s ease;
-        z-index: 10000;
-        overflow: hidden;
-    }
-    
-    .notification.show {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    
-    .notification-content {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .notification-content.success {
-        border-left: 4px solid var(--up-color);
-    }
-    
-    .notification-content.error {
-        border-left: 4px solid var(--down-color);
-    }
-    
-    .notification-content.warning {
-        border-left: 4px solid #ff9800;
-    }
-    
-    .notification-content.info {
-        border-left: 4px solid #2196f3;
-    }
-    
-    .notification-icon {
-        font-size: 1.2em;
-    }
-    
-    .notification-content.success .notification-icon {
-        color: var(--up-color);
-    }
-    
-    .notification-content.error .notification-icon {
-        color: var(--down-color);
-    }
-    
-    .notification-content.warning .notification-icon {
-        color: #ff9800;
-    }
-    
-    .notification-content.info .notification-icon {
-        color: #2196f3;
-    }
-    
-    .notification-message {
-        flex: 1;
-        font-size: 14px;
-    }
-    
-    .notification-close {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-    }
-    
-    .notification-close:hover {
-        background: var(--border-color);
-        color: var(--text-primary);
-    }
-    
-    .no-videos-state {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 60px 20px;
-    }
-    
-    .no-videos-state i {
-        font-size: 48px;
-        color: var(--text-muted);
-        margin-bottom: 16px;
-    }
-    
-    .video-card.loading {
-        opacity: 0.7;
-        pointer-events: none;
-    }
-    
-    .featured-video-container.loading {
-        opacity: 0.7;
-    }
-    
-    .shimmer {
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-    }
-    
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-    }
-    
-    .video-category-badge {
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-    }
-    
-    .modal-stat {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
-        color: var(--text-muted);
-    }
-    
-    .video-stats-small {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 8px;
-    }
-    
-    .video-stat-small {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        color: var(--text-muted);
-    }
-    
-    .video-channel-date {
-        display: flex;
-        justify-content: between;
-        align-items: center;
-        gap: 12px;
-    }
-`;
-
-// Add styles to document
-const styleSheet = document.createElement('style');
-styleSheet.textContent = additionalStyles;
-document.head.appendChild(styleSheet);
 </script>
 </body>
 </html>
-
-
