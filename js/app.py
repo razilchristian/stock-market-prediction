@@ -13,6 +13,15 @@ import time
 from functools import wraps
 warnings.filterwarnings('ignore')
 
+# Machine Learning imports - ADD THESE
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+import ta  # Technical analysis library
+
 # ========= RATE LIMITING DECORATOR =========
 def rate_limit(max_per_second):
     min_interval = 1.0 / max_per_second
