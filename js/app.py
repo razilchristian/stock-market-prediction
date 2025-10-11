@@ -3,7 +3,7 @@ import numpy as np
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
-from flask import Flask, send_from_directory, render_template, jsonify, request
+from flask import Flask, send_from_directory, render_template, jsonify, request, redirect, url_for
 import requests
 import yfinance as yf
 from datetime import datetime, timedelta
@@ -432,6 +432,23 @@ def get_trading_recommendation(change_percent, risk_level, volatility):
         else:
             return "🔄 HOLD: Very stable - minimal trading opportunity"
 
+# ========= NAVIGATION CONFIGURATION =========
+NAVIGATION_MAP = {
+    'index': '/',
+    'jeet': '/jeet',
+    'portfolio': '/portfolio',
+    'mystock': '/mystock',
+    'deposit': '/deposit',
+    'insight': '/insight',
+    'prediction': '/prediction',
+    'news': '/news',
+    'videos': '/videos',
+    'superstars': '/superstars',
+    'alerts': '/alerts',
+    'help': '/help',
+    'profile': '/profile'
+}
+
 # ========= DEBUG ROUTES =========
 @server.route('/debug-templates')
 def debug_templates():
@@ -468,55 +485,75 @@ def test_route(template_name):
 # ========= FLASK ROUTES FOR ALL PAGES =========
 @server.route('/')
 def index():
-    return render_template('jeet.html')
+    return render_template('jeet.html', navigation=NAVIGATION_MAP)
 
 @server.route('/jeet')
 def jeet_page():
-    return render_template('jeet.html')
+    return render_template('jeet.html', navigation=NAVIGATION_MAP)
 
 @server.route('/portfolio')
 def portfolio_page():
-    return render_template('portfolio.html')
+    return render_template('portfolio.html', navigation=NAVIGATION_MAP)
 
 @server.route('/mystock')
 def mystock_page():
-    return render_template('mystock.html')
+    return render_template('mystock.html', navigation=NAVIGATION_MAP)
 
 @server.route('/deposit')
 def deposit_page():
-    return render_template('deposit.html')
+    return render_template('deposit.html', navigation=NAVIGATION_MAP)
 
 @server.route('/insight')
 def insight_page():
-    return render_template('insight.html')
+    return render_template('insight.html', navigation=NAVIGATION_MAP)
 
 @server.route('/prediction')
 def prediction_page():
-    return render_template('prediction.html')
+    return render_template('prediction.html', navigation=NAVIGATION_MAP)
 
 @server.route('/news')
 def news_page():
-    return render_template('news.html')
+    return render_template('news.html', navigation=NAVIGATION_MAP)
 
 @server.route('/videos')
 def videos_page():
-    return render_template('videos.html')
+    return render_template('videos.html', navigation=NAVIGATION_MAP)
 
 @server.route('/superstars')
 def superstars_page():
-    return render_template('Superstars.html')
+    return render_template('Superstars.html', navigation=NAVIGATION_MAP)
 
 @server.route('/alerts')
 def alerts_page():
-    return render_template('Alerts.html')
+    return render_template('Alerts.html', navigation=NAVIGATION_MAP)
 
 @server.route('/help')
 def help_page():
-    return render_template('help.html')
+    return render_template('help.html', navigation=NAVIGATION_MAP)
 
 @server.route('/profile')
 def profile_page():
-    return render_template('profile.html')
+    return render_template('profile.html', navigation=NAVIGATION_MAP)
+
+# ========= NAVIGATION ROUTES =========
+@server.route('/navigate/<page_name>')
+def navigate_to_page(page_name):
+    """Universal navigation route to redirect between pages"""
+    if page_name in NAVIGATION_MAP:
+        return redirect(NAVIGATION_MAP[page_name])
+    else:
+        return redirect('/')  # Fallback to home page
+
+@server.route('/go-back')
+def go_back():
+    """Go back to previous page"""
+    return redirect(request.referrer or '/')
+
+# ========= API ROUTES FOR NAVIGATION =========
+@server.route('/api/navigation')
+def get_navigation():
+    """API endpoint to get navigation structure"""
+    return jsonify(NAVIGATION_MAP)
 
 @server.route('/test-all-routes')
 def test_all_routes():
@@ -534,11 +571,8 @@ def test_all_routes():
         ('/superstars', 'Superstars.html'),
         ('/alerts', 'Alerts.html'),
         ('/help', 'help.html'),
-        ('/profile', 'profile.html'),
-        ('/login', 'login.html'),
-        ('/faq', 'FAQ.html')
+        ('/profile', 'profile.html')
     ]
-    
     results = []
     for route, template in routes_to_test:
         try:
@@ -1509,6 +1543,9 @@ if __name__ == '__main__':
     print(f"🏛️  Market Status: {get_market_status()[1]}")
     print("✅ Using enhanced current price fetching with 5 different methods")
     print("✅ CORRECTED TEMPLATE PATH: templates/ (relative to js/ folder)")
+    print("🔄 NAVIGATION: Added bidirectional navigation between all pages")
+    print("   - /navigate/<page_name> - Universal navigation route")
+    print("   - /go-back - Go back to previous page")
     print("🔧 Debug URLs:")
     print("   - /debug-templates - Check available template files")
     print("   - /test-route/<template_name> - Test specific template")
