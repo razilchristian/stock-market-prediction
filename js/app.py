@@ -351,7 +351,7 @@ def get_live_stock_data(ticker, period="2y"):
         hist_data = stock.history(period=period)
         
         if hist_data.empty:
-            return None, "No historical data found for this ticker"
+            return None, None, "No historical data found for this ticker"
         
         # Get current live price
         current_info = stock.info
