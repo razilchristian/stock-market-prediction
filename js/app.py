@@ -56,10 +56,10 @@ app = dash.Dash(
     ]
 )
 
-# ========= FALLBACK STOCK DATA GENERATION =========
-def generate_fallback_data(ticker, base_price=None, days=252):
-    """Generate realistic fallback stock data when live data fails"""
-    print(f"📊 Generating realistic fallback data for {ticker}...")
+# ========= ENHANCED FALLBACK STOCK DATA GENERATION =========
+def generate_fallback_data(ticker, base_price=None, days=2520):  # 10 years of data
+    """Generate realistic fallback stock data with 10 years of historical data"""
+    print(f"📊 Generating realistic 10-year fallback data for {ticker}...")
     
     # Base prices for popular stocks
     base_prices = {
@@ -71,70 +71,99 @@ def generate_fallback_data(ticker, base_price=None, days=252):
     if base_price is None:
         base_price = base_prices.get(ticker, 100.00)
     
-    # Generate date range (last 'days' trading days)
+    # Generate date range (last 'days' trading days - approx 10 years)
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days*1.5)  # Account for weekends
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
     dates = dates[dates.dayofweek < 5]  # Keep only weekdays
     dates = dates[-days:]  # Take last 'days' trading days
     
-    # Generate realistic price data with trends and volatility
-    prices = [base_price]
+    # Generate realistic price data with long-term trends and market cycles
+    prices = [base_price * random.uniform(0.8, 1.2)]  # Start with some variation
     volumes = [random.randint(5000000, 50000000)]
     
-    # Market regime simulation
+    # Market cycles simulation (bull markets, corrections, etc.)
+    cycle_period = len(dates) // 4  # 4 major cycles in 10 years
+    
     for i in range(1, len(dates)):
-        # Dynamic volatility based on market conditions
-        if i < len(dates) * 0.3:  # Bull market
-            trend = 0.0002
-            volatility = 0.015
-        elif i < len(dates) * 0.6:  # Correction
-            trend = -0.0001
-            volatility = 0.025
-        else:  # Recovery
-            trend = 0.0003
-            volatility = 0.020
+        # Determine market regime based on cycle position
+        cycle_pos = i % cycle_period
+        cycle_phase = cycle_pos / cycle_period
         
-        # Random walk with trend
+        if cycle_phase < 0.3:  # Early bull market
+            trend = 0.0003
+            volatility = 0.012
+        elif cycle_phase < 0.5:  # Late bull market
+            trend = 0.0005
+            volatility = 0.018
+        elif cycle_phase < 0.7:  # Early bear market
+            trend = -0.0004
+            volatility = 0.022
+        else:  # Late bear market / recovery
+            trend = -0.0002
+            volatility = 0.016
+        
+        # Seasonal effects (monthly)
+        current_month = dates[i].month
+        if current_month in [11, 12]:  # Year-end rally
+            trend += 0.0002
+        elif current_month in [9, 10]:  # September/October volatility
+            volatility += 0.005
+        
+        # Random walk with trend and volatility
         change = random.gauss(trend, volatility)
         
         # Occasional large moves (market events)
-        if random.random() < 0.02:  # 2% chance of large move
-            change += random.gauss(0, 0.04)
+        if random.random() < 0.015:  # 1.5% chance of large move
+            change += random.gauss(0, 0.06)
         
         new_price = prices[-1] * (1 + change)
         
-        # Ensure realistic price bounds
-        new_price = max(new_price, base_price * 0.3)
-        new_price = min(new_price, base_price * 3.0)
+        # Ensure realistic price bounds (stocks don't go to zero or infinity)
+        new_price = max(new_price, base_price * 0.1)
+        new_price = min(new_price, base_price * 10.0)
         
         prices.append(new_price)
         
-        # Volume with some correlation to price movement
-        volume_change = random.gauss(0, 0.3)
-        if abs(change) > 0.02:  # High volume on large moves
-            volume_change = random.gauss(0.5, 0.2)
+        # Volume with correlation to price movement and volatility
+        volume_change = random.gauss(0, 0.2)
+        if abs(change) > 0.03:  # High volume on large moves
+            volume_change = random.gauss(0.6, 0.3)
+        elif abs(change) < 0.005:  # Low volume on small moves
+            volume_change = random.gauss(-0.3, 0.2)
+            
         new_volume = volumes[-1] * (1 + volume_change)
         new_volume = max(new_volume, 1000000)
-        new_volume = min(new_volume, 100000000)
+        new_volume = min(new_volume, 200000000)
         volumes.append(int(new_volume))
     
-    # Create OHLC data from close prices
+    # Create realistic OHLC data
     opens, highs, lows = [], [], []
     
     for i, close in enumerate(prices):
         if i == 0:
-            open_price = close * random.uniform(0.99, 1.01)
+            open_price = close * random.uniform(0.98, 1.02)
         else:
-            open_price = prices[i-1] * random.uniform(0.995, 1.005)
+            # Today's open is based on yesterday's close with overnight gap
+            overnight_gap = random.gauss(0, 0.008)
+            open_price = prices[i-1] * (1 + overnight_gap)
         
-        daily_range = volatility * close
-        high_price = max(open_price, close) + daily_range * random.uniform(0.3, 0.7)
-        low_price = min(open_price, close) - daily_range * random.uniform(0.3, 0.7)
+        # Daily range based on volatility
+        current_volatility = volatility * (1 + random.uniform(-0.3, 0.3))
+        daily_range = current_volatility * close
+        
+        high_price = max(open_price, close) + daily_range * random.uniform(0.4, 0.8)
+        low_price = min(open_price, close) - daily_range * random.uniform(0.4, 0.8)
         
         # Ensure logical relationships
         high_price = max(high_price, close, open_price)
         low_price = min(low_price, close, open_price)
+        
+        # Ensure high-low range is reasonable
+        if (high_price - low_price) / open_price > 0.15:  # Max 15% daily range
+            range_ratio = 0.15 * open_price / (high_price - low_price)
+            high_price = open_price + (high_price - open_price) * range_ratio
+            low_price = open_price - (open_price - low_price) * range_ratio
         
         opens.append(open_price)
         highs.append(high_price)
@@ -149,19 +178,75 @@ def generate_fallback_data(ticker, base_price=None, days=252):
         'Volume': volumes
     })
     
-    print(f"✅ Generated {len(df)} fallback data points for {ticker}")
+    print(f"✅ Generated {len(df)} fallback data points for {ticker} (10 years)")
     print(f"💰 Current price: ${prices[-1]:.2f}")
+    print(f"📈 Price range: ${min(prices):.2f} - ${max(prices):.2f}")
     
-    return df, prices[-1]
+    return df, prices[-1], None
 
-# ========= ADVANCED STOCK PREDICTOR WITH EXPLAINABILITY =========
+# ========= ENHANCED REAL-TIME DATA FUNCTIONS =========
+@rate_limit(0.3)
+def get_live_stock_data(ticker):
+    """Get 10 years of live stock data from yfinance with enhanced fallback"""
+    try:
+        print(f"📥 Fetching 10 YEARS of LIVE data for {ticker}...")
+        
+        # Add delay to avoid rate limiting
+        time.sleep(random.uniform(1, 2))
+        
+        # METHOD 1: Try to get 10 years of daily data
+        try:
+            print("🔄 Fetching 10 years of daily data...")
+            hist_data = yf.download(ticker, period="10y", interval="1d", progress=False, timeout=15)
+            
+            if not hist_data.empty and len(hist_data) > 1000:  # At least 4 years of data
+                # Get current price
+                current_price = hist_data['Close'].iloc[-1]
+                
+                # Reset index to get Date as column
+                hist_data = hist_data.reset_index()
+                hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
+                
+                print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} (10 years)")
+                print(f"💰 Current LIVE price: ${current_price:.2f}")
+                print(f"📅 Data range: {hist_data['Date'].iloc[0]} to {hist_data['Date'].iloc[-1]}")
+                
+                return hist_data, current_price, None
+            else:
+                print("⚠️ Insufficient historical data, trying 5 years...")
+                # Fallback to 5 years
+                hist_data = yf.download(ticker, period="5y", interval="1d", progress=False, timeout=15)
+                
+                if not hist_data.empty and len(hist_data) > 500:
+                    current_price = hist_data['Close'].iloc[-1]
+                    hist_data = hist_data.reset_index()
+                    hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
+                    
+                    print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} (5 years)")
+                    print(f"💰 Current LIVE price: ${current_price:.2f}")
+                    return hist_data, current_price, None
+                else:
+                    print("❌ Insufficient data from yfinance, using enhanced fallback...")
+                    return generate_fallback_data(ticker)
+                    
+        except Exception as e:
+            print(f"❌ yfinance download failed: {e}")
+            print("🔄 Using enhanced fallback data...")
+            return generate_fallback_data(ticker)
+        
+    except Exception as e:
+        print(f"❌ Live data fetching error: {e}")
+        print("🔄 Using enhanced fallback data due to error...")
+        return generate_fallback_data(ticker)
+
+# ========= ENHANCED STOCK PREDICTOR =========
 class AdvancedStockPredictor:
     def __init__(self):
         self.models = {
-            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
-            'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
+            'Random Forest': RandomForestRegressor(n_estimators=200, random_state=42, max_depth=20),
+            'Gradient Boosting': GradientBoostingRegressor(n_estimators=200, random_state=42, max_depth=10),
             'Linear Regression': LinearRegression(),
-            'SVR': SVR()
+            'SVR': SVR(kernel='rbf', C=1.0, epsilon=0.1)
         }
         self.scaler = StandardScaler()
         self.is_fitted = False
@@ -172,143 +257,191 @@ class AdvancedStockPredictor:
         self.model_health_metrics = {}
         
     def create_advanced_features(self, df):
-        """Create comprehensive technical indicators and features with market regimes"""
+        """Create comprehensive technical indicators with enhanced features"""
         try:
-            print("🔄 Creating advanced technical indicators...")
+            print("🔄 Creating enhanced technical indicators for 10-year data...")
             
             # Ensure numeric columns
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Convert Date to datetime
+            df['Date'] = pd.to_datetime(df['Date'])
             
             # Basic price features
             df['Price_Range'] = (df['High'] - df['Low']) / df['Open']
             df['Body_Size'] = abs(df['Close'] - df['Open']) / df['Open']
             df['High_Low_Ratio'] = df['High'] / df['Low']
             df['Close_Open_Ratio'] = df['Close'] / df['Open']
+            df['Gap'] = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1)
             
-            # Returns and momentum
-            for lag in [1, 2, 3, 5, 10]:
+            # Enhanced returns and momentum (multiple timeframes)
+            for lag in [1, 2, 3, 5, 10, 21, 63]:  # 1 day to 3 months
                 df[f'Return_{lag}'] = df['Close'].pct_change(lag)
                 df[f'Close_Lag_{lag}'] = df['Close'].shift(lag)
             
             # Volatility features (multiple timeframes)
-            for window in [5, 10, 20, 50]:
+            for window in [5, 10, 20, 50, 100, 200]:
                 df[f'Volatility_{window}'] = df['Return_1'].rolling(window).std()
                 df[f'Rolling_Mean_{window}'] = df['Close'].rolling(window).mean()
                 df[f'Rolling_Min_{window}'] = df['Close'].rolling(window).min()
                 df[f'Rolling_Max_{window}'] = df['Close'].rolling(window).max()
+                df[f'Price_vs_MA_{window}'] = df['Close'] / df[f'Rolling_Mean_{window}'] - 1
             
             # RSI multiple timeframes
-            for period in [6, 14, 21]:
+            for period in [6, 14, 21, 50]:
                 df[f'RSI_{period}'] = ta.momentum.RSIIndicator(df['Close'], window=period).rsi()
             
-            # MACD with multiple configurations
+            # Enhanced MACD
             macd = ta.trend.MACD(df['Close'])
             df['MACD'] = macd.macd()
             df['MACD_Signal'] = macd.macd_signal()
             df['MACD_Histogram'] = macd.macd_diff()
+            df['MACD_Histogram_Change'] = df['MACD_Histogram'].diff()
             
             # Moving averages and crossovers
             for window in [5, 10, 20, 50, 100, 200]:
                 df[f'SMA_{window}'] = ta.trend.SMAIndicator(df['Close'], window=window).sma_indicator()
                 df[f'EMA_{window}'] = ta.trend.EMAIndicator(df['Close'], window=window).ema_indicator()
-                df[f'Price_vs_SMA_{window}'] = df['Close'] / df[f'SMA_{window}']
-                df[f'Price_vs_EMA_{window}'] = df['Close'] / df[f'EMA_{window}']
+                df[f'Price_vs_SMA_{window}'] = df['Close'] / df[f'SMA_{window}'] - 1
+                df[f'Price_vs_EMA_{window}'] = df['Close'] / df[f'EMA_{window}'] - 1
             
-            # Market regime indicators
+            # Enhanced market regime indicators
             df['Above_SMA_200'] = (df['Close'] > df['SMA_200']).astype(int)
             df['Golden_Cross'] = ((df['SMA_50'] > df['SMA_200']) & (df['SMA_50'].shift(1) <= df['SMA_200'].shift(1))).astype(int)
             df['Death_Cross'] = ((df['SMA_50'] < df['SMA_200']) & (df['SMA_50'].shift(1) >= df['SMA_200'].shift(1))).astype(int)
+            df['Trend_Strength'] = (df['Close'] - df['SMA_50']) / df['SMA_50']
             
-            # Volume indicators
-            df['Volume_SMA_20'] = df['Volume'].rolling(20).mean()
-            df['Volume_Ratio'] = df['Volume'] / df['Volume_SMA_20']
+            # Enhanced volume indicators
+            for window in [5, 10, 20, 50]:
+                df[f'Volume_SMA_{window}'] = df['Volume'].rolling(window).mean()
+                df[f'Volume_Ratio_{window}'] = df['Volume'] / df[f'Volume_SMA_{window}']
+            
             df['Volume_Change'] = df['Volume'].pct_change()
+            df['Volume_Price_Trend'] = df['Volume'] * df['Return_1']
             
-            # Bollinger Bands
-            bb = ta.volatility.BollingerBands(df['Close'], window=20)
-            df['BB_Upper'] = bb.bollinger_hband()
-            df['BB_Lower'] = bb.bollinger_lband()
-            df['BB_Middle'] = bb.bollinger_mavg()
-            df['BB_Width'] = (df['BB_Upper'] - df['BB_Lower']) / df['BB_Middle']
-            df['BB_Position'] = (df['Close'] - df['BB_Lower']) / (df['BB_Upper'] - df['BB_Lower'])
+            # Enhanced Bollinger Bands
+            for window in [20, 50]:
+                bb = ta.volatility.BollingerBands(df['Close'], window=window)
+                df[f'BB_Upper_{window}'] = bb.bollinger_hband()
+                df[f'BB_Lower_{window}'] = bb.bollinger_lband()
+                df[f'BB_Middle_{window}'] = bb.bollinger_mavg()
+                df[f'BB_Width_{window}'] = (df[f'BB_Upper_{window}'] - df[f'BB_Lower_{window}']) / df[f'BB_Middle_{window}']
+                df[f'BB_Position_{window}'] = (df['Close'] - df[f'BB_Lower_{window}']) / (df[f'BB_Upper_{window}'] - df[f'BB_Lower_{window}'])
             
-            # ATR for volatility
+            # Enhanced ATR for volatility
             df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
+            df['ATR_Ratio'] = df['ATR'] / df['Close']
             
-            # Stochastic
+            # Enhanced Stochastic
             stoch = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close'])
             df['Stoch_K'] = stoch.stoch()
             df['Stoch_D'] = stoch.stoch_signal()
+            df['Stoch_Crossover'] = (df['Stoch_K'] > df['Stoch_D']).astype(int)
             
-            # Time-based features
-            df['Date'] = pd.to_datetime(df['Date'])
+            # Time-based features with enhanced seasonality
             df['DayOfWeek'] = df['Date'].dt.dayofweek
             df['Month'] = df['Date'].dt.month
             df['Quarter'] = df['Date'].dt.quarter
+            df['Year'] = df['Date'].dt.year
+            df['WeekOfYear'] = df['Date'].dt.isocalendar().week
             df['Is_Month_End'] = df['Date'].dt.is_month_end.astype(int)
             df['Is_Month_Start'] = df['Date'].dt.is_month_start.astype(int)
+            df['Is_Quarter_End'] = df['Date'].dt.is_quarter_end.astype(int)
+            df['Is_Quarter_Start'] = df['Date'].dt.is_quarter_start.astype(int)
+            df['Is_Year_End'] = (df['Date'].dt.month == 12) & (df['Date'].dt.day == 31)
+            df['Is_Year_Start'] = (df['Date'].dt.month == 1) & (df['Date'].dt.day == 1)
+            
+            # Market seasonality features
+            df['Month_Sin'] = np.sin(2 * np.pi * df['Month'] / 12)
+            df['Month_Cos'] = np.cos(2 * np.pi * df['Month'] / 12)
+            
+            # Price momentum features
+            df['Momentum_1M'] = df['Close'].pct_change(21)
+            df['Momentum_3M'] = df['Close'].pct_change(63)
+            df['Momentum_6M'] = df['Close'].pct_change(126)
+            df['Momentum_1Y'] = df['Close'].pct_change(252)
+            
+            # Support and resistance levels
+            df['Resistance_20'] = df['High'].rolling(20).max()
+            df['Support_20'] = df['Low'].rolling(20).min()
+            df['Distance_to_Resistance'] = (df['Close'] - df['Resistance_20']) / df['Resistance_20']
+            df['Distance_to_Support'] = (df['Close'] - df['Support_20']) / df['Support_20']
             
             # Drop NaN values created by indicators
             initial_count = len(df)
             df = df.dropna()
             final_count = len(df)
-            print(f"✅ Created {len(df.columns)} features. Data points: {initial_count} → {final_count} after cleaning")
+            
+            print(f"✅ Created {len(df.columns)} enhanced features")
+            print(f"📊 Data points: {initial_count} → {final_count} after cleaning")
+            print(f"📅 Final date range: {df['Date'].min()} to {df['Date'].max()}")
             
             return df
             
         except Exception as e:
-            print(f"❌ Error creating features: {e}")
+            print(f"❌ Error creating enhanced features: {e}")
             return df
     
     def prepare_advanced_data(self, df, target_days=1):
-        """Prepare data for next-day prediction with multiple targets"""
+        """Prepare data for next-day prediction with enhanced targets"""
         try:
-            # Create targets for next trading day
-            df['Target_Close'] = df['Close'].shift(-target_days)
+            # Create targets for next trading day (OHLC)
+            df['Target_Open'] = df['Open'].shift(-target_days)
             df['Target_High'] = df['High'].shift(-target_days)
             df['Target_Low'] = df['Low'].shift(-target_days)
+            df['Target_Close'] = df['Close'].shift(-target_days)
             
             # Feature columns (exclude date and targets)
-            exclude_cols = ['Date', 'Target_Close', 'Target_High', 'Target_Low', 'Open', 'High', 'Low', 'Close', 'Volume']
+            exclude_cols = ['Date', 'Target_Open', 'Target_High', 'Target_Low', 'Target_Close', 
+                           'Open', 'High', 'Low', 'Close', 'Volume']
             self.feature_columns = [col for col in df.columns if col not in exclude_cols]
             
-            # Remove rows where target is NaN
-            df_clean = df.dropna(subset=['Target_Close', 'Target_High', 'Target_Low'])
+            # Remove rows where any target is NaN
+            df_clean = df.dropna(subset=['Target_Open', 'Target_High', 'Target_Low', 'Target_Close'])
             
             X = df_clean[self.feature_columns]
-            y_close = df_clean['Target_Close']
+            y_open = df_clean['Target_Open']
             y_high = df_clean['Target_High']
             y_low = df_clean['Target_Low']
+            y_close = df_clean['Target_Close']
             
             print(f"📊 Prepared data: {len(X)} samples, {len(self.feature_columns)} features")
-            return X, y_close, y_high, y_low
+            print(f"🎯 Targets: Open, High, Low, Close prices")
+            
+            return X, y_open, y_high, y_low, y_close
             
         except Exception as e:
             print(f"❌ Error preparing data: {e}")
-            return None, None, None, None
+            return None, None, None, None, None
     
     def train_advanced_models(self, df, target_days=1):
-        """Train models for next-day price prediction with explainability"""
+        """Train models for next-day OHLC price prediction"""
         try:
-            print("🔄 Creating advanced features...")
+            print("🔄 Creating enhanced features for 10-year data...")
             # Create features
             df_with_features = self.create_advanced_features(df)
             
-            if len(df_with_features) < 100:
-                return None, "Insufficient data for training (minimum 100 data points required)"
+            if len(df_with_features) < 500:  # Minimum 2 years of clean data
+                return None, f"Insufficient data for training (minimum 500 data points required, got {len(df_with_features)})"
             
             print(f"📈 Training models on {len(df_with_features)} data points...")
             # Prepare data
-            X, y_close, y_high, y_low = self.prepare_advanced_data(df_with_features, target_days)
+            X, y_open, y_high, y_low, y_close = self.prepare_advanced_data(df_with_features, target_days)
             
             if X is None:
                 return None, "Error in data preparation"
             
-            # Split data
-            X_train, X_test, y_close_train, y_close_test, y_high_train, y_high_test, y_low_train, y_low_test = train_test_split(
-                X, y_close, y_high, y_low, test_size=0.2, random_state=42, shuffle=False
-            )
+            # Split data chronologically (important for time series)
+            split_idx = int(len(X) * 0.8)
+            X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+            y_open_train, y_open_test = y_open.iloc[:split_idx], y_open.iloc[split_idx:]
+            y_high_train, y_high_test = y_high.iloc[:split_idx], y_high.iloc[split_idx:]
+            y_low_train, y_low_test = y_low.iloc[:split_idx], y_low.iloc[split_idx:]
+            y_close_train, y_close_test = y_close.iloc[:split_idx], y_close.iloc[split_idx:]
+            
+            print(f"📊 Training set: {len(X_train)} samples")
+            print(f"📊 Test set: {len(X_test)} samples")
             
             # Scale features
             X_train_scaled = self.scaler.fit_transform(X_train)
@@ -317,9 +450,9 @@ class AdvancedStockPredictor:
             results = {}
             models_trained = {}
             
-            # Train models for each target
+            # Train models for CLOSE price (primary target)
             for name, model in self.models.items():
-                print(f"🤖 Training {name}...")
+                print(f"🤖 Training {name} for CLOSE price...")
                 
                 # Train for close price
                 if name == 'SVR':
@@ -359,13 +492,16 @@ class AdvancedStockPredictor:
                 'data_points': len(X_train),
                 'best_model': best_model_name,
                 'best_r2': results[best_model_name]['R2'],
-                'feature_count': len(self.feature_columns)
+                'feature_count': len(self.feature_columns),
+                'data_range': f"{df_with_features['Date'].min()} to {df_with_features['Date'].max()}",
+                'total_years': len(df_with_features) / 252  # Approximate years
             }
             
             self.is_fitted = True
             self.trained_models = models_trained
             
             print(f"✅ All models trained successfully! Best model: {best_model_name}")
+            print(f"📊 Model R²: {results[best_model_name]['R2']:.4f}")
             return results, None
             
         except Exception as e:
@@ -393,7 +529,7 @@ class AdvancedStockPredictor:
             self.feature_importance = {}
     
     def predict_next_day_prices(self, df):
-        """Predict next day prices with confidence bands and scenarios"""
+        """Predict next day OHLC prices with enhanced accuracy"""
         if not self.is_fitted:
             return None, None, None, "Models not trained"
         
@@ -407,6 +543,10 @@ class AdvancedStockPredictor:
             # Get the most recent data point for prediction
             latest_data = df_with_features.iloc[-1:]
             current_price = latest_data['Close'].iloc[0]
+            current_date = latest_data['Date'].iloc[0]
+            
+            print(f"📅 Predicting for date: {current_date}")
+            print(f"💰 Current price: ${current_price:.2f}")
             
             # Predict close price using best model
             if self.best_model_name == 'SVR':
@@ -415,23 +555,34 @@ class AdvancedStockPredictor:
             else:
                 predicted_close = self.best_model.predict(latest_data[self.feature_columns])[0]
             
-            # Calculate other prices based on historical patterns
-            recent_data = df_with_features.tail(50)
+            # Use historical patterns for other prices with enhanced logic
+            recent_data = df_with_features.tail(252)  # Use 1 year of data for patterns
+            
+            # Calculate typical price relationships from historical data
+            open_pattern = (recent_data['Open'] / recent_data['Close'].shift(1)).mean()
+            high_pattern = (recent_data['High'] / recent_data['Close']).mean()
+            low_pattern = (recent_data['Low'] / recent_data['Close']).mean()
+            
+            # Calculate current volatility for confidence bands
             volatility = recent_data['Return_1'].std()
             current_volatility = recent_data['Volatility_20'].iloc[-1]
             
-            # Predict other prices using typical ratios with volatility adjustment
-            open_ratio = (recent_data['Open'] / recent_data['Close'].shift(1)).mean()
-            high_ratio = (recent_data['High'] / recent_data['Close']).mean()
-            low_ratio = (recent_data['Low'] / recent_data['Close']).mean()
-            
-            predicted_open = predicted_close * open_ratio
-            predicted_high = predicted_close * high_ratio * (1 + volatility)
-            predicted_low = predicted_close * low_ratio * (1 - volatility)
+            # Enhanced prediction with volatility adjustment
+            predicted_open = predicted_close * open_pattern
+            predicted_high = predicted_close * high_pattern * (1 + volatility * 0.8)
+            predicted_low = predicted_close * low_pattern * (1 - volatility * 0.8)
             
             # Ensure logical price relationships
             predicted_high = max(predicted_high, predicted_close, predicted_open)
             predicted_low = min(predicted_low, predicted_close, predicted_open)
+            
+            # Ensure reasonable daily range
+            daily_range = predicted_high - predicted_low
+            max_reasonable_range = current_price * 0.1  # Max 10% daily range
+            if daily_range > max_reasonable_range:
+                range_ratio = max_reasonable_range / daily_range
+                predicted_high = predicted_close + (predicted_high - predicted_close) * range_ratio
+                predicted_low = predicted_close - (predicted_close - predicted_low) * range_ratio
             
             predictions = {
                 'Open': predicted_open,
@@ -440,14 +591,16 @@ class AdvancedStockPredictor:
                 'Close': predicted_close
             }
             
-            # Calculate confidence intervals based on multiple factors
+            # Enhanced confidence calculation
             model_confidence = min(0.95, max(0.60, self.model_health_metrics.get('best_r2', 0.7)))
-            volatility_penalty = current_volatility * 2
-            confidence_score = max(60, (model_confidence - volatility_penalty) * 100)
+            data_quality = min(1.0, len(df_with_features) / 2000)  # More data = higher confidence
+            volatility_penalty = current_volatility * 1.5
             
-            # Create confidence bands
+            confidence_score = max(50, (model_confidence * 0.6 + data_quality * 0.4 - volatility_penalty) * 100)
+            
+            # Create enhanced confidence bands
             confidence_bands = {}
-            range_multiplier = 1.5 + (current_volatility * 2)  # Dynamic range based on volatility
+            range_multiplier = 1.2 + (current_volatility * 3)  # Dynamic range based on volatility
             
             for price_type in ['Open', 'High', 'Low', 'Close']:
                 price = predictions[price_type]
@@ -460,19 +613,24 @@ class AdvancedStockPredictor:
                     'range_pct': range_pct * 100
                 }
             
-            # Generate scenarios
+            # Generate enhanced scenarios
             scenarios = self.generate_scenarios(predictions, current_price, volatility, recent_data)
             
-            # Store prediction history for drift detection
+            # Store prediction history
             prediction_record = {
                 'timestamp': datetime.now(),
-                'symbol': 'N/A',  # Will be set by caller
+                'symbol': 'N/A',
                 'current_price': current_price,
                 'predicted_close': predicted_close,
                 'confidence': confidence_score,
-                'volatility': volatility
+                'volatility': volatility,
+                'data_points': len(df_with_features)
             }
             self.prediction_history.append(prediction_record)
+            
+            print(f"✅ Enhanced prediction complete")
+            print(f"📊 Using {len(df_with_features)} data points ({self.model_health_metrics['total_years']:.1f} years)")
+            print(f"🎯 Confidence: {confidence_score:.1f}%")
             
             return predictions, confidence_bands, scenarios, None
             
@@ -676,72 +834,7 @@ class AdvancedStockPredictor:
 # Initialize predictor
 predictor = AdvancedStockPredictor()
 
-# ========= ENHANCED REAL-TIME DATA FUNCTIONS WITH FALLBACK =========
-@rate_limit(0.3)  # Rate limit: 1 request every 3 seconds
-def get_live_stock_data(ticker):
-    """Get live stock data from yfinance with multiple fallback methods"""
-    try:
-        print(f"📥 Fetching LIVE data for {ticker}...")
-        
-        # Add significant delay to avoid rate limiting
-        time.sleep(random.uniform(3, 5))
-        
-        # METHOD 1: Try yf.Ticker with different periods
-        stock = yf.Ticker(ticker)
-        
-        periods_to_try = ["3mo", "2mo", "1mo", "6mo"]
-        intervals_to_try = ["1d", "1h"]
-        
-        for period in periods_to_try:
-            for interval in intervals_to_try:
-                try:
-                    print(f"   Trying: {period} with {interval} interval")
-                    hist_data = stock.history(period=period, interval=interval)
-                    
-                    if not hist_data.empty and len(hist_data) > 20:
-                        print(f"✅ Success with {period}/{interval}: {len(hist_data)} points")
-                        break
-                    time.sleep(1)
-                except Exception as e:
-                    print(f"   Failed {period}/{interval}: {e}")
-                    continue
-            else:
-                continue
-            break
-        else:
-            # METHOD 2: Try yf.download as fallback
-            try:
-                print("🔄 Trying yf.download fallback...")
-                hist_data = yf.download(ticker, period="3mo", progress=False, timeout=10)
-                if hist_data.empty:
-                    print("❌ yfinance failed, using fallback data...")
-                    return generate_fallback_data(ticker)
-            except Exception as e:
-                print(f"❌ All yfinance methods failed: {e}")
-                print("🔄 Using realistic fallback data...")
-                return generate_fallback_data(ticker)
-        
-        if hist_data.empty or len(hist_data) < 20:
-            print("⚠️ Insufficient data from yfinance, using fallback...")
-            return generate_fallback_data(ticker)
-        
-        # Get current price
-        current_price = hist_data['Close'].iloc[-1]
-        
-        # Reset index to get Date as column
-        hist_data = hist_data.reset_index()
-        hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
-        
-        print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker}")
-        print(f"💰 Current LIVE price: ${current_price:.2f}")
-        
-        return hist_data, current_price, None
-        
-    except Exception as e:
-        print(f"❌ Live data fetching error: {e}")
-        print("🔄 Using fallback data due to error...")
-        return generate_fallback_data(ticker)
-
+# ========= UTILITY FUNCTIONS =========
 def get_next_trading_day():
     """Get the next actual trading day"""
     today = datetime.now()
@@ -1024,7 +1117,7 @@ app.layout = html.Div([
         html.H1('🚀 Advanced AI Stock Prediction Platform', 
                 style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px',
                       'fontFamily': 'Inter, sans-serif', 'fontWeight': '700', 'fontSize': '2.5rem'}),
-        html.P("Live Predictions • Confidence Bands • Risk Assessment • Explainable AI • Early Warning System", 
+        html.P("10-Year Data • Live Predictions • Confidence Bands • Risk Assessment • Explainable AI", 
                style={'color': '#94a3b8', 'textAlign': 'center', 'marginBottom': '30px',
                      'fontFamily': 'Inter, sans-serif', 'fontSize': '1.1rem', 'fontWeight': '400'})
     ], style={'padding': '30px 20px', 'background': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)',
@@ -1458,14 +1551,14 @@ def serve_templates(path):
     templates_folder = os.path.join(current_dir, 'templates')
     return send_from_directory(templates_folder, path)
 
-# ========= ERROR HANDLERS =========
+# ========= SIMPLE ERROR HANDLERS =========
 @server.errorhandler(404)
 def not_found(error):
-    return render_template('404.html', navigation=NAVIGATION_MAP), 404
+    return jsonify({"error": "Page not found"}), 404
 
 @server.errorhandler(500)
 def internal_error(error):
-    return render_template('500.html', navigation=NAVIGATION_MAP), 500
+    return jsonify({"error": "Internal server error"}), 500
 
 # ========= HEALTH CHECK =========
 @server.route('/health')
@@ -1474,8 +1567,8 @@ def health_check():
 
 # ========= MAIN EXECUTION =========
 if __name__ == '__main__':
-    print("🚀 Starting Advanced AI Stock Prediction Platform...")
-    print("📊 Features: Live Predictions • Confidence Bands • Risk Assessment • Explainable AI • Early Warning System")
+    print("🚀 Starting Enhanced AI Stock Prediction Platform...")
+    print("📊 Features: 10-Year Data • Enhanced Technical Indicators • OHLC Predictions")
     print("🌐 Web Interface: http://localhost:8080")
     print("📈 Prediction Page: http://localhost:8080/prediction")
     print("🔮 Dash App: http://localhost:8080/dash/")
