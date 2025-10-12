@@ -187,57 +187,126 @@ def generate_fallback_data(ticker, base_price=None, days=2520):  # 10 years of d
 # ========= ENHANCED REAL-TIME DATA FUNCTIONS =========
 @rate_limit(0.3)
 def get_live_stock_data(ticker):
-    """Get 10 years of live stock data from yfinance with enhanced fallback"""
+    """Get 10 years of live stock data from yfinance with multiple fallback strategies"""
     try:
         print(f"📥 Fetching 10 YEARS of LIVE data for {ticker}...")
         
         # Add delay to avoid rate limiting
         time.sleep(random.uniform(1, 2))
         
-        # METHOD 1: Try to get 10 years of daily data
-        try:
-            print("🔄 Fetching 10 years of daily data...")
-            hist_data = yf.download(ticker, period="10y", interval="1d", progress=False, timeout=15)
-            
-            if not hist_data.empty and len(hist_data) > 1000:  # At least 4 years of data
-                # Get current price
-                current_price = hist_data['Close'].iloc[-1]
+        # STRATEGY 1: Try different period formats
+        periods_to_try = [
+            ("10y", "1d"),   # 10 years daily
+            ("5y", "1d"),    # 5 years daily  
+            ("2y", "1d"),    # 2 years daily
+            ("1y", "1d"),    # 1 year daily
+            ("6mo", "1d"),   # 6 months daily
+        ]
+        
+        for period, interval in periods_to_try:
+            try:
+                print(f"🔄 Trying {period} period with {interval} interval...")
+                hist_data = yf.download(
+                    ticker, 
+                    period=period, 
+                    interval=interval, 
+                    progress=False, 
+                    timeout=15,
+                    auto_adjust=True,
+                    threads=True
+                )
                 
-                # Reset index to get Date as column
-                hist_data = hist_data.reset_index()
-                hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
-                
-                print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} (10 years)")
-                print(f"💰 Current LIVE price: ${current_price:.2f}")
-                print(f"📅 Data range: {hist_data['Date'].iloc[0]} to {hist_data['Date'].iloc[-1]}")
-                
-                return hist_data, current_price, None
-            else:
-                print("⚠️ Insufficient historical data, trying 5 years...")
-                # Fallback to 5 years
-                hist_data = yf.download(ticker, period="5y", interval="1d", progress=False, timeout=15)
-                
-                if not hist_data.empty and len(hist_data) > 500:
+                if not hist_data.empty and len(hist_data) > 100:
+                    # Get current price
                     current_price = hist_data['Close'].iloc[-1]
+                    
+                    # Reset index to get Date as column
                     hist_data = hist_data.reset_index()
                     hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
                     
-                    print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} (5 years)")
+                    print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} ({period})")
                     print(f"💰 Current LIVE price: ${current_price:.2f}")
-                    return hist_data, current_price, None
-                else:
-                    print("❌ Insufficient data from yfinance, using enhanced fallback...")
-                    return generate_fallback_data(ticker)
+                    print(f"📅 Data range: {hist_data['Date'].iloc[0]} to {hist_data['Date'].iloc[-1]}")
                     
+                    return hist_data, current_price, None
+                    
+            except Exception as e:
+                print(f"❌ Failed with {period}/{interval}: {e}")
+                continue
+        
+        # STRATEGY 2: Try Ticker object with different parameters
+        try:
+            print("🔄 Trying alternative method with yf.Ticker...")
+            stock = yf.Ticker(ticker)
+            hist_data = stock.history(period="10y", interval="1d", auto_adjust=True)
+            
+            if not hist_data.empty and len(hist_data) > 100:
+                current_price = hist_data['Close'].iloc[-1]
+                hist_data = hist_data.reset_index()
+                hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
+                
+                print(f"✅ Fetched {len(hist_data)} LIVE data points using Ticker method")
+                print(f"💰 Current LIVE price: ${current_price:.2f}")
+                return hist_data, current_price, None
+                
         except Exception as e:
-            print(f"❌ yfinance download failed: {e}")
-            print("🔄 Using enhanced fallback data...")
-            return generate_fallback_data(ticker)
+            print(f"❌ Ticker method failed: {e}")
+        
+        # STRATEGY 3: Try with start/end dates
+        try:
+            print("🔄 Trying with specific date range...")
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=365*10)  # 10 years back
+            
+            hist_data = yf.download(
+                ticker,
+                start=start_date.strftime('%Y-%m-%d'),
+                end=end_date.strftime('%Y-%m-%d'),
+                interval="1d",
+                progress=False,
+                timeout=15
+            )
+            
+            if not hist_data.empty and len(hist_data) > 100:
+                current_price = hist_data['Close'].iloc[-1]
+                hist_data = hist_data.reset_index()
+                hist_data['Date'] = hist_data['Date'].dt.strftime('%Y-%m-%d')
+                
+                print(f"✅ Fetched {len(hist_data)} LIVE data points using date range")
+                print(f"💰 Current LIVE price: ${current_price:.2f}")
+                return hist_data, current_price, None
+                
+        except Exception as e:
+            print(f"❌ Date range method failed: {e}")
+        
+        # If all methods fail, use enhanced fallback
+        print("❌ All live data methods failed, using enhanced fallback...")
+        return generate_fallback_data(ticker)
         
     except Exception as e:
         print(f"❌ Live data fetching error: {e}")
         print("🔄 Using enhanced fallback data due to error...")
         return generate_fallback_data(ticker)
+
+def test_data_fetching():
+    """Test function to debug data fetching issues"""
+    test_symbols = ['TSLA', 'AAPL', 'SPY', 'GOOGL']
+    
+    for symbol in test_symbols:
+        print(f"\n🔍 Testing {symbol}...")
+        try:
+            # Test basic download
+            data = yf.download(symbol, period="1mo", progress=False)
+            if not data.empty:
+                print(f"✅ {symbol}: SUCCESS - {len(data)} data points")
+                print(f"   Current price: ${data['Close'].iloc[-1]:.2f}")
+            else:
+                print(f"❌ {symbol}: NO DATA")
+        except Exception as e:
+            print(f"❌ {symbol}: ERROR - {e}")
+
+# You can call this function to test:
+# test_data_fetching()
 
 # ========= ENHANCED STOCK PREDICTOR =========
 class AdvancedStockPredictor:
@@ -348,7 +417,7 @@ class AdvancedStockPredictor:
             df['Is_Month_End'] = df['Date'].dt.is_month_end.astype(int)
             df['Is_Month_Start'] = df['Date'].dt.is_month_start.astype(int)
             df['Is_Quarter_End'] = df['Date'].dt.is_quarter_end.astype(int)
-            df['Is_Quarter_Start'] = df['Date'].dt.is_quarter_start.astype(int)
+            df['Is_Quarter_Start'] = df['Date'].dt.is_quarter_start.ast(int)
             df['Is_Year_End'] = (df['Date'].dt.month == 12) & (df['Date'].dt.day == 31)
             df['Is_Year_Start'] = (df['Date'].dt.month == 1) & (df['Date'].dt.day == 1)
             
