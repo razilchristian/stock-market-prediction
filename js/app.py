@@ -22,7 +22,7 @@ from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.inspection import permutation_importance
+from sklearn.impute import SimpleImputer
 import ta  # Technical analysis library
 
 # ========= RATE LIMITING DECORATOR =========
@@ -305,19 +305,16 @@ def test_data_fetching():
         except Exception as e:
             print(f"❌ {symbol}: ERROR - {e}")
 
-# You can call this function to test:
-# test_data_fetching()
-
 # ========= ENHANCED STOCK PREDICTOR =========
 class AdvancedStockPredictor:
     def __init__(self):
         self.models = {
-            'Random Forest': RandomForestRegressor(n_estimators=200, random_state=42, max_depth=20),
-            'Gradient Boosting': GradientBoostingRegressor(n_estimators=200, random_state=42, max_depth=10),
+            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42, max_depth=15),
             'Linear Regression': LinearRegression(),
             'SVR': SVR(kernel='rbf', C=1.0, epsilon=0.1)
         }
         self.scaler = StandardScaler()
+        self.imputer = SimpleImputer(strategy='mean')
         self.is_fitted = False
         self.feature_columns = []
         self.best_model = None
@@ -326,7 +323,7 @@ class AdvancedStockPredictor:
         self.model_health_metrics = {}
         
     def create_advanced_features(self, df):
-        """Create comprehensive technical indicators with enhanced features"""
+        """Create comprehensive technical indicators with enhanced features and NaN handling"""
         try:
             print("🔄 Creating enhanced technical indicators for 10-year data...")
             
@@ -337,119 +334,69 @@ class AdvancedStockPredictor:
             # Convert Date to datetime
             df['Date'] = pd.to_datetime(df['Date'])
             
-            # Basic price features
-            df['Price_Range'] = (df['High'] - df['Low']) / df['Open']
-            df['Body_Size'] = abs(df['Close'] - df['Open']) / df['Open']
-            df['High_Low_Ratio'] = df['High'] / df['Low']
-            df['Close_Open_Ratio'] = df['Close'] / df['Open']
-            df['Gap'] = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1)
+            # Create a copy to avoid modifying original
+            df_processed = df.copy()
             
-            # Enhanced returns and momentum (multiple timeframes)
-            for lag in [1, 2, 3, 5, 10, 21, 63]:  # 1 day to 3 months
-                df[f'Return_{lag}'] = df['Close'].pct_change(lag)
-                df[f'Close_Lag_{lag}'] = df['Close'].shift(lag)
+            # Basic price features (less likely to create NaN)
+            df_processed['Price_Range'] = (df_processed['High'] - df_processed['Low']) / df_processed['Open']
+            df_processed['Body_Size'] = abs(df_processed['Close'] - df_processed['Open']) / df_processed['Open']
+            df_processed['Close_Open_Ratio'] = df_processed['Close'] / df_processed['Open']
             
-            # Volatility features (multiple timeframes)
-            for window in [5, 10, 20, 50, 100, 200]:
-                df[f'Volatility_{window}'] = df['Return_1'].rolling(window).std()
-                df[f'Rolling_Mean_{window}'] = df['Close'].rolling(window).mean()
-                df[f'Rolling_Min_{window}'] = df['Close'].rolling(window).min()
-                df[f'Rolling_Max_{window}'] = df['Close'].rolling(window).max()
-                df[f'Price_vs_MA_{window}'] = df['Close'] / df[f'Rolling_Mean_{window}'] - 1
+            # Enhanced returns with NaN handling
+            for lag in [1, 2, 5, 10]:  # Reduced set for stability
+                df_processed[f'Return_{lag}'] = df_processed['Close'].pct_change(lag)
             
-            # RSI multiple timeframes
-            for period in [6, 14, 21, 50]:
-                df[f'RSI_{period}'] = ta.momentum.RSIIndicator(df['Close'], window=period).rsi()
+            # Volatility features with proper windowing
+            for window in [10, 20, 50]:  # Reduced set
+                df_processed[f'Volatility_{window}'] = df_processed['Return_1'].rolling(window, min_periods=5).std()
+                df_processed[f'Rolling_Mean_{window}'] = df_processed['Close'].rolling(window, min_periods=5).mean()
+                df_processed[f'Price_vs_MA_{window}'] = df_processed['Close'] / df_processed[f'Rolling_Mean_{window}'] - 1
             
-            # Enhanced MACD
-            macd = ta.trend.MACD(df['Close'])
-            df['MACD'] = macd.macd()
-            df['MACD_Signal'] = macd.macd_signal()
-            df['MACD_Histogram'] = macd.macd_diff()
-            df['MACD_Histogram_Change'] = df['MACD_Histogram'].diff()
+            # RSI with error handling
+            try:
+                df_processed['RSI_14'] = ta.momentum.RSIIndicator(df_processed['Close'], window=14).rsi()
+            except:
+                df_processed['RSI_14'] = 50  # Default value
             
-            # Moving averages and crossovers
-            for window in [5, 10, 20, 50, 100, 200]:
-                df[f'SMA_{window}'] = ta.trend.SMAIndicator(df['Close'], window=window).sma_indicator()
-                df[f'EMA_{window}'] = ta.trend.EMAIndicator(df['Close'], window=window).ema_indicator()
-                df[f'Price_vs_SMA_{window}'] = df['Close'] / df[f'SMA_{window}'] - 1
-                df[f'Price_vs_EMA_{window}'] = df['Close'] / df[f'EMA_{window}'] - 1
+            # Simple moving averages
+            try:
+                df_processed['SMA_20'] = ta.trend.SMAIndicator(df_processed['Close'], window=20).sma_indicator()
+                df_processed['SMA_50'] = ta.trend.SMAIndicator(df_processed['Close'], window=50).sma_indicator()
+            except:
+                df_processed['SMA_20'] = df_processed['Close'].rolling(20, min_periods=5).mean()
+                df_processed['SMA_50'] = df_processed['Close'].rolling(50, min_periods=5).mean()
             
-            # Enhanced market regime indicators
-            df['Above_SMA_200'] = (df['Close'] > df['SMA_200']).astype(int)
-            df['Golden_Cross'] = ((df['SMA_50'] > df['SMA_200']) & (df['SMA_50'].shift(1) <= df['SMA_200'].shift(1))).astype(int)
-            df['Death_Cross'] = ((df['SMA_50'] < df['SMA_200']) & (df['SMA_50'].shift(1) >= df['SMA_200'].shift(1))).astype(int)
-            df['Trend_Strength'] = (df['Close'] - df['SMA_50']) / df['SMA_50']
+            # Price vs moving averages
+            df_processed['Price_vs_SMA_20'] = df_processed['Close'] / df_processed['SMA_20'] - 1
+            df_processed['Above_SMA_50'] = (df_processed['Close'] > df_processed['SMA_50']).astype(int)
             
-            # Enhanced volume indicators
-            for window in [5, 10, 20, 50]:
-                df[f'Volume_SMA_{window}'] = df['Volume'].rolling(window).mean()
-                df[f'Volume_Ratio_{window}'] = df['Volume'] / df[f'Volume_SMA_{window}']
+            # Volume features
+            df_processed['Volume_Change'] = df_processed['Volume'].pct_change()
+            df_processed['Volume_SMA_10'] = df_processed['Volume'].rolling(10, min_periods=5).mean()
+            df_processed['Volume_Ratio_10'] = df_processed['Volume'] / df_processed['Volume_SMA_10']
             
-            df['Volume_Change'] = df['Volume'].pct_change()
-            df['Volume_Price_Trend'] = df['Volume'] * df['Return_1']
-            
-            # Enhanced Bollinger Bands
-            for window in [20, 50]:
-                bb = ta.volatility.BollingerBands(df['Close'], window=window)
-                df[f'BB_Upper_{window}'] = bb.bollinger_hband()
-                df[f'BB_Lower_{window}'] = bb.bollinger_lband()
-                df[f'BB_Middle_{window}'] = bb.bollinger_mavg()
-                df[f'BB_Width_{window}'] = (df[f'BB_Upper_{window}'] - df[f'BB_Lower_{window}']) / df[f'BB_Middle_{window}']
-                df[f'BB_Position_{window}'] = (df['Close'] - df[f'BB_Lower_{window}']) / (df[f'BB_Upper_{window}'] - df[f'BB_Lower_{window}'])
-            
-            # Enhanced ATR for volatility
-            df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
-            df['ATR_Ratio'] = df['ATR'] / df['Close']
-            
-            # Enhanced Stochastic
-            stoch = ta.momentum.StochasticOscillator(df['High'], df['Low'], df['Close'])
-            df['Stoch_K'] = stoch.stoch()
-            df['Stoch_D'] = stoch.stoch_signal()
-            df['Stoch_Crossover'] = (df['Stoch_K'] > df['Stoch_D']).astype(int)
-            
-            # Time-based features with enhanced seasonality
-            df['DayOfWeek'] = df['Date'].dt.dayofweek
-            df['Month'] = df['Date'].dt.month
-            df['Quarter'] = df['Date'].dt.quarter
-            df['Year'] = df['Date'].dt.year
-            df['WeekOfYear'] = df['Date'].dt.isocalendar().week
-            df['Is_Month_End'] = df['Date'].dt.is_month_end.astype(int)
-            df['Is_Month_Start'] = df['Date'].dt.is_month_start.astype(int)
-            df['Is_Quarter_End'] = df['Date'].dt.is_quarter_end.astype(int)
-            df['Is_Quarter_Start'] = df['Date'].dt.is_quarter_start.ast(int)
-            df['Is_Year_End'] = (df['Date'].dt.month == 12) & (df['Date'].dt.day == 31)
-            df['Is_Year_Start'] = (df['Date'].dt.month == 1) & (df['Date'].dt.day == 1)
-            
-            # Market seasonality features
-            df['Month_Sin'] = np.sin(2 * np.pi * df['Month'] / 12)
-            df['Month_Cos'] = np.cos(2 * np.pi * df['Month'] / 12)
-            
-            # Price momentum features
-            df['Momentum_1M'] = df['Close'].pct_change(21)
-            df['Momentum_3M'] = df['Close'].pct_change(63)
-            df['Momentum_6M'] = df['Close'].pct_change(126)
-            df['Momentum_1Y'] = df['Close'].pct_change(252)
-            
-            # Support and resistance levels
-            df['Resistance_20'] = df['High'].rolling(20).max()
-            df['Support_20'] = df['Low'].rolling(20).min()
-            df['Distance_to_Resistance'] = (df['Close'] - df['Resistance_20']) / df['Resistance_20']
-            df['Distance_to_Support'] = (df['Close'] - df['Support_20']) / df['Support_20']
+            # Time-based features
+            df_processed['DayOfWeek'] = df_processed['Date'].dt.dayofweek
+            df_processed['Month'] = df_processed['Date'].dt.month
             
             # Drop NaN values created by indicators
-            initial_count = len(df)
-            df = df.dropna()
-            final_count = len(df)
+            initial_count = len(df_processed)
+            df_clean = df_processed.dropna()
+            final_count = len(df_clean)
             
-            print(f"✅ Created {len(df.columns)} enhanced features")
+            nan_removed = initial_count - final_count
+            if nan_removed > 0:
+                print(f"⚠️ Removed {nan_removed} rows with NaN values during feature creation")
+            
+            print(f"✅ Created {len(df_clean.columns)} robust features")
             print(f"📊 Data points: {initial_count} → {final_count} after cleaning")
-            print(f"📅 Final date range: {df['Date'].min()} to {df['Date'].max()}")
+            print(f"📅 Final date range: {df_clean['Date'].min()} to {df_clean['Date'].max()}")
             
-            return df
+            return df_clean
             
         except Exception as e:
             print(f"❌ Error creating enhanced features: {e}")
+            # Return original dataframe as fallback
             return df
     
     def prepare_advanced_data(self, df, target_days=1):
@@ -485,14 +432,14 @@ class AdvancedStockPredictor:
             return None, None, None, None, None
     
     def train_advanced_models(self, df, target_days=1):
-        """Train models for next-day OHLC price prediction"""
+        """Train models for next-day OHLC price prediction with NaN handling"""
         try:
             print("🔄 Creating enhanced features for 10-year data...")
             # Create features
             df_with_features = self.create_advanced_features(df)
             
-            if len(df_with_features) < 500:  # Minimum 2 years of clean data
-                return None, f"Insufficient data for training (minimum 500 data points required, got {len(df_with_features)})"
+            if len(df_with_features) < 300:  # Minimum data points
+                return None, f"Insufficient data for training (minimum 300 data points required, got {len(df_with_features)})"
             
             print(f"📈 Training models on {len(df_with_features)} data points...")
             # Prepare data
@@ -500,6 +447,45 @@ class AdvancedStockPredictor:
             
             if X is None:
                 return None, "Error in data preparation"
+            
+            # ========= CRITICAL FIX: Handle NaN values =========
+            print("🔍 Checking for NaN values in features...")
+            
+            # Check for NaN values before splitting
+            nan_count = X.isna().sum().sum()
+            if nan_count > 0:
+                print(f"⚠️ Found {nan_count} NaN values in features. Cleaning data...")
+                
+                # Remove rows with NaN values
+                nan_mask = X.isna().any(axis=1)
+                X_clean = X[~nan_mask].copy()
+                y_open_clean = y_open[~nan_mask].copy()
+                y_high_clean = y_high[~nan_mask].copy()
+                y_low_clean = y_low[~nan_mask].copy()
+                y_close_clean = y_close[~nan_mask].copy()
+                
+                print(f"📊 Removed {nan_mask.sum()} rows with NaN values")
+                print(f"📊 Clean data shape: {X_clean.shape}")
+                
+                if len(X_clean) < 100:  # Check if we have enough data after cleaning
+                    return None, f"Not enough clean data after NaN removal (minimum 100 data points required, got {len(X_clean)})"
+                
+                X, y_open, y_high, y_low, y_close = X_clean, y_open_clean, y_high_clean, y_low_clean, y_close_clean
+            
+            # Also check target variables for NaN
+            target_nan_mask = y_close.isna()
+            if target_nan_mask.any():
+                print(f"⚠️ Found {target_nan_mask.sum()} NaN values in target. Cleaning...")
+                X = X[~target_nan_mask]
+                y_open = y_open[~target_nan_mask]
+                y_high = y_high[~target_nan_mask]
+                y_low = y_low[~target_nan_mask]
+                y_close = y_close[~target_nan_mask]
+                print(f"📊 Final clean data shape: {X.shape}")
+            
+            if len(X) < 100:
+                return None, f"Not enough data after cleaning (minimum 100 data points required, got {len(X)})"
+            # ========= END FIX =========
             
             # Split data chronologically (important for time series)
             split_idx = int(len(X) * 0.8)
@@ -512,6 +498,11 @@ class AdvancedStockPredictor:
             print(f"📊 Training set: {len(X_train)} samples")
             print(f"📊 Test set: {len(X_test)} samples")
             
+            # Final NaN check before training
+            if X_train.isna().any().any() or X_test.isna().any().any():
+                print("❌ CRITICAL: NaN values still present after cleaning. Using fallback training...")
+                return self.fallback_training(X_train, X_test, y_close_train, y_close_test)
+            
             # Scale features
             X_train_scaled = self.scaler.fit_transform(X_train)
             X_test_scaled = self.scaler.transform(X_test)
@@ -523,29 +514,38 @@ class AdvancedStockPredictor:
             for name, model in self.models.items():
                 print(f"🤖 Training {name} for CLOSE price...")
                 
-                # Train for close price
-                if name == 'SVR':
-                    model.fit(X_train_scaled, y_close_train)
-                    y_pred = model.predict(X_test_scaled)
-                else:
-                    model.fit(X_train, y_close_train)
-                    y_pred = model.predict(X_test)
-                
-                # Calculate metrics
-                mae = mean_absolute_error(y_close_test, y_pred)
-                mse = mean_squared_error(y_close_test, y_pred)
-                rmse = np.sqrt(mse)
-                r2 = r2_score(y_close_test, y_pred)
-                
-                results[name] = {
-                    'MAE': mae,
-                    'MSE': mse,
-                    'RMSE': rmse,
-                    'R2': r2,
-                    'Predictions': y_pred.tolist()
-                }
-                
-                models_trained[name] = model
+                try:
+                    # Train for close price
+                    if name == 'SVR':
+                        model.fit(X_train_scaled, y_close_train)
+                        y_pred = model.predict(X_test_scaled)
+                    else:
+                        model.fit(X_train, y_close_train)
+                        y_pred = model.predict(X_test)
+                    
+                    # Calculate metrics
+                    mae = mean_absolute_error(y_close_test, y_pred)
+                    mse = mean_squared_error(y_close_test, y_pred)
+                    rmse = np.sqrt(mse)
+                    r2 = r2_score(y_close_test, y_pred)
+                    
+                    results[name] = {
+                        'MAE': mae,
+                        'MSE': mse,
+                        'RMSE': rmse,
+                        'R2': r2,
+                        'Predictions': y_pred.tolist()
+                    }
+                    
+                    models_trained[name] = model
+                    
+                except Exception as e:
+                    print(f"⚠️ {name} training failed: {e}")
+                    # Continue with other models even if one fails
+                    continue
+            
+            if not results:
+                return None, "All models failed to train"
             
             # Select best model based on R2 score
             best_model_name = max(results.keys(), key=lambda x: results[x]['R2'])
@@ -563,7 +563,8 @@ class AdvancedStockPredictor:
                 'best_r2': results[best_model_name]['R2'],
                 'feature_count': len(self.feature_columns),
                 'data_range': f"{df_with_features['Date'].min()} to {df_with_features['Date'].max()}",
-                'total_years': len(df_with_features) / 252  # Approximate years
+                'total_years': len(df_with_features) / 252,  # Approximate years
+                'nan_values_removed': nan_count
             }
             
             self.is_fitted = True
@@ -574,7 +575,74 @@ class AdvancedStockPredictor:
             return results, None
             
         except Exception as e:
+            print(f"❌ Training error: {str(e)}")
             return None, f"Training error: {str(e)}"
+
+    def fallback_training(self, X_train, X_test, y_train, y_test):
+        """Fallback training method with simplified features"""
+        print("🔄 Using fallback training with simplified features...")
+        
+        # Use only basic features that are less likely to have NaN values
+        basic_features = ['Price_Range', 'Body_Size', 'Close_Open_Ratio', 'Return_1', 'Return_5', 'Volatility_20', 'Price_vs_MA_20']
+        available_features = [f for f in basic_features if f in X_train.columns]
+        
+        if not available_features:
+            available_features = X_train.columns[:6]  # Use first 6 features
+        
+        X_train_simple = X_train[available_features].copy()
+        X_test_simple = X_test[available_features].copy()
+        
+        # Fill any remaining NaN with mean values
+        X_train_simple = X_train_simple.fillna(X_train_simple.mean())
+        X_test_simple = X_test_simple.fillna(X_train_simple.mean())
+        
+        results = {}
+        models_trained = {}
+        
+        # Try only robust models
+        robust_models = {
+            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
+            'Linear Regression': LinearRegression()
+        }
+        
+        for name, model in robust_models.items():
+            try:
+                print(f"🤖 Training {name} (fallback mode)...")
+                model.fit(X_train_simple, y_train)
+                y_pred = model.predict(X_test_simple)
+                
+                # Calculate metrics
+                mae = mean_absolute_error(y_test, y_pred)
+                mse = mean_squared_error(y_test, y_pred)
+                rmse = np.sqrt(mse)
+                r2 = r2_score(y_test, y_pred)
+                
+                results[name] = {
+                    'MAE': mae,
+                    'MSE': mse,
+                    'RMSE': rmse,
+                    'R2': r2,
+                    'Predictions': y_pred.tolist()
+                }
+                
+                models_trained[name] = model
+                self.feature_columns = available_features
+                
+            except Exception as e:
+                print(f"⚠️ Fallback {name} training failed: {e}")
+        
+        if not results:
+            return None, "Fallback training also failed"
+        
+        best_model_name = max(results.keys(), key=lambda x: results[x]['R2'])
+        self.best_model = models_trained[best_model_name]
+        self.best_model_name = best_model_name
+        
+        self.is_fitted = True
+        self.trained_models = models_trained
+        
+        print(f"✅ Fallback training successful! Best model: {best_model_name}")
+        return results, None
     
     def calculate_feature_importance(self, X, y):
         """Calculate feature importance for model explainability"""
@@ -617,12 +685,29 @@ class AdvancedStockPredictor:
             print(f"📅 Predicting for date: {current_date}")
             print(f"💰 Current price: ${current_price:.2f}")
             
-            # Predict close price using best model
-            if self.best_model_name == 'SVR':
-                X_scaled = self.scaler.transform(latest_data[self.feature_columns])
-                predicted_close = self.best_model.predict(X_scaled)[0]
+            # Ensure we have the required features
+            missing_features = set(self.feature_columns) - set(latest_data.columns)
+            if missing_features:
+                print(f"⚠️ Missing features: {missing_features}. Using available features...")
+                available_features = [f for f in self.feature_columns if f in latest_data.columns]
+                if not available_features:
+                    return None, None, None, "No common features available for prediction"
             else:
-                predicted_close = self.best_model.predict(latest_data[self.feature_columns])[0]
+                available_features = self.feature_columns
+            
+            # Check for NaN in prediction data
+            if latest_data[available_features].isna().any().any():
+                print("⚠️ NaN values in prediction data. Using fallback prediction...")
+                # Use simple average of recent data for prediction
+                recent_avg_change = df_with_features['Close'].pct_change(5).mean()
+                predicted_close = current_price * (1 + recent_avg_change)
+            else:
+                # Predict close price using best model
+                if self.best_model_name == 'SVR':
+                    X_scaled = self.scaler.transform(latest_data[available_features])
+                    predicted_close = self.best_model.predict(X_scaled)[0]
+                else:
+                    predicted_close = self.best_model.predict(latest_data[available_features])[0]
             
             # Use historical patterns for other prices with enhanced logic
             recent_data = df_with_features.tail(252)  # Use 1 year of data for patterns
@@ -634,7 +719,7 @@ class AdvancedStockPredictor:
             
             # Calculate current volatility for confidence bands
             volatility = recent_data['Return_1'].std()
-            current_volatility = recent_data['Volatility_20'].iloc[-1]
+            current_volatility = recent_data['Volatility_20'].iloc[-1] if 'Volatility_20' in recent_data.columns else volatility
             
             # Enhanced prediction with volatility adjustment
             predicted_open = predicted_close * open_pattern
@@ -698,7 +783,7 @@ class AdvancedStockPredictor:
             self.prediction_history.append(prediction_record)
             
             print(f"✅ Enhanced prediction complete")
-            print(f"📊 Using {len(df_with_features)} data points ({self.model_health_metrics['total_years']:.1f} years)")
+            print(f"📊 Using {len(df_with_features)} data points ({len(df_with_features)/252:.1f} years)")
             print(f"🎯 Confidence: {confidence_score:.1f}%")
             
             return predictions, confidence_bands, scenarios, None
@@ -1637,7 +1722,7 @@ def health_check():
 # ========= MAIN EXECUTION =========
 if __name__ == '__main__':
     print("🚀 Starting Enhanced AI Stock Prediction Platform...")
-    print("📊 Features: 10-Year Data • Enhanced Technical Indicators • OHLC Predictions")
+    print("📊 Features: 10-Year Data • Live Predictions • Confidence Bands • Risk Assessment • Explainable AI")
     print("🌐 Web Interface: http://localhost:8080")
     print("📈 Prediction Page: http://localhost:8080/prediction")
     print("🔮 Dash App: http://localhost:8080/dash/")
