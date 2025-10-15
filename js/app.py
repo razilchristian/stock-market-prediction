@@ -16,11 +16,11 @@ import json
 warnings.filterwarnings('ignore')
 
 # Machine Learning imports
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 import ta  # Technical analysis library
@@ -55,112 +55,6 @@ app = dash.Dash(
         'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
     ]
 )
-
-# ========= CRISIS DETECTION SYSTEM =========
-class CrisisDetectionSystem:
-    def __init__(self):
-        self.crisis_model = RandomForestClassifier(n_estimators=100, random_state=42)
-        self.crisis_features_used = []
-        self.is_trained = False
-        
-    def detect_crises(self, data, threshold=0.05):
-        """Detect crisis periods based on price movements"""
-        data = data.copy()
-        data['Crisis'] = (data['Return'].abs() > threshold).astype(int)
-        return data
-    
-    def prepare_crisis_data(self, data_with_features):
-        """Prepare data for crisis detection"""
-        crisis_data = self.detect_crises(data_with_features)
-        
-        # Select crisis features (similar to notebook logic)
-        base_features = ['Open', 'High', 'Low', 'Volume', 'Volatility']
-        technical_features = ['Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50', 
-                             'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 
-                             'OC_Ratio', 'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 
-                             'Momentum_5', 'Momentum_10', 'Return']
-        
-        # Only use features that exist in our data
-        self.crisis_features_used = [f for f in (base_features + technical_features) 
-                                   if f in crisis_data.columns]
-        
-        # Remove duplicates while preserving order
-        self.crisis_features_used = list(dict.fromkeys(self.crisis_features_used))
-        
-        crisis_data_clean = crisis_data[self.crisis_features_used + ['Crisis']].dropna()
-        
-        return crisis_data_clean
-    
-    def train_crisis_model(self, data_with_features):
-        """Train crisis detection model"""
-        try:
-            print("🔄 Training crisis detection model...")
-            
-            crisis_data = self.prepare_crisis_data(data_with_features)
-            
-            if len(crisis_data) < 100:
-                print("❌ Insufficient data for crisis detection training")
-                return False
-            
-            X_crisis = crisis_data[self.crisis_features_used].values
-            y_crisis = crisis_data['Crisis'].values
-            
-            # Split data chronologically
-            split_idx = int(len(X_crisis) * 0.8)
-            X_train = X_crisis[:split_idx]
-            X_test = X_crisis[split_idx:]
-            y_train = y_crisis[:split_idx]
-            y_test = y_crisis[split_idx:]
-            
-            self.crisis_model.fit(X_train, y_train)
-            
-            # Calculate accuracy
-            crisis_preds = self.crisis_model.predict(X_test)
-            accuracy = accuracy_score(y_test, crisis_preds)
-            
-            self.is_trained = True
-            
-            print(f"✅ Crisis detection model trained successfully!")
-            print(f"📊 Accuracy: {accuracy:.4f}")
-            print(f"🔧 Features used: {len(self.crisis_features_used)}")
-            print(f"📈 Crisis periods detected: {crisis_data['Crisis'].sum()}")
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ Crisis model training failed: {e}")
-            return False
-    
-    def predict_crisis_probability(self, latest_features):
-        """Predict crisis probability for latest data"""
-        if not self.is_trained:
-            return 0.0
-        
-        try:
-            # Ensure we have the required features
-            available_features = [f for f in self.crisis_features_used if f in latest_features.columns]
-            
-            if not available_features:
-                return 0.0
-            
-            crisis_proba = self.crisis_model.predict_proba(latest_features[available_features])[0, 1]
-            return crisis_proba
-            
-        except Exception as e:
-            print(f"❌ Crisis prediction failed: {e}")
-            return 0.0
-    
-    def get_alert_level(self, probability):
-        """Convert probability to traffic light system"""
-        if probability > 0.7:
-            return '🔴 RED', 'HIGH RISK'
-        elif probability > 0.4:
-            return '🟡 AMBER', 'MEDIUM RISK'
-        else:
-            return '🟢 GREEN', 'LOW RISK'
-
-# Initialize crisis detection system
-crisis_detector = CrisisDetectionSystem()
 
 # ========= ENHANCED FALLBACK STOCK DATA GENERATION =========
 def generate_fallback_data(ticker, base_price=None, days=2520):  # 10 years of data
@@ -394,15 +288,22 @@ def get_live_stock_data(ticker):
         print("🔄 Using enhanced fallback data due to error...")
         return generate_fallback_data(ticker)
 
-# ========= TECHNICAL INDICATOR FUNCTIONS =========
-def calculate_rsi(prices, window=14):
-    """Calculate Relative Strength Index"""
-    delta = prices.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+def test_data_fetching():
+    """Test function to debug data fetching issues"""
+    test_symbols = ['TSLA', 'AAPL', 'SPY', 'GOOGL']
+    
+    for symbol in test_symbols:
+        print(f"\n🔍 Testing {symbol}...")
+        try:
+            # Test basic download
+            data = yf.download(symbol, period="1mo", progress=False)
+            if not data.empty:
+                print(f"✅ {symbol}: SUCCESS - {len(data)} data points")
+                print(f"   Current price: ${data['Close'].iloc[-1]:.2f}")
+            else:
+                print(f"❌ {symbol}: NO DATA")
+        except Exception as e:
+            print(f"❌ {symbol}: ERROR - {e}")
 
 # ========= ENHANCED STOCK PREDICTOR =========
 class AdvancedStockPredictor:
@@ -420,7 +321,6 @@ class AdvancedStockPredictor:
         self.feature_importance = {}
         self.prediction_history = []
         self.model_health_metrics = {}
-        self.last_crisis_probability = 0.0
         
     def create_advanced_features(self, df):
         """Create comprehensive technical indicators with enhanced features and NaN handling"""
@@ -441,49 +341,22 @@ class AdvancedStockPredictor:
             df_processed['Price_Range'] = (df_processed['High'] - df_processed['Low']) / df_processed['Open']
             df_processed['Body_Size'] = abs(df_processed['Close'] - df_processed['Open']) / df_processed['Open']
             df_processed['Close_Open_Ratio'] = df_processed['Close'] / df_processed['Open']
-            df_processed['HL_Ratio'] = df_processed['High'] / df_processed['Low']
-            df_processed['OC_Ratio'] = df_processed['Open'] / df_processed['Close']
             
             # Enhanced returns with NaN handling
-            df_processed['Return'] = df_processed['Close'].pct_change()
-            for lag in [1, 2, 5, 10]:
+            for lag in [1, 2, 5, 10]:  # Reduced set for stability
                 df_processed[f'Return_{lag}'] = df_processed['Close'].pct_change(lag)
             
             # Volatility features with proper windowing
-            df_processed['Volatility'] = df_processed['Return'].rolling(window=5).std()
-            for window in [10, 20, 50]:
-                df_processed[f'Volatility_{window}'] = df_processed['Return'].rolling(window, min_periods=5).std()
+            for window in [10, 20, 50]:  # Reduced set
+                df_processed[f'Volatility_{window}'] = df_processed['Return_1'].rolling(window, min_periods=5).std()
                 df_processed[f'Rolling_Mean_{window}'] = df_processed['Close'].rolling(window, min_periods=5).mean()
                 df_processed[f'Price_vs_MA_{window}'] = df_processed['Close'] / df_processed[f'Rolling_Mean_{window}'] - 1
             
             # RSI with error handling
             try:
-                df_processed['RSI'] = calculate_rsi(df_processed['Close'])
+                df_processed['RSI_14'] = ta.momentum.RSIIndicator(df_processed['Close'], window=14).rsi()
             except:
-                df_processed['RSI'] = 50  # Default value
-            
-            # MACD indicators (from notebook logic)
-            try:
-                df_processed['MACD'] = df_processed['Close'].ewm(span=12).mean() - df_processed['Close'].ewm(span=26).mean()
-                df_processed['MACD_Signal'] = df_processed['MACD'].ewm(span=9).mean()
-                df_processed['MACD_Histogram'] = df_processed['MACD'] - df_processed['MACD_Signal']
-            except:
-                df_processed['MACD'] = 0
-                df_processed['MACD_Signal'] = 0
-                df_processed['MACD_Histogram'] = 0
-            
-            # Momentum indicators (from notebook)
-            df_processed['Momentum_5'] = df_processed['Close'] / df_processed['Close'].shift(5) - 1
-            df_processed['Momentum_10'] = df_processed['Close'] / df_processed['Close'].shift(10) - 1
-            
-            # Close ratios (from notebook)
-            df_processed['Close_Ratio_5'] = df_processed['Close'] / df_processed['Rolling_Mean_5']
-            df_processed['Close_Ratio_20'] = df_processed['Close'] / df_processed['Rolling_Mean_20']
-            df_processed['Close_Ratio_50'] = df_processed['Close'] / df_processed['Rolling_Mean_50']
-            
-            # Volume features (from notebook)
-            df_processed['Volume_MA'] = df_processed['Volume'].rolling(window=5).mean()
-            df_processed['Volume_Ratio'] = df_processed['Volume'] / df_processed['Volume_MA']
+                df_processed['RSI_14'] = 50  # Default value
             
             # Simple moving averages
             try:
@@ -559,7 +432,7 @@ class AdvancedStockPredictor:
             return None, None, None, None, None
     
     def train_advanced_models(self, df, target_days=1):
-        """Train models for next-day OHLC price prediction with crisis detection"""
+        """Train models for next-day OHLC price prediction with NaN handling"""
         try:
             print("🔄 Creating enhanced features for 10-year data...")
             # Create features
@@ -567,11 +440,6 @@ class AdvancedStockPredictor:
             
             if len(df_with_features) < 300:  # Minimum data points
                 return None, f"Insufficient data for training (minimum 300 data points required, got {len(df_with_features)})"
-            
-            # Train crisis detection model
-            crisis_trained = crisis_detector.train_crisis_model(df_with_features)
-            if crisis_trained:
-                print("✅ Crisis detection integrated successfully")
             
             print(f"📈 Training models on {len(df_with_features)} data points...")
             # Prepare data
@@ -696,9 +564,7 @@ class AdvancedStockPredictor:
                 'feature_count': len(self.feature_columns),
                 'data_range': f"{df_with_features['Date'].min()} to {df_with_features['Date'].max()}",
                 'total_years': len(df_with_features) / 252,  # Approximate years
-                'nan_values_removed': nan_count,
-                'crisis_detection': crisis_trained,
-                'crisis_features': len(crisis_detector.crisis_features_used) if crisis_trained else 0
+                'nan_values_removed': nan_count
             }
             
             self.is_fitted = True
@@ -800,7 +666,7 @@ class AdvancedStockPredictor:
             self.feature_importance = {}
     
     def predict_next_day_prices(self, df):
-        """Predict next day OHLC prices with crisis detection"""
+        """Predict next day OHLC prices with enhanced accuracy"""
         if not self.is_fitted:
             return None, None, None, "Models not trained"
         
@@ -818,13 +684,6 @@ class AdvancedStockPredictor:
             
             print(f"📅 Predicting for date: {current_date}")
             print(f"💰 Current price: ${current_price:.2f}")
-            
-            # Get crisis probability
-            crisis_probability = crisis_detector.predict_crisis_probability(latest_data)
-            alert_level, alert_description = crisis_detector.get_alert_level(crisis_probability)
-            self.last_crisis_probability = crisis_probability
-            
-            print(f"🚨 Crisis Probability: {crisis_probability:.3f} ({alert_level})")
             
             # Ensure we have the required features
             missing_features = set(self.feature_columns) - set(latest_data.columns)
@@ -908,15 +767,10 @@ class AdvancedStockPredictor:
                     'range_pct': range_pct * 100
                 }
             
-            # Generate enhanced scenarios with crisis information
+            # Generate enhanced scenarios
             scenarios = self.generate_scenarios(predictions, current_price, volatility, recent_data)
             
-            # Add crisis information to scenarios
-            for scenario in scenarios.values():
-                scenario['crisis_probability'] = crisis_probability
-                scenario['alert_level'] = alert_level
-            
-            # Store prediction history with crisis info
+            # Store prediction history
             prediction_record = {
                 'timestamp': datetime.now(),
                 'symbol': 'N/A',
@@ -924,16 +778,13 @@ class AdvancedStockPredictor:
                 'predicted_close': predicted_close,
                 'confidence': confidence_score,
                 'volatility': volatility,
-                'crisis_probability': crisis_probability,
-                'alert_level': alert_level,
                 'data_points': len(df_with_features)
             }
             self.prediction_history.append(prediction_record)
             
-            print(f"✅ Enhanced prediction complete with crisis detection")
+            print(f"✅ Enhanced prediction complete")
             print(f"📊 Using {len(df_with_features)} data points ({len(df_with_features)/252:.1f} years)")
             print(f"🎯 Confidence: {confidence_score:.1f}%")
-            print(f"🚨 Crisis Alert: {alert_level} ({crisis_probability:.3f})")
             
             return predictions, confidence_bands, scenarios, None
             
@@ -941,55 +792,45 @@ class AdvancedStockPredictor:
             return None, None, None, f"Prediction error: {str(e)}"
     
     def generate_scenarios(self, predictions, current_price, volatility, recent_data):
-        """Generate multiple market scenarios with crisis awareness"""
+        """Generate multiple market scenarios"""
         base_change = ((predictions['Close'] - current_price) / current_price) * 100
         
-        # Get crisis probability for scenario adjustments
-        crisis_prob = self.last_crisis_probability
+        # Bullish scenario (lower volatility, higher gains)
+        bull_volatility = volatility * 0.7
+        bull_change = base_change * 1.3
         
-        # Adjust scenarios based on crisis probability
-        crisis_multiplier = 1.0 + crisis_prob * 2  # Higher crisis prob = more extreme scenarios
+        # Bearish scenario (higher volatility, larger losses)
+        bear_volatility = volatility * 1.5
+        bear_change = base_change * 0.7
         
-        # Bullish scenario
-        bull_volatility = volatility * (0.7 / crisis_multiplier)
-        bull_change = base_change * (1.3 * crisis_multiplier)
-        
-        # Bearish scenario
-        bear_volatility = volatility * (1.5 * crisis_multiplier)
-        bear_change = base_change * (0.7 / crisis_multiplier)
-        
-        # Sideways scenario
-        side_volatility = volatility * (0.8 / crisis_multiplier)
-        side_change = base_change * (0.3 / crisis_multiplier)
+        # Sideways scenario (low movement)
+        side_volatility = volatility * 0.8
+        side_change = base_change * 0.3
         
         scenarios = {
             'base': {
                 'probability': 50,
                 'price_change': base_change,
                 'volatility': volatility,
-                'description': self.get_scenario_description(base_change, volatility),
-                'crisis_aware': crisis_prob > 0.4
+                'description': self.get_scenario_description(base_change, volatility)
             },
             'bullish': {
                 'probability': 25,
                 'price_change': bull_change,
                 'volatility': bull_volatility,
-                'description': self.get_scenario_description(bull_change, bull_volatility),
-                'crisis_aware': crisis_prob > 0.4
+                'description': self.get_scenario_description(bull_change, bull_volatility)
             },
             'bearish': {
                 'probability': 15,
                 'price_change': bear_change,
                 'volatility': bear_volatility,
-                'description': self.get_scenario_description(bear_change, bear_volatility),
-                'crisis_aware': crisis_prob > 0.4
+                'description': self.get_scenario_description(bear_change, bear_volatility)
             },
             'sideways': {
                 'probability': 10,
                 'price_change': side_change,
                 'volatility': side_volatility,
-                'description': self.get_scenario_description(side_change, side_volatility),
-                'crisis_aware': crisis_prob > 0.4
+                'description': self.get_scenario_description(side_change, side_volatility)
             }
         }
         
@@ -1016,35 +857,9 @@ class AdvancedStockPredictor:
                 return "STABLE SIDEWAYS: Low volatility, range-bound trading"
     
     def get_risk_alerts(self, predictions, current_price, volatility, confidence):
-        """Generate risk alerts based on multiple factors including crisis detection"""
+        """Generate risk alerts based on multiple factors"""
         alerts = []
         change_pct = ((predictions['Close'] - current_price) / current_price) * 100
-        
-        # Get crisis probability from latest prediction
-        crisis_prob = self.last_crisis_probability
-        
-        # Crisis alerts
-        if crisis_prob > 0.7:
-            alerts.append({
-                'level': '🔴 CRITICAL',
-                'type': 'CRISIS DETECTED',
-                'message': f'High crisis probability detected ({crisis_prob:.3f}) - Extreme market conditions',
-                'action': 'AVOID new positions, use maximum risk management'
-            })
-        elif crisis_prob > 0.5:
-            alerts.append({
-                'level': '🟡 HIGH',
-                'type': 'ELEVATED CRISIS RISK',
-                'message': f'Moderate crisis probability ({crisis_prob:.3f}) - High volatility expected',
-                'action': 'Reduce position size significantly, use tight stop-losses'
-            })
-        elif crisis_prob > 0.3:
-            alerts.append({
-                'level': '🟠 MEDIUM',
-                'type': 'INCREASED CRISIS RISK',
-                'message': f'Elevated crisis watch ({crisis_prob:.3f})',
-                'action': 'Exercise caution with new positions'
-            })
         
         # Price movement alerts
         if abs(change_pct) > 15:
@@ -1356,12 +1171,12 @@ def navigate_to_page(page_name):
 @server.route('/api/predict', methods=['POST'])
 @rate_limit(0.2)
 def predict_stock():
-    """API endpoint for stock prediction with crisis detection"""
+    """API endpoint for stock prediction using LIVE data with fallback"""
     try:
         data = request.get_json()
-        symbol = data.get('symbol', 'SPY').upper()
+        symbol = data.get('symbol', 'SPY').upper()  # Default to SPY for reliability
         
-        print(f"🔮 Generating LIVE predictions with crisis detection for {symbol}...")
+        print(f"🔮 Generating LIVE predictions for {symbol}...")
         
         # Fetch LIVE historical data with fallback
         historical_data, current_price, error = get_live_stock_data(symbol)
@@ -1381,10 +1196,6 @@ def predict_stock():
         predictions, confidence_bands, scenarios, pred_error = predictor.predict_next_day_prices(historical_data)
         if pred_error:
             return jsonify({"error": pred_error}), 400
-        
-        # Get crisis probability from latest prediction
-        crisis_prob = predictor.last_crisis_probability
-        alert_level, alert_description = crisis_detector.get_alert_level(crisis_prob)
         
         # Calculate metrics
         predicted_close = predictions['Close']
@@ -1407,7 +1218,7 @@ def predict_stock():
         # Check model drift
         drift_analysis = predictor.check_model_drift()
         
-        # Prepare comprehensive response with crisis info
+        # Prepare comprehensive response
         response = {
             "symbol": symbol,
             "current_price": round(current_price, 2),
@@ -1428,13 +1239,6 @@ def predict_stock():
             "volatility": round(volatility, 4),
             "confidence": confidence,
             
-            # Crisis detection
-            "crisis_detection": {
-                "probability": round(crisis_prob, 3),
-                "alert_level": alert_level,
-                "alert_description": alert_description
-            },
-            
             # Advanced features
             "confidence_bands": confidence_bands,
             "scenarios": scenarios,
@@ -1450,12 +1254,11 @@ def predict_stock():
             "data_analysis": {
                 "total_data_points": len(historical_data),
                 "features_used": len(predictor.feature_columns),
-                "crisis_features": len(crisis_detector.crisis_features_used) if crisis_detector.is_trained else 0,
                 "training_period": f"{historical_data['Date'].iloc[0]} to {historical_data['Date'].iloc[-1]}"
             }
         }
         
-        print(f"✅ Predictions generated for {symbol} with crisis detection")
+        print(f"✅ Predictions generated for {symbol}")
         return jsonify(response)
         
     except Exception as e:
@@ -1468,7 +1271,7 @@ app.layout = html.Div([
         html.H1('🚀 Advanced AI Stock Prediction Platform', 
                 style={'color': '#00e6ff', 'textAlign': 'center', 'marginBottom': '10px',
                       'fontFamily': 'Inter, sans-serif', 'fontWeight': '700', 'fontSize': '2.5rem'}),
-        html.P("10-Year Data • Live Predictions • Crisis Detection • Confidence Bands • Risk Assessment • Explainable AI", 
+        html.P("10-Year Data • Live Predictions • Confidence Bands • Risk Assessment • Explainable AI", 
                style={'color': '#94a3b8', 'textAlign': 'center', 'marginBottom': '30px',
                      'fontFamily': 'Inter, sans-serif', 'fontSize': '1.1rem', 'fontWeight': '400'})
     ], style={'padding': '30px 20px', 'background': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)',
@@ -1643,23 +1446,19 @@ def generate_prediction(n_clicks, ticker):
         # Check model drift
         drift_analysis = predictor.check_model_drift()
         
-        # Get crisis probability
-        crisis_prob = predictor.last_crisis_probability
-        alert_level, alert_description = crisis_detector.get_alert_level(crisis_prob)
-        
         # Create comprehensive results display
         results_content = create_advanced_prediction_display(
             ticker, current_price, predictions, change_percent, risk_level, 
             recommendation, volatility, confidence, confidence_bands, scenarios,
             risk_alerts, warning_tier, drift_analysis, predictor.feature_importance,
             predictor.model_health_metrics, training_results, predictor.best_model_name,
-            len(historical_data), len(predictor.feature_columns), crisis_prob, alert_level, alert_description
+            len(historical_data), len(predictor.feature_columns)
         )
         
         status = html.Div([
             html.H4(f"✅ ADVANCED AI Analysis Complete for {ticker.upper()}", 
                    style={'color': '#00ff9d', 'marginBottom': '10px', 'fontSize': '24px', 'fontWeight': '700'}),
-            html.P(f"📊 Data Points: {len(historical_data):,} | Features Used: {len(predictor.feature_columns)} | Best Model: {predictor.best_model_name} | Crisis Detection: {'✅ ACTIVE' if crisis_detector.is_trained else '❌ INACTIVE'}",
+            html.P(f"📊 Data Points: {len(historical_data):,} | Features Used: {len(predictor.feature_columns)} | Best Model: {predictor.best_model_name}",
                   style={'color': '#94a3b8', 'fontSize': '14px'})
         ])
         
@@ -1675,9 +1474,8 @@ def generate_prediction(n_clicks, ticker):
 def create_advanced_prediction_display(ticker, current_price, predictions, change_percent, risk_level, 
                                      recommendation, volatility, confidence, confidence_bands, scenarios,
                                      risk_alerts, warning_tier, drift_analysis, feature_importance,
-                                     model_health, training_results, best_model, data_points, features_used,
-                                     crisis_prob, alert_level, alert_description):
-    """Create comprehensive prediction results display with crisis detection"""
+                                     model_health, training_results, best_model, data_points, features_used):
+    """Create comprehensive prediction results display with all advanced features"""
     
     change_color = '#00ff9d' if change_percent > 0 else '#ff4d7c'
     trend_icon = '📈' if change_percent > 0 else '📉'
@@ -1688,16 +1486,6 @@ def create_advanced_prediction_display(ticker, current_price, predictions, chang
             html.H3(f"🔮 ADVANCED AI PREDICTION - {ticker.upper()}", 
                    style={'color': '#00e6ff', 'marginBottom': '25px', 'fontSize': '28px',
                          'fontFamily': 'Inter, sans-serif', 'fontWeight': '700', 'textAlign': 'center'}),
-            
-            # Crisis Detection Banner
-            html.Div([
-                html.H4("🚨 CRISIS DETECTION SYSTEM", style={'color': alert_level[:2], 'marginBottom': '15px', 'fontSize': '20px', 'fontWeight': '700'}),
-                html.P(f"{alert_level} - {alert_description}", style={'color': alert_level[:2], 'fontSize': '18px', 'fontWeight': '600', 'marginBottom': '10px'}),
-                html.P(f"Crisis Probability: {crisis_prob:.3f}", style={'color': '#ffffff', 'fontSize': '16px', 'marginBottom': '10px'}),
-                html.P("Advanced machine learning model detecting potential market crisis conditions", 
-                      style={'color': '#94a3b8', 'fontSize': '14px', 'marginBottom': '0'})
-            ], style={'padding': '20px', 'backgroundColor': '#1a1a2e', 'borderRadius': '12px', 
-                     'border': f'2px solid {alert_level[:2]}', 'marginBottom': '25px'}),
             
             # Early Warning Tier
             html.Div([
@@ -1821,14 +1609,6 @@ def create_advanced_prediction_display(ticker, current_price, predictions, chang
                 
                 html.Div([
                     html.Div([
-                        html.P("CRISIS DETECTION", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
-                        html.P(f"Status: {'✅ ACTIVE' if crisis_detector.is_trained else '❌ INACTIVE'}", 
-                              style={'color': '#00ff9d' if crisis_detector.is_trained else '#ff4d7c', 'margin': '0', 'fontSize': '14px'}),
-                        html.P(f"Features: {len(crisis_detector.crisis_features_used)}", 
-                              style={'color': '#fbbf24', 'margin': '0', 'fontSize': '13px'})
-                    ], style={'flex': '1', 'padding': '15px', 'backgroundColor': '#1f2937', 'borderRadius': '8px', 'margin': '0 5px'}),
-                    
-                    html.Div([
                         html.P("MODEL PERFORMANCE", style={'color': '#94a3b8', 'margin': '0 0 8px 0', 'fontSize': '12px', 'fontWeight': '600'}),
                         html.P(f"Best Model: {best_model}", style={'color': '#ffffff', 'margin': '0', 'fontSize': '14px'}),
                         html.P(f"R² Score: {training_results[best_model]['R2']:.4f}", style={'color': '#00ff9d', 'margin': '0', 'fontSize': '13px'})
@@ -1942,7 +1722,7 @@ def health_check():
 # ========= MAIN EXECUTION =========
 if __name__ == '__main__':
     print("🚀 Starting Enhanced AI Stock Prediction Platform...")
-    print("📊 Features: 10-Year Data • Live Predictions • Crisis Detection • Confidence Bands • Risk Assessment • Explainable AI")
+    print("📊 Features: 10-Year Data • Live Predictions • Confidence Bands • Risk Assessment • Explainable AI")
     print("🌐 Web Interface: http://localhost:8080")
     print("📈 Prediction Page: http://localhost:8080/prediction")
     print("🔮 Dash App: http://localhost:8080/dash/")
