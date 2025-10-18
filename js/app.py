@@ -13,6 +13,7 @@ import time
 import random
 from functools import wraps
 import json
+import threading
 warnings.filterwarnings('ignore')
 
 # Machine Learning imports
@@ -25,22 +26,54 @@ from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 import ta  # Technical analysis library
 
-# ========= RATE LIMITING DECORATOR =========
-def rate_limit(max_per_second):
-    min_interval = 1.0 / max_per_second
-    def decorate(func):
-        last_time_called = [0.0]
+# ========= ENHANCED RATE LIMITING =========
+class RateLimiter:
+    def __init__(self, max_per_minute=30):
+        self.max_per_minute = max_per_minute
+        self.min_interval = 60.0 / max_per_minute
+        self.last_called = {}
+        self.lock = threading.Lock()
+    
+    def __call__(self, func):
         @wraps(func)
-        def rate_limited_function(*args, **kwargs):
-            elapsed = time.time() - last_time_called[0]
-            left_to_wait = min_interval - elapsed
-            if left_to_wait > 0:
-                time.sleep(left_to_wait)
-            ret = func(*args, **kwargs)
-            last_time_called[0] = time.time()
-            return ret
-        return rate_limited_function
-    return decorate
+        def wrapper(*args, **kwargs):
+            func_name = func.__name__
+            
+            with self.lock:
+                current_time = time.time()
+                last_time = self.last_called.get(func_name, 0)
+                elapsed = current_time - last_time
+                
+                if elapsed < self.min_interval:
+                    sleep_time = self.min_interval - elapsed
+                    print(f"⏳ Rate limiting: Waiting {sleep_time:.2f}s before {func_name}")
+                    time.sleep(sleep_time)
+                
+                self.last_called[func_name] = time.time()
+            
+            return func(*args, **kwargs)
+        return wrapper
+
+# Global rate limiter instance
+rate_limiter = RateLimiter(max_per_minute=25)
+
+# ========= ENHANCED YFINANCE SESSION SETUP =========
+def setup_yfinance_session():
+    """Setup yfinance with proper session management"""
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+    })
+    
+    # Set the session for yfinance
+    yf.set_session(session)
+    return session
+
+# Initialize session at startup
+yf_session = setup_yfinance_session()
 
 # ========= FLASK SERVER & DASH APP =========
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -67,7 +100,7 @@ def calculate_rsi(prices, window=14):
         rsi = 100 - (100 / (1 + rs))
         return rsi
     except:
-        return pd.Series([50] * len(prices), index=prices.index)  # Default value
+        return pd.Series([50] * len(prices), index=prices.index)
 
 def create_advanced_features(data):
     """Create comprehensive technical indicators with enhanced features"""
@@ -251,97 +284,65 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
     return df, prices[-1], None
 
 # ========= ENHANCED REAL-TIME DATA FUNCTIONS =========
-@rate_limit(0.3)
-def get_live_stock_data(ticker):
-    """Get 10 years of live stock data from yfinance with multiple fallback strategies"""
+@rate_limiter
+def get_live_stock_data_enhanced(ticker):
+    """Enhanced version with better error handling and retry logic"""
     try:
-        print(f"📥 Fetching 10 YEARS of LIVE data for {ticker}...")
-        time.sleep(random.uniform(1, 2))
+        print(f"📥 Fetching LIVE data for {ticker}...")
         
-        periods_to_try = [
-            ("10y", "1d"), ("5y", "1d"), ("2y", "1d"), 
-            ("1y", "1d"), ("6mo", "1d")
+        # Add random delay to avoid hitting API at exact same time
+        time.sleep(random.uniform(2, 4))
+        
+        # Try different strategies with proper error handling
+        strategies = [
+            # Strategy 1: Direct download with specific period
+            {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name": "2y period"},
+            # Strategy 2: Ticker object method
+            {"func": lambda: yf.Ticker(ticker).history(period="2y", interval="1d"), "name": "Ticker history"},
+            # Strategy 3: Specific date range (last 2 years)
+            {"func": lambda: yf.download(ticker, start=(datetime.now() - timedelta(days=730)).strftime('%Y-%m-%d'), 
+                              end=datetime.now().strftime('%Y-%m-%d'), interval="1d", progress=False, timeout=30), "name": "Date range"},
+            # Strategy 4: Shorter period as fallback
+            {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name": "1y period"},
         ]
         
-        for period, interval in periods_to_try:
+        for i, strategy in enumerate(strategies):
             try:
-                print(f"🔄 Trying {period} period with {interval} interval...")
-                hist_data = yf.download(
-                    ticker, 
-                    period=period, 
-                    interval=interval, 
-                    progress=False, 
-                    timeout=15,
-                    auto_adjust=True,
-                    threads=True
-                )
+                print(f"🔄 Trying {strategy['name']} for {ticker}...")
+                hist_data = strategy["func"]()
                 
-                if not hist_data.empty and len(hist_data) > 100:
+                if not hist_data.empty and len(hist_data) > 50:
                     current_price = hist_data['Close'].iloc[-1]
                     hist_data = hist_data.reset_index()
                     
-                    # Handle Dtype error by ensuring proper date formatting
+                    # Handle date column
                     if 'Date' in hist_data.columns:
                         hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.strftime('%Y-%m-%d')
                     elif 'Datetime' in hist_data.columns:
                         hist_data['Date'] = pd.to_datetime(hist_data['Datetime']).dt.strftime('%Y-%m-%d')
                         hist_data = hist_data.drop('Datetime', axis=1)
                     
-                    print(f"✅ Fetched {len(hist_data)} LIVE data points for {ticker} ({period})")
+                    print(f"✅ Successfully fetched {len(hist_data)} data points for {ticker}")
                     return hist_data, current_price, None
                     
             except Exception as e:
-                print(f"❌ Failed with {period}/{interval}: {e}")
+                error_msg = str(e).lower()
+                if "rate limit" in error_msg or "429" in error_msg:
+                    print(f"⏳ Rate limit hit on {strategy['name']}, waiting...")
+                    time.sleep(random.uniform(10, 15))
+                else:
+                    print(f"❌ {strategy['name']} failed: {e}")
+                
+                if i < len(strategies) - 1:  # Don't sleep after last attempt
+                    time.sleep(random.uniform(3, 6))
                 continue
         
-        # Try Ticker object
-        try:
-            print("🔄 Trying alternative method with yf.Ticker...")
-            stock = yf.Ticker(ticker)
-            hist_data = stock.history(period="10y", interval="1d", auto_adjust=True)
-            
-            if not hist_data.empty and len(hist_data) > 100:
-                current_price = hist_data['Close'].iloc[-1]
-                hist_data = hist_data.reset_index()
-                hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.strftime('%Y-%m-%d')
-                
-                print(f"✅ Fetched {len(hist_data)} LIVE data points using Ticker method")
-                return hist_data, current_price, None
-                
-        except Exception as e:
-            print(f"❌ Ticker method failed: {e}")
-        
-        # Try with start/end dates
-        try:
-            print("🔄 Trying with specific date range...")
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=365*10)
-            
-            hist_data = yf.download(
-                ticker,
-                start=start_date.strftime('%Y-%m-%d'),
-                end=end_date.strftime('%Y-%m-%d'),
-                interval="1d",
-                progress=False,
-                timeout=15
-            )
-            
-            if not hist_data.empty and len(hist_data) > 100:
-                current_price = hist_data['Close'].iloc[-1]
-                hist_data = hist_data.reset_index()
-                hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.strftime('%Y-%m-%d')
-                
-                print(f"✅ Fetched {len(hist_data)} LIVE data points using date range")
-                return hist_data, current_price, None
-                
-        except Exception as e:
-            print(f"❌ Date range method failed: {e}")
-        
+        # All strategies failed, use fallback
         print("❌ All live data methods failed, using enhanced fallback...")
         return generate_fallback_data(ticker)
         
     except Exception as e:
-        print(f"❌ Live data fetching error: {e}")
+        print(f"❌ Critical error in data fetching: {e}")
         return generate_fallback_data(ticker)
 
 # ========= ENHANCED MULTI-TARGET STOCK PREDICTOR =========
@@ -892,7 +893,7 @@ def navigate_to_page(page_name):
 
 # ========= API ROUTES =========
 @server.route('/api/predict', methods=['POST'])
-@rate_limit(0.2)
+@rate_limiter
 def predict_stock():
     """API endpoint for multi-target stock prediction"""
     try:
@@ -901,8 +902,11 @@ def predict_stock():
         
         print(f"🔮 Generating MULTI-TARGET predictions for {symbol}...")
         
-        # Fetch LIVE historical data
-        historical_data, current_price, error = get_live_stock_data(symbol)
+        # Add initial delay to be respectful to API
+        time.sleep(random.uniform(2, 4))
+        
+        # Fetch LIVE historical data with enhanced method
+        historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
             return jsonify({"error": error}), 400
         
@@ -1112,7 +1116,7 @@ def generate_prediction(n_clicks, ticker):
         print(f"🔄 Starting MULTI-TARGET prediction process for {ticker}...")
         
         # Fetch data with fallback
-        historical_data, current_price, error = get_live_stock_data(ticker)
+        historical_data, current_price, error = get_live_stock_data_enhanced(ticker)
         if error:
             return html.Div([
                 html.P(f"❌ Error: {error}", 
