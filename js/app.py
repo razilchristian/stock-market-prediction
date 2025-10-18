@@ -59,7 +59,7 @@ rate_limiter = RateLimiter(max_per_minute=25)
 
 # ========= ENHANCED YFINANCE SESSION SETUP =========
 def setup_yfinance_session():
-    """Setup yfinance with proper session management"""
+    """Setup yfinance with proper session management for newer versions"""
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -68,8 +68,7 @@ def setup_yfinance_session():
         'Connection': 'keep-alive',
     })
     
-    # Set the session for yfinance
-    yf.set_session(session)
+    # For newer yfinance versions, we'll use the session directly in download calls
     return session
 
 # Initialize session at startup
