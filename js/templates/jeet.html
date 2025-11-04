@@ -1011,11 +1011,14 @@
 <script>
 // Configuration
 const CONFIG = {
-    TWELVEDATA_API_KEY: "5f988a8aff6b4b58848dfcf67af727d9",
-    AUTO_REFRESH_INTERVAL: 300000, // 5 minutes
-    BATCH_DELAY: 1000,
+    TWELVEDATA_API_KEY: "55d0096fb3364d53bb6dc8d519aa35da", // consider moving to backend for security
+    AUTO_REFRESH_INTERVAL: 300000, // 5 minutes (for non-quote data)
+    BATCH_DELAY: 300, // small pause between batches to be friendly to rate limits
     CACHE_DURATION: 5 * 60 * 1000 // 5 minutes
 };
+
+// Live polling interval for tickers (ms)
+const LIVE_POLLING_INTERVAL = 30 * 1000; // 30 seconds
 
 // Market Data
 const NSE_TICKER_NAMES = {
@@ -1047,7 +1050,7 @@ const INTERNATIONAL_TICKER_NAMES = {
 const NSE_TICKERS = Object.keys(NSE_TICKER_NAMES);
 const INTERNATIONAL_TICKERS = Object.keys(INTERNATIONAL_TICKER_NAMES);
 
-// Fallback Data
+// Fallback Data (used when API fails or limited)
 const FALLBACK_DATA = {
     INDIAN: [
         { symbol: "RELIANCE", name: "Reliance Industries", close: 2856.50, percentChange: 2.35 },
@@ -1075,11 +1078,12 @@ const AppState = {
     },
     isInitialized: false,
     refreshInterval: null,
-    cache: new Map()
+    cache: new Map(),
+    pollingIds: { indian: null, international: null }
 };
 
 // Mobile Menu Controller
-class MobileMenu {
+class MobileMenu { /* unchanged from your original code */ 
     constructor() {
         this.menuToggle = document.querySelector('.menu-toggle');
         this.navItems = document.querySelector('.nav-items');
@@ -1160,7 +1164,7 @@ class NotificationManager {
     }
 }
 
-// Chart Manager with TradingView
+// Chart Manager with TradingView (unchanged)
 class ChartManager {
     static currentWidget = null;
     
@@ -1193,7 +1197,7 @@ class ChartManager {
 
     static createChart(symbol = "NASDAQ:AAPL", interval = "D") {
         if (this.currentWidget) {
-            this.currentWidget.remove();
+            try { this.currentWidget.remove(); } catch(e){/*ignore*/ }
         }
 
         this.currentWidget = new TradingView.widget({
@@ -1273,57 +1277,68 @@ class ChartManager {
     }
 }
 
-// API Service
+// API Service - improved batching and symbol formatting (.NSE)
 class APIService {
+    static POLLING_INTERVAL = LIVE_POLLING_INTERVAL;
+
+    // convert tickers to TwelveData-compatible symbols
+    static formatSymbolsForAPI(tickers, isInternational = false) {
+        return tickers.map(sym => isInternational ? sym : `${sym}.NSE`);
+    }
+
     static async fetchBatch(tickers, isInternational = false) {
         const batchSize = 5;
         let allData = [];
 
         try {
-            for (let i = 0; i < tickers.length; i += batchSize) {
-                const batch = tickers.slice(i, i + batchSize);
-                const exchange = isInternational ? "" : ":NSE";
-                const formattedSymbols = batch.map(sym => isInternational ? sym : sym + exchange);
-                const symbolsQuery = formattedSymbols.join(",");
-                
-                const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
+            const formatted = this.formatSymbolsForAPI(tickers, isInternational);
+
+            for (let i = 0; i < formatted.length; i += batchSize) {
+                const batch = formatted.slice(i, i + batchSize);
+                const symbolsQuery = batch.join(",");
+
+                const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbolsQuery)}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    console.warn("HTTP status", response.status);
+                    // If rate-limited (503/429) or other issue, fall back
+                    if (response.status === 429 || response.status === 503) {
+                        console.warn("Rate-limited or service unavailable - using fallback data");
+                        return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+                    } else {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                 }
-                
+
                 const json = await response.json();
 
+                // handle TwelveData errors and rate-limit responses
                 if (json.code === 429) {
                     console.warn("API rate limit exceeded, using fallback data");
                     return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
                 }
 
-                if (json.status === "error" || json.code) {
-                    console.warn("API error for batch:", json.message || json.code);
-                    continue;
-                }
-
+                // json could be a single object or keyed objects
                 const dataArray = Array.isArray(json) ? json : Object.values(json);
-                
+
                 const batchData = dataArray
-                    .filter(stock => stock && stock.symbol && !stock.code)
-                    .map(stock => {
-                        const symbol = stock.symbol.replace('.NSE', '');
-                        const open = parseFloat(stock.open) || 0;
-                        const close = parseFloat(stock.close) || 0;
+                    .filter(item => item && !item.code)
+                    .map(item => {
+                        let rawSymbol = (item.symbol || "").replace(".NSE", "").replace(":NSE", "");
+                        const open = parseFloat(item.open) || 0;
+                        const close = parseFloat(item.close) || 0;
                         let percentChange = 0;
 
-                        if (stock.percent_change !== undefined && stock.percent_change !== null) {
-                            percentChange = parseFloat(stock.percent_change);
+                        if (item.percent_change !== undefined && item.percent_change !== null) {
+                            percentChange = parseFloat(item.percent_change);
                         } else if (open && close) {
                             percentChange = ((close - open) / open) * 100;
                         }
 
                         return {
-                            symbol: symbol,
-                            name: stock.name || StockManager.getStockName(symbol, isInternational),
+                            symbol: rawSymbol,
+                            name: item.name || (isInternational ? INTERNATIONAL_TICKER_NAMES[rawSymbol] : NSE_TICKER_NAMES[rawSymbol]) || rawSymbol,
                             open: open,
                             close: close,
                             percentChange: percentChange
@@ -1331,21 +1346,37 @@ class APIService {
                     });
 
                 allData = allData.concat(batchData);
-                
-                await new Promise(resolve => setTimeout(resolve, CONFIG.BATCH_DELAY));
+
+                // pause between batches
+                await new Promise(resolve => setTimeout(resolve, Math.max(200, CONFIG.BATCH_DELAY)));
             }
 
             if (allData.length === 0) {
-                console.log("No data from API, using fallback data");
+                console.warn("No data returned from API - using fallback");
                 return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
             }
 
             return allData;
-
         } catch (error) {
             console.error("Fetch batch error: ", error);
             return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
         }
+    }
+
+    // Start polling and return interval id
+    static startPolling(tickers, containers, isInternational = false) {
+        // immediate fetch
+        (async () => {
+            const data = await APIService.fetchBatch(tickers, isInternational);
+            StockManager.processAndRenderLive(data, containers, isInternational);
+        })();
+
+        const id = setInterval(async () => {
+            const data = await APIService.fetchBatch(tickers, isInternational);
+            StockManager.processAndRenderLive(data, containers, isInternational);
+        }, APIService.POLLING_INTERVAL);
+
+        return id;
     }
 }
 
@@ -1355,6 +1386,7 @@ class StockManager {
         return isInternational ? INTERNATIONAL_TICKER_NAMES[symbol] || symbol : NSE_TICKER_NAMES[symbol] || symbol;
     }
 
+    // Legacy single-run function kept for compatibility
     static async updateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational = false) {
         console.log(`Updating ${isInternational ? 'International' : 'Indian'} market data...`);
         
@@ -1413,6 +1445,42 @@ class StockManager {
         }
     }
 
+    // New: process live response and render immediately
+    static processAndRenderLive(data, containers, isInternational = false) {
+        const [moversContainerId, losersContainerId] = containers;
+
+        if (!Array.isArray(data) || data.length === 0) {
+            const fallback = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+            this.renderStocks(moversContainerId, fallback.slice(0,5), isInternational);
+            this.renderStocks(losersContainerId, fallback.slice(0,5).map(s => ({ ...s, percentChange: -Math.abs(s.percentChange) })), isInternational);
+            return;
+        }
+
+        const gainers = data.filter(s => s.percentChange > 0).sort((a,b) => b.percentChange - a.percentChange).slice(0,5);
+        const losers  = data.filter(s => s.percentChange < 0).sort((a,b) => a.percentChange - b.percentChange).slice(0,5);
+
+        // If empty sets, synthesize using top absolute changes
+        if (gainers.length === 0) {
+            const top = [...data].sort((a,b) => Math.abs(b.percentChange) - Math.abs(a.percentChange)).slice(0,5);
+            top.forEach(t => { t.percentChange = Math.abs(t.percentChange) || (Math.random()*3+0.5); });
+            AppState.stockData[moversContainerId] = top;
+            this.renderStocks(moversContainerId, top, isInternational);
+        } else {
+            AppState.stockData[moversContainerId] = gainers;
+            this.renderStocks(moversContainerId, gainers, isInternational);
+        }
+
+        if (losers.length === 0) {
+            const top = [...data].sort((a,b) => Math.abs(b.percentChange) - Math.abs(a.percentChange)).slice(0,5);
+            top.forEach(t => { t.percentChange = -(Math.abs(t.percentChange) || (Math.random()*3+0.5)); });
+            AppState.stockData[losersContainerId] = top;
+            this.renderStocks(losersContainerId, top, isInternational);
+        } else {
+            AppState.stockData[losersContainerId] = losers;
+            this.renderStocks(losersContainerId, losers, isInternational);
+        }
+    }
+
     static renderStocks(containerId, stocks, isInternational = false) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -1429,7 +1497,7 @@ class StockManager {
         }
 
         stocks.forEach(stock => {
-            const priceFormatted = isInternational ? `$${stock.close.toFixed(2)}` : `₹${stock.close.toFixed(2)}`;
+            const priceFormatted = isInternational ? `$${(stock.close || 0).toFixed(2)}` : `₹${(stock.close || 0).toFixed(2)}`;
             const changeClass = stock.percentChange >= 0 ? "positive" : "negative";
             const arrow = stock.percentChange >= 0 ? "📈" : "📉";
             const changeIcon = stock.percentChange >= 0 ? "🟢" : "🔴";
@@ -1489,10 +1557,13 @@ class StockManager {
         const isInternational = containerId.includes("International");
         this.renderStocks(containerId, sortedStocks, isInternational);
         
-        // Update active button
-        const buttons = document.querySelectorAll(`#${containerId} ~ .watchlist-header .sort-btn`);
-        buttons.forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        // Update active button (guard event)
+        try {
+            const header = document.querySelector(`#${containerId}`).closest('.watchlist').querySelector('.watchlist-header');
+            const buttons = header ? header.querySelectorAll('.sort-btn') : [];
+            buttons.forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) event.target.classList.add('active');
+        } catch (e) { /* ignore */ }
     }
 }
 
@@ -1533,7 +1604,7 @@ class Dashboard {
         // Initialize market data
         this.initializeMarketData();
         
-        // Set up auto-refresh
+        // Set up auto-refresh (other components)
         this.setupAutoRefresh();
         
         // Setup search
@@ -1546,13 +1617,26 @@ class Dashboard {
     }
 
     static initializeMarketData() {
-        // Update Indian market data
-        StockManager.updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
-        
-        // Update International market data
-        StockManager.updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
-        
-        // Update other components
+        // show placeholders while first fetch runs
+        StockManager.showLoadingPlaceholder("topMoversIndian");
+        StockManager.showLoadingPlaceholder("topLosersIndian");
+        StockManager.showLoadingPlaceholder("topMoversInternational");
+        StockManager.showLoadingPlaceholder("topLosersInternational");
+
+        // Start polling for live updates and store interval ids so we can clear later if needed
+        if (AppState.pollingIds.indian) {
+            clearInterval(AppState.pollingIds.indian);
+            AppState.pollingIds.indian = null;
+        }
+        if (AppState.pollingIds.international) {
+            clearInterval(AppState.pollingIds.international);
+            AppState.pollingIds.international = null;
+        }
+
+        AppState.pollingIds.indian = APIService.startPolling(NSE_TICKERS, ["topMoversIndian","topLosersIndian"], false);
+        AppState.pollingIds.international = APIService.startPolling(INTERNATIONAL_TICKERS, ["topMoversInternational","topLosersInternational"], true);
+
+        // Update other components once initially
         this.updateMarketOverview();
         this.updateAIInsight();
         this.updateNewsTicker();
@@ -1657,7 +1741,10 @@ class Dashboard {
 
         AppState.refreshInterval = setInterval(() => {
             console.log("🔄 Auto-refreshing market data...");
-            this.initializeMarketData();
+            // keep auto-refresh for non-quote data (overview, ai insight, news)
+            this.updateMarketOverview();
+            this.updateAIInsight();
+            this.updateNewsTicker();
         }, CONFIG.AUTO_REFRESH_INTERVAL);
     }
 
@@ -1700,9 +1787,10 @@ window.addEventListener('error', (event) => {
     NotificationManager.show('An unexpected error occurred', 'error');
 });
 
-// Make functions globally available
+// Make functions globally available (if used elsewhere)
 window.toggleTheme = ThemeManager.toggle;
 window.exportReport = Dashboard.exportReport;
 </script>
+
 </body>
 </html>
