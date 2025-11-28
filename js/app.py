@@ -942,20 +942,121 @@ class AdvancedMultiTargetPredictor:
         """Predict crisis probability for future dates"""
         try:
             if self.crisis_model is None or len(self.crisis_features) == 0:
+                print("⚠️ No crisis model available, using default probability")
                 return [0.1]  # Default low probability
             
-            # Get the latest features for crisis prediction
-            if len(data_scaled) >= 2:
-                latest_features = data_scaled[self.crisis_features].iloc[-2:].values
+            # Get the latest features for crisis prediction - FIXED
+            if len(data_scaled) > 0:
+                # Ensure we have all required features
+                available_features = [f for f in self.crisis_features if f in data_scaled.columns]
+                if len(available_features) > 0:
+                    # Use only the most recent data point
+                    latest_features = data_scaled[available_features].iloc[-1:].values
+                    
+                    # Ensure we have the right shape for prediction
+                    if latest_features.shape[1] == len(available_features):
+                        try:
+                            crisis_probs = self.crisis_model.predict_proba(latest_features)
+                            if crisis_probs.shape[1] > 1:  # Check if we have multiple classes
+                                return crisis_probs[:, 1].tolist()  # Return probability of crisis (class 1)
+                            else:
+                                return [crisis_probs[0, 0]]  # Return the only probability available
+                        except Exception as pred_error:
+                            print(f"⚠️ Crisis prediction failed: {pred_error}")
+                            return [0.1]
+                    else:
+                        print(f"⚠️ Feature shape mismatch: {latest_features.shape} vs expected {len(available_features)}")
+                        return [0.1]
+                else:
+                    print("⚠️ No crisis features available in data")
+                    return [0.1]
             else:
-                latest_features = data_scaled[self.crisis_features].iloc[-1:].values
-            
-            crisis_probs = self.crisis_model.predict_proba(latest_features)[:, 1]
-            return crisis_probs
-            
+                print("⚠️ No data available for crisis prediction")
+                return [0.1]
+                
         except Exception as e:
             print(f"⚠️ Error predicting crisis probability: {e}")
+            import traceback
+            traceback.print_exc()
             return [0.1]  # Default low probability
+
+    def get_risk_alerts(self, predictions, current_price, crisis_probs):
+        """Generate risk alerts based on multiple factors - FIXED"""
+        alerts = []
+        
+        try:
+            # Calculate overall change - FIXED: Handle array/Series properly
+            changes = []
+            for target in ['Open', 'High', 'Low', 'Close']:
+                if target in predictions and len(predictions[target]) > 0:
+                    # Extract scalar value safely
+                    pred_value = predictions[target][0] if hasattr(predictions[target], '__iter__') else predictions[target]
+                    current_val = current_price[0] if hasattr(current_price, '__iter__') else current_price
+                    
+                    # Ensure we have valid numbers
+                    if isinstance(pred_value, (int, float)) and isinstance(current_val, (int, float)) and current_val != 0:
+                        change = ((pred_value - current_val) / current_val) * 100
+                        changes.append(float(change))
+            
+            if changes:
+                avg_change = np.mean(changes)
+                
+                # Price movement alerts
+                if abs(avg_change) > 15:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Extreme Movement',
+                        'message': f'Expected {avg_change:+.1f}% move - Extreme volatility expected',
+                        'action': 'Consider position sizing and stop-losses'
+                    })
+                elif abs(avg_change) > 8:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'Large Movement',
+                        'message': f'Expected {avg_change:+.1f}% move - High volatility',
+                        'action': 'Monitor closely and adjust positions'
+                    })
+            
+            # Crisis probability alerts - FIXED: Handle crisis_probs properly
+            if crisis_probs is not None and len(crisis_probs) > 0:
+                # Convert to list of floats safely
+                crisis_vals = []
+                for prob in crisis_probs:
+                    if hasattr(prob, '__iter__'):
+                        crisis_vals.extend([float(p) for p in prob])
+                    else:
+                        crisis_vals.append(float(prob))
+                
+                if crisis_vals:
+                    avg_crisis_prob = np.mean(crisis_vals)
+                    if avg_crisis_prob > 0.7:
+                        alerts.append({
+                            'level': '🔴 CRITICAL',
+                            'type': 'High Crisis Probability',
+                            'message': f'Crisis probability: {avg_crisis_prob:.1%}',
+                            'action': 'Reduce exposure immediately'
+                        })
+                    elif avg_crisis_prob > 0.4:
+                        alerts.append({
+                            'level': '🟡 HIGH',
+                            'type': 'Elevated Crisis Risk',
+                            'message': f'Crisis probability: {avg_crisis_prob:.1%}',
+                            'action': 'Exercise extreme caution'
+                        })
+        
+        except Exception as e:
+            print(f"⚠️ Error generating risk alerts: {e}")
+            import traceback
+            traceback.print_exc()
+            # Add a general caution alert
+            alerts.append({
+                'level': '🟡 HIGH',
+                'type': 'System Alert',
+                'message': 'Risk assessment temporarily unavailable',
+                'action': 'Proceed with caution and verify market conditions'
+            })
+        
+        return alerts
     
     def generate_multi_scenarios(self, predictions, current_price):
         """Generate multiple market scenarios based on predictions"""
