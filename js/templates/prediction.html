@@ -1,839 +1,185 @@
-<!DOCTYPE html>
+<!-- templates/prediction.html -->
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Prediction · AlphaAnalytics</title>
-
-<!-- Fonts & Icons -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-<style>
-/* ---------------------------
-   Core Reset & Variables
-   --------------------------- */
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg-gradient: linear-gradient(135deg,#0f0f23 0%,#1a1a2e 50%,#16213e 100%);
-  --bg-dark:#0f0f23;
-  --bg-card:rgba(30,30,46,0.85);
-  --text-primary:#ffffff;
-  --text-secondary:#a0a0c0;
-  --accent-blue:#00e6ff;
-  --accent-teal:#00ff9d;
-  --up:#00ff9d;
-  --down:#ff4d7c;
-  --muted:#707090;
-  --border:rgba(255,255,255,0.08);
-  --glass: rgba(255,255,255,0.03);
-  --shadow: 0 10px 30px rgba(0,0,0,0.45);
-  font-synthesis: none;
-}
-body{font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:var(--bg-gradient);color:var(--text-primary);min-height:100vh;line-height:1.5}
-
-/* ---------------------------
-   Container & Layout
-   --------------------------- */
-.container{max-width:1400px;margin:0 auto;padding:0 18px;display:flex;flex-direction:column;min-height:100vh}
-.navbar{position:sticky;top:0;z-index:1200;background:rgba(15,15,35,0.72);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.nav-wrap{max-width:1400px;margin:0 auto;padding:10px 18px}
-.nav-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:28px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;gap:8px;align-items:center}
-.logo i{font-size:22px}
-
-/* Nav items */
-.nav-items{display:flex;gap:8px;align-items:center;list-style:none}
-.nav-item{display:flex;gap:8px;align-items:center;padding:10px 14px;border-radius:10px;color:var(--text-secondary);text-decoration:none;font-weight:600;font-size:14px;transition:all .18s ease}
-.nav-item:hover{background:rgba(0,230,255,0.07);color:var(--accent-blue);transform:translateY(-2px)}
-.nav-item.active{background:var(--accent-blue);color:var(--bg-dark);box-shadow:0 8px 30px rgba(0,230,255,0.12)}
-.menu-toggle{display:none;background:none;border:none;cursor:pointer;padding:8px;align-items:center;gap:4px}
-.menu-toggle span{width:22px;height:2px;background:var(--text-primary);display:block;border-radius:2px;transition:all .2s}
-
-/* ---------------------------
-   Main Content
-   --------------------------- */
-.main{flex:1;padding:22px 0;display:flex;flex-direction:column;gap:22px}
-.header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-.header h1{font-family:'Space Grotesk';font-weight:700;font-size:28px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.header-controls{display:flex;gap:12px;align-items:center}
-
-/* Search & buttons */
-.search-container{position:relative;width:420px;max-width:100%}
-.search-bar{width:100%;padding:12px 16px 12px 44px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-weight:600}
-.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
-.btn{padding:10px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:700;display:inline-flex;gap:8px;align-items:center}
-.btn-primary{background:linear-gradient(90deg,var(--accent-blue),var(--accent-teal));color:var(--bg-dark);box-shadow:0 10px 30px rgba(0,230,255,0.08)}
-.btn-secondary{background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border)}
-
-/* Dashboard grid */
-.grid-2{display:grid;grid-template-columns:1fr 380px;gap:20px}
-@media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
-.card{background:var(--bg-card);border-radius:14px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);backdrop-filter:blur(6px)}
-.small{padding:12px}
-
-/* Stock selector */
-.stock-search{width:100%;padding:10px 12px 10px 40px;border-radius:10px;border:1px solid var(--border);background:var(--bg-dark);color:var(--text-primary)}
-.stock-list{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;margin-top:12px}
-.stock-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);cursor:pointer;border:1px solid transparent}
-.stock-item:hover{transform:translateY(-3px);border-color:var(--accent-blue)}
-.stock-item.active{background:linear-gradient(90deg,#06242f,#072a3b);border:1px solid var(--accent-blue);color:var(--bg-dark)}
-.stock-symbol{font-weight:800;font-family:'Space Grotesk';font-size:16px}
-.stock-price{font-weight:700}
-
-/* Prediction card */
-.prediction-chart{height:300px;border-radius:10px;background:var(--bg-dark);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);overflow:hidden;padding:12px}
-.prediction-details{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
-.prediction-label{color:var(--text-secondary);font-weight:600}
-.prediction-value{font-weight:800;font-family:'Space Grotesk';font-size:18px}
-
-/* Next day grid */
-.predictions-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
-.prediction-type{background:var(--bg-dark);padding:12px;border-radius:10px;border:1px solid var(--border);text-align:center}
-
-/* Charts section */
-.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:900px){.charts{grid-template-columns:1fr}}
-
-/* Notifications & toast */
-.notification{position:fixed;right:20px;top:20px;padding:12px 16px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);display:flex;gap:10px;align-items:center;transform:translateX(120%);transition:transform .28s}
-.notification.show{transform:translateX(0)}
-
-/* Loading overlay for iframe/iframe fallback */
-.iframe-container{height:520px;border-radius:12px;border:1px solid var(--border);overflow:hidden;background:var(--bg-card)}
-.loading-overlay{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:12px;background:rgba(0,0,0,0.3);color:var(--accent-blue)}
-
-/* small adjustments */
-.hint{color:var(--text-secondary);font-size:13px}
-.center{display:flex;align-items:center;justify-content:center}
-
-/* Responsiveness */
-@media(max-width:768px){
-  .nav-items{display:none;position:absolute;left:0;right:0;top:64px;background:var(--bg-dark);flex-direction:column;padding:12px;gap:8px;border-top:1px solid var(--border)}
-  .menu-toggle{display:flex}
-  .nav-items.show{display:flex}
-  .grid-2{grid-template-columns:1fr}
-  .predictions-grid{grid-template-columns:repeat(2,1fr)}
-}
-
-/* Light theme */
-body.light{--bg-gradient:linear-gradient(135deg,#f8fafc,#e2e8f0);--bg-dark:#ffffff;--bg-card:rgba(255,255,255,0.92);--text-primary:#0f172a;--text-secondary:#475569;--border:rgba(0,0,0,0.06);--muted:#64748b}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Prediction — AI Stock Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0f1724; --muted:#94a3b8; --accent:#00e6ff; --good:#00ff9d; --bad:#ff4d7c;
+      --panel:#111827; --card-border:#2a2a4a; --mono: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#080813 0%, #0f1724 100%);font-family:var(--mono);color:#fff}
+    .container{max-width:1100px;margin:28px auto;padding:22px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    header h1{font-size:20px;color:var(--accent);margin:0}
+    .card{background:var(--panel);border:1px solid var(--card-border);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 6px 22px rgba(0,0,0,.4)}
+    .grid{display:flex;gap:16px;flex-wrap:wrap}
+    .col{flex:1;min-width:240px}
+    label{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
+    input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #263044;background:#0b1220;color:#fff;font-size:15px}
+    button.primary{background:linear-gradient(90deg,var(--accent),#00ff9d);border:none;color:#072025;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer}
+    .result-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .stat{flex:1;min-width:150px;padding:12px;border-radius:8px;background:#0b1220;border:1px solid #222;color:#fff}
+    pre{white-space:pre-wrap;background:#07101a;padding:12px;border-radius:8px;border:1px solid #18262f;color:#e6f7ff}
+    .small{font-size:13px;color:var(--muted)}
+  </style>
 </head>
 <body>
-<div class="container">
+  <div class="container">
+    <header>
+      <h1>🔮 AI Multi-Target Stock Prediction</h1>
+      <div class="small">Prediction engine — Flask API (models persisted)</div>
+    </header>
 
-  <!-- NAVBAR (Option A - ORIGINAL full navigation) -->
-  <header class="navbar">
-    <div class="nav-wrap">
-      <div class="nav-row">
-        <div class="logo">
-          <i class="fas fa-chart-line"></i>
-          AlphaAnalytics
+    <div class="card">
+      <div class="grid">
+        <div class="col">
+          <label for="ticker">Stock Ticker</label>
+          <input id="ticker" type="text" placeholder="e.g., AAPL, SPY, TSLA" value="SPY"/>
         </div>
-
-        <button class="menu-toggle" aria-label="Toggle menu">
-          <span></span><span></span><span></span>
-        </button>
-
-        <nav class="nav-items" id="mainNav">
-          <a href="/jeet" class="nav-item"><i class="fas fa-home"></i> Dashboard</a>
-          <a href="/portfolio" class="nav-item"><i class="fas fa-briefcase"></i> Portfolio</a>
-          <a href="/mystock" class="nav-item"><i class="fas fa-star"></i> My Stock</a>
-          <a href="/deposit" class="nav-item"><i class="fas fa-wallet"></i> Deposit</a>
-          <a href="/insight" class="nav-item"><i class="fas fa-brain"></i> Insight</a>
-          <a href="/prediction" class="nav-item active"><i class="fas fa-crystal-ball"></i> Prediction</a>
-          <a href="/news" class="nav-item"><i class="fas fa-newspaper"></i> News</a>
-          <a href="/videos" class="nav-item"><i class="fas fa-play-circle"></i> Videos</a>
-          <a href="/Superstars" class="nav-item"><i class="fas fa-trophy"></i> Superstars</a>
-          <a href="/alerts" class="nav-item"><i class="fas fa-bell"></i> Alerts</a>
-          <a href="/help" class="nav-item"><i class="fas fa-question-circle"></i> Help</a>
-          <a href="/profile" class="nav-item"><i class="fas fa-user"></i> Profile</a>
-        </nav>
+        <div class="col" style="flex:0 0 220px;display:flex;align-items:end;justify-content:flex-end">
+          <button id="predictBtn" class="primary">🚀 Predict</button>
+        </div>
       </div>
-    </div>
-  </header>
 
-  <!-- notification -->
-  <div class="notification" id="notification">
-    <i class="fas fa-check-circle" id="notificationIcon"></i>
-    <div id="notificationText">Operation completed</div>
+      <div id="status" class="small" style="margin-top:12px;color:var(--muted)">Enter a ticker and click Predict. Models are saved on first train and reused later.</div>
+    </div>
+
+    <div id="output" class="card" style="display:none"></div>
   </div>
 
-  <!-- Main -->
-  <main class="main">
-    <div class="header">
-      <h1>AI Stock Predictions</h1>
-      <div class="header-controls">
-        <div class="search-container">
-          <i class="fas fa-search search-icon"></i>
-          <input id="searchInput" class="search-bar" placeholder="Search predictions..." />
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-primary" id="generateAllBtn"><i class="fas fa-bolt"></i> Generate All</button>
-          <button class="btn btn-secondary" id="themeToggle" title="Toggle theme"><i class="fas fa-palette"></i></button>
-        </div>
-      </div>
-    </div>
+  <script>
+    const btn = document.getElementById('predictBtn');
+    const tickerInput = document.getElementById('ticker');
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
 
-    <!-- layout grid -->
-    <div class="grid-2">
-      <!-- Left: Main prediction card and charts -->
-      <div style="display:flex;flex-direction:column;gap:18px">
-        <!-- AI Insight -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-            <i class="fas fa-robot" style="font-size:20px;color:var(--accent-blue)"></i>
-            <h3 style="margin:0;font-family:'Space Grotesk';">AI Prediction Engine</h3>
-          </div>
-          <div id="aiInsightText" class="hint">Our AI analyzes historical data, technical indicators and market signals to generate multi-target (OHLC) next-day predictions.</div>
-        </div>
-
-        <!-- Prediction card -->
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div id="selectedStock" style="font-family:'Space Grotesk';font-weight:700;font-size:18px">AAPL - Apple Inc.</div>
-              <div class="hint" id="marketHint">Live price: <span id="livePrice">-</span> • <span id="marketStatus">-</span></div>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-secondary" id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
-              <button class="btn btn-primary" id="predictBtn"><i class="fas fa-chart-line"></i> Predict</button>
-            </div>
-          </div>
-
-          <div class="prediction-chart" id="predictionChart">
-            <canvas id="predictionCanvas" style="max-width:100%;height:100%"></canvas>
-          </div>
-
-          <div class="prediction-details">
-            <div>
-              <div class="prediction-label">Current Price</div>
-              <div class="prediction-value" id="currentPrice">$0.00</div>
-            </div>
-            <div>
-              <div class="prediction-label">Predicted Close</div>
-              <div class="prediction-value" id="predictedPrice">$0.00 <span id="predictedChange" class="hint"></span></div>
-            </div>
-            <div>
-              <div class="prediction-label">Confidence</div>
-              <div class="prediction-value" id="confidenceLevel">—</div>
-            </div>
-            <div>
-              <div class="prediction-label">Time Horizon</div>
-              <div class="prediction-value" id="timeHorizon">Next Day</div>
-            </div>
-          </div>
-
-          <!-- Next day predictions grid -->
-          <div id="nextDayWrapper" style="margin-top:12px;display:none">
-            <h4 style="margin-bottom:8px">Next Day Price Predictions</h4>
-            <div class="predictions-grid" id="predictionsGrid"></div>
-          </div>
-        </div>
-
-        <!-- charts: historical + accuracy -->
-        <div class="card charts">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div style="font-weight:700">Historical Performance</div>
-              <select id="historyRange" style="padding:8px;border-radius:8px;background:var(--bg-dark);color:var(--text-primary);border:1px solid var(--border)">
-                <option>1 Month</option>
-                <option>3 Months</option>
-                <option>1 Year</option>
-                <option selected>10 Years</option>
-              </select>
-            </div>
-            <div style="height:250px;display:flex;align-items:center;justify-content:center">
-              <canvas id="historyChart" style="width:100%;height:100%"></canvas>
-            </div>
-          </div>
-
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div style="font-weight:700">Prediction Confidence</div>
-              <select id="confidenceFilter" style="padding:8px;border-radius:8px;background:var(--bg-dark);color:var(--text-primary);border:1px solid var(--border)">
-                <option>Selected Stock</option>
-                <option>All Stocks</option>
-                <option>Tech Sector</option>
-              </select>
-            </div>
-            <div style="height:250px;display:flex;align-items:center;justify-content:center">
-              <canvas id="confidenceChart" style="width:100%;height:100%"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- advanced analytics / dash iframe fallback -->
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div><h4 style="margin:0">Advanced Analytics</h4><div class="hint">Interactive dashboard (Dash) — fallback below if unavailable</div></div>
-            <div class="hint">Use internal Dash for deeper analysis</div>
-          </div>
-
-          <div style="margin-top:12px" class="iframe-container" id="dashContainer">
-            <div id="iframeArea" style="position:relative;height:420px">
-              <iframe src="/dash/" style="width:100%;height:420px;border:0;background:transparent" loading="lazy"></iframe>
-              <div class="loading-overlay" id="iframeLoader" style="display:flex;position:absolute;left:0;right:0;top:0;bottom:0">
-                <div>
-                  <div class="hint">Loading advanced analytics…</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Right: stock selector, metrics, alerts -->
-      <aside style="display:flex;flex-direction:column;gap:18px">
-        <!-- stock selector -->
-        <div class="card stock-selector">
-          <h3 style="margin:0 0 10px 0">Select Stock</h3>
-          <div style="position:relative">
-            <i class="fas fa-search" style="position:absolute;left:12px;top:12px;color:var(--muted)"></i>
-            <input id="stockSearch" class="stock-search" placeholder="Start typing (AAPL, TSLA...)" style="padding-left:40px" />
-          </div>
-          <div id="stockList" class="stock-list">
-            <!-- injected -->
-          </div>
-        </div>
-
-        <!-- performance metrics -->
-        <div class="card small">
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:120px">
-              <div class="hint">Prediction Accuracy</div>
-              <div style="font-weight:800;font-size:20px">—</div>
-            </div>
-            <div style="flex:1;min-width:120px">
-              <div class="hint">Profitable Predictions</div>
-              <div style="font-weight:800;font-size:20px">—</div>
-            </div>
-            <div style="flex:1;min-width:120px">
-              <div class="hint">Avg. Proc Time</div>
-              <div style="font-weight:800;font-size:20px">—</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- risk alerts -->
-        <div class="card">
-          <h4 style="margin:0 0 10px 0">Risk Alerts</h4>
-          <div id="riskAlerts" class="hint">No alerts</div>
-        </div>
-
-        <!-- quick actions -->
-        <div class="card small">
-          <button class="btn btn-primary" id="quickPredictBtn" style="width:100%;margin-bottom:8px"><i class="fas fa-rocket"></i> Quick Predict</button>
-          <button class="btn btn-secondary" id="downloadReportBtn" style="width:100%"><i class="fas fa-download"></i> Download Snapshot</button>
-        </div>
-      </aside>
-    </div> <!-- end grid -->
-
-  </main>
-</div>
-
-<script>
-/* =======================================================
-   PREDICTION PAGE SCRIPT
-   - Works with /api/stocks and /api/predict
-   - Chart.js used for plotting price + confidence band
-   ======================================================= */
-
-const API_BASE = window.location.origin; // update if different
-const CONFIG = {
-  DEBOUNCE: 300,
-  NOTIF_DURATION: 4500
-};
-
-/* ------------- App state ------------- */
-const App = {
-  stocks: [],
-  selected: null,
-  predictionData: null,
-  historyChart: null,
-  predictionChart: null,
-  confidenceChart: null
-};
-
-/* ------------- Utilities ------------- */
-function notify(msg, type='success') {
-  const n = document.getElementById('notification');
-  const icon = document.getElementById('notificationIcon');
-  const txt = document.getElementById('notificationText');
-  txt.textContent = msg;
-  if(type==='error') icon.className = 'fas fa-exclamation-circle';
-  else icon.className = 'fas fa-check-circle';
-  n.classList.add('show');
-  setTimeout(()=>n.classList.remove('show'), CONFIG.NOTIF_DURATION);
-}
-
-function formatPrice(v){ return typeof v==='number' ? '$'+v.toFixed(2) : v }
-
-/* ------------- Mobile menu ------------- */
-(function initMenu(){
-  const toggle = document.querySelector('.menu-toggle');
-  const nav = document.getElementById('mainNav');
-  if(!toggle || !nav) return;
-  toggle.addEventListener('click', ()=>{
-    nav.classList.toggle('show');
-    toggle.querySelectorAll('span').forEach(s=>s.classList.toggle('active'))
-  });
-  document.addEventListener('click', (e)=>{
-    if(!e.target.closest('.navbar')) nav.classList.remove('show');
-  });
-})();
-
-/* ------------- Theme ------------- */
-(function loadTheme(){
-  const saved = localStorage.getItem('aa_theme') || 'dark';
-  if(saved==='light') document.body.classList.add('light');
-})();
-document.getElementById('themeToggle').addEventListener('click', ()=>{
-  document.body.classList.toggle('light');
-  localStorage.setItem('aa_theme', document.body.classList.contains('light') ? 'light':'dark');
-});
-
-/* ------------- Stock listing ------------- */
-async function fetchStocks(){
-  try{
-    const res = await fetch(`${API_BASE}/api/stocks`);
-    if(!res.ok) throw new Error('Stocks API failed');
-    const data = await res.json();
-    App.stocks = data;
-    renderStockList();
-    // select first
-    if(data.length>0) selectStock(data[0]);
-  }catch(err){
-    console.error('fetchStocks', err);
-    notify('Could not fetch stocks — using fallback', 'error');
-    App.stocks = [
-      {symbol:'AAPL',name:'Apple Inc.',price:182.63,change:1.24},
-      {symbol:'MSFT',name:'Microsoft Corp.',price:407.57,change:-0.85},
-      {symbol:'GOOGL',name:'Alphabet Inc.',price:172.34,change:2.13},
-      {symbol:'AMZN',name:'Amazon.com Inc.',price:178.22,change:0.67},
-      {symbol:'TSLA',name:'Tesla Inc.',price:175.79,change:-3.21}
-    ];
-    renderStockList();
-    if(App.stocks.length) selectStock(App.stocks[0]);
-  }
-}
-
-function renderStockList(){
-  const list = document.getElementById('stockList');
-  list.innerHTML = '';
-  App.stocks.forEach(s=>{
-    const node = document.createElement('div');
-    node.className = 'stock-item';
-    node.innerHTML = `
-      <div>
-        <div class="stock-symbol">${s.symbol}</div>
-        <div class="hint" style="font-size:12px">${s.name}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="stock-price ${s.change>=0?'price-up':''}">${formatPrice(s.price)}</div>
-        <div class="hint" style="font-size:12px">${s.change>=0?'+':''}${s.change?.toFixed(2)||0}%</div>
-      </div>
-    `;
-    node.addEventListener('click', ()=>selectStock(s));
-    list.appendChild(node);
-  });
-}
-
-/* ------------- Select stock ------------- */
-function selectStock(stock){
-  App.selected = stock;
-  document.getElementById('selectedStock').textContent = `${stock.symbol} - ${stock.name}`;
-  document.getElementById('currentPrice').textContent = formatPrice(stock.price);
-  document.getElementById('livePrice').textContent = formatPrice(stock.price);
-  // mark active in list
-  document.querySelectorAll('.stock-item').forEach(item=>{
-    if(item.querySelector('.stock-symbol').textContent === stock.symbol) item.classList.add('active');
-    else item.classList.remove('active');
-  });
-  // reset prediction UI
-  resetPredictionDisplay();
-}
-
-/* ------------- Reset UI ------------- */
-function resetPredictionDisplay(){
-  document.getElementById('predictedPrice').textContent = '$0.00';
-  document.getElementById('predictedChange').textContent = '';
-  document.getElementById('confidenceLevel').textContent = '—';
-  document.getElementById('timeHorizon').textContent = 'Next Day';
-  document.getElementById('nextDayWrapper').style.display = 'none';
-  if(App.predictionChart) {
-    App.predictionChart.data = {datasets:[]};
-    App.predictionChart.update();
-  }
-}
-
-/* ------------- Prediction (API) ------------- */
-async function callPredict(symbol){
-  try{
-    const resp = await fetch(`${API_BASE}/api/predict`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({symbol})
-    });
-    if(!resp.ok){
-      const err = await resp.json().catch(()=>({error:'unknown'}));
-      throw new Error(err.error || 'Prediction failed');
+    function formatCurrency(n){
+      try{ return '$' + Number(n).toFixed(2); } catch(e){ return String(n); }
     }
-    const data = await resp.json();
-    return data;
-  }catch(e){
-    console.error('callPredict',e);
-    throw e;
-  }
-}
 
-/* ------------- Prediction workflow ------------- */
-async function runPrediction(symbol){
-  if(!symbol) return;
-  document.getElementById('predictBtn').disabled = true;
-  document.getElementById('predictBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
-  PredictionDisplay.showLoading();
-  try{
-    const result = await callPredict(symbol);
-    App.predictionData = result;
-    renderPredictionResult(result);
-    notify(`Prediction ready for ${symbol}`);
-  }catch(err){
-    console.error(err);
-    PredictionDisplay.showError('Prediction failed — using fallback');
-    notify('Prediction failed — fallback used', 'error');
-  }finally{
-    document.getElementById('predictBtn').disabled = false;
-    document.getElementById('predictBtn').innerHTML = '<i class="fas fa-chart-line"></i> Predict';
-  }
-}
+    function renderResult(obj){
+      output.style.display = 'block';
+      output.innerHTML = '';
 
-/* ------------- Prediction display helper ------------- */
-const PredictionDisplay = {
-  showLoading(){
-    const chartEl = document.getElementById('predictionChart');
-    chartEl.innerHTML = `<div class="center loading"><i class="fas fa-spinner fa-spin" style="font-size:28px;color:var(--accent-blue)"></i><div class="hint" style="margin-top:8px">Analyzing market data...</div></div>`;
-  },
-  showError(msg){
-    const chartEl = document.getElementById('predictionChart');
-    chartEl.innerHTML = `<div class="center" style="color:var(--down)"><i class="fas fa-exclamation-triangle" style="font-size:28px"></i><div class="hint" style="margin-top:8px">${msg}</div></div>`;
-  }
-};
+      // Top summary
+      const h = document.createElement('div');
+      h.innerHTML = `
+        <h2 style="margin:0 0 8px 0;color:var(--accent)">Prediction — ${obj.symbol}</h2>
+        <div class="small">Prediction date: ${obj.prediction_date} • Market: ${obj.market_status}</div>
+        <div class="result-row" style="margin-top:12px">
+          <div class="stat">
+            <div class="small">Current Price</div>
+            <div style="font-size:22px;font-weight:700">${formatCurrency(obj.current_price)}</div>
+            <div class="small">Last trading day: ${obj.last_trading_day}</div>
+          </div>
+          <div class="stat">
+            <div class="small">Predicted Close</div>
+            <div style="font-size:22px;font-weight:700">${formatCurrency(obj.predicted_prices.close)}</div>
+            <div style="font-weight:700;color:${obj.change_percent>=0? 'var(--good)':'var(--bad)'}">${obj.change_percent>=0? '▲':'▼'} ${obj.change_percent}%</div>
+          </div>
+          <div class="stat">
+            <div class="small">Risk Level</div>
+            <div style="font-size:18px;font-weight:700">${obj.risk_level}</div>
+            <div class="small">Crisis Prob: ${ (obj.crisis_probability*100).toFixed(1) }%</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <strong>Recommendation:</strong> ${obj.recommendation}
+        </div>
+      `;
+      output.appendChild(h);
 
-function renderPredictionResult(data){
-  try{
-    // Update basic fields
-    const cp = Number(data.current_price || 0);
-    document.getElementById('currentPrice').textContent = formatPrice(cp);
-    document.getElementById('livePrice').textContent = formatPrice(cp);
-    document.getElementById('timeHorizon').textContent = data.prediction_date || 'Next Day';
-    // predicted close (safe)
-    const predictedClose = (data.predicted_prices && data.predicted_prices.close) || (data.predictions && data.predictions.Close && data.predictions.Close.predicted) || cp;
-    const changePercent = cp !== 0 ? ((predictedClose - cp) / cp) * 100 : 0;
-    document.getElementById('predictedPrice').innerHTML = `${formatPrice(predictedClose)} <span id="predictedChange" class="${changePercent>=0 ? 'price-up' : 'price-down'}" style="font-size:14px;color:${changePercent>=0? 'var(--up)':'var(--down)'}">${changePercent>=0?'+':''}${changePercent.toFixed(2)}%</span>`;
-    // confidence
-    const confVal = data.confidence?.Close || (data.confidence_level || (data.confidence_data && data.confidence_data.Close && data.confidence_data.Close.mean ? Math.round((data.confidence_data.Close.mean[0] / predictedClose)*100) : 75));
-    document.getElementById('confidenceLevel').textContent = confVal ? `High (${Math.round(confVal)}%)` : '—';
-    // AI insight
-    if(data.insight) document.getElementById('aiInsightText').textContent = data.insight;
+      // detailed predictions
+      const details = document.createElement('div');
+      details.style.marginTop = '16px';
+      details.innerHTML = `
+        <h3 style="color:var(--accent);margin:0 0 10px 0">Multi-target Predictions</h3>
+        <div class="result-row">
+          <div class="stat"><div class="small">Open</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.open)}</div></div>
+          <div class="stat"><div class="small">High</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.high)}</div></div>
+          <div class="stat"><div class="small">Low</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.low)}</div></div>
+          <div class="stat"><div class="small">Close</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.close)}</div></div>
+        </div>
+      `;
+      output.appendChild(details);
 
-    // Next day predictions grid
-    const preds = data.predictions || (data.predicted_prices ? {
-      Open:{predicted:data.predicted_prices.open},
-      High:{predicted:data.predicted_prices.high},
-      Low:{predicted:data.predicted_prices.low},
-      Close:{predicted:data.predicted_prices.close}
-    } : null);
-
-    if(preds){
-      document.getElementById('predictionsGrid').innerHTML = '';
-      const types = [
-        {k:'Open',label:'Open Price',icon:'fa-door-open'},
-        {k:'High',label:'High Price',icon:'fa-arrow-up'},
-        {k:'Low',label:'Low Price',icon:'fa-arrow-down'},
-        {k:'Close',label:'Close Price',icon:'fa-door-closed'}
-      ];
-      types.forEach(t=>{
-        const val = preds[t.k]?.predicted ?? (preds[t.k] ?? null);
-        if(val==null) return;
-        const change = cp ? ((val - cp)/cp)*100 : 0;
-        const el = document.createElement('div');
-        el.className = 'prediction-type';
-        el.innerHTML = `<div class="prediction-type-label"><i class="fas ${t.icon}"></i> ${t.label}</div>
-                        <div class="prediction-type-value">${formatPrice(Number(val))}</div>
-                        <div class="prediction-type-change" style="color:${change>=0?'var(--up)':'var(--down)'}">${change>=0?'+':''}${change.toFixed(2)}%</div>`;
-        document.getElementById('predictionsGrid').appendChild(el);
+      // scenarios
+      const scen = document.createElement('div');
+      scen.style.marginTop = '16px';
+      scen.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Market Scenarios</h3>`;
+      const sbox = document.createElement('div'); sbox.className = 'result-row';
+      ['base','bullish','bearish','sideways'].forEach(key => {
+        const sc = obj.scenarios && obj.scenarios[key] ? obj.scenarios[key] : null;
+        const card = document.createElement('div'); card.className='stat';
+        card.innerHTML = `<div style="font-weight:700">${key.toUpperCase()}</div>
+                          <div class="small">Prob: ${sc? sc.probability : 'N/A'}%</div>
+                          <div style="margin-top:8px">${sc? sc.description : 'N/A'}</div>
+                          <div style="margin-top:8px" class="small">Change: ${sc? (sc.price_change||0).toFixed(2) + '%' : 'N/A'}</div>`;
+        sbox.appendChild(card);
       });
-      document.getElementById('nextDayWrapper').style.display = 'block';
+      scen.appendChild(sbox);
+      output.appendChild(scen);
+
+      // risk alerts
+      const alerts = document.createElement('div'); alerts.style.marginTop='16px';
+      alerts.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Risk Alerts</h3>`;
+      if(obj.risk_alerts && obj.risk_alerts.length>0){
+        obj.risk_alerts.forEach(a => {
+          const el = document.createElement('div'); el.className='stat';
+          el.style.marginBottom='8px';
+          el.innerHTML = `<div style="font-weight:700">${a.level} — ${a.type}</div><div class="small">${a.message}</div><div class="small">Action: ${a.action}</div>`;
+          alerts.appendChild(el);
+        });
+      } else {
+        const el = document.createElement('div'); el.className='stat'; el.innerHTML = `<div class="small">No critical risk alerts detected</div>`; alerts.appendChild(el);
+      }
+      output.appendChild(alerts);
+
+      // model health + raw JSON toggle
+      const raw = document.createElement('div'); raw.style.marginTop='16px';
+      raw.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Model Health</h3>
+                       <div class="small">Trained: ${obj.model_health.training_date || 'N/A'} • Data points: ${obj.data_analysis.total_data_points || 'N/A'}</div>
+                       <details style="margin-top:10px">
+                         <summary style="cursor:pointer;color:var(--muted)">Show raw response JSON</summary>
+                         <pre>${JSON.stringify(obj, null, 2)}</pre>
+                       </details>`;
+      output.appendChild(raw);
     }
 
-    // Risk alerts
-    const alerts = data.risk_alerts || data.riskAlerts || [];
-    renderRiskAlerts(alerts);
-
-    // Charts: show history + predicted close + confidence bands if available
-    renderPredictionChart(data);
-
-    // Update model health metrics (quick)
-    const metrics = document.querySelectorAll('.card.small div > div:nth-child(2)');
-    // (we won't populate these heavy metrics here to keep UI snappy)
-
-  }catch(err){
-    console.error('renderPredictionResult',err);
-    PredictionDisplay.showError('Unable to render prediction');
-  }
-}
-
-/* ------------- Risk alerts ------------- */
-function renderRiskAlerts(alerts){
-  const container = document.getElementById('riskAlerts');
-  if(!alerts || alerts.length===0){
-    container.innerHTML = '<div class="hint">No critical risk alerts detected</div>';
-    return;
-  }
-  container.innerHTML = '';
-  alerts.forEach(a=>{
-    const div = document.createElement('div');
-    div.style.padding='10px';
-    div.style.marginBottom='8px';
-    div.style.borderRadius='8px';
-    div.style.background = 'rgba(255,255,255,0.02)';
-    div.innerHTML = `<div style="font-weight:700">${a.level} • ${a.type}</div><div class="hint" style="margin-top:6px">${a.message}</div><div class="hint" style="font-size:12px;margin-top:6px">Action: ${a.action}</div>`;
-    container.appendChild(div);
-  });
-}
-
-/* ------------- Charts ------------- */
-function ensurePredictionChart(){
-  const ctx = document.getElementById('predictionCanvas').getContext('2d');
-  if(App.predictionChart) return App.predictionChart;
-  App.predictionChart = new Chart(ctx, {
-    type:'line',
-    data:{datasets:[]},
-    options:{
-      responsive:true,
-      interaction:{mode:'index',intersect:false},
-      scales:{
-        x:{display:true,title:{display:false}},
-        y:{display:true,grid:{color:'rgba(255,255,255,0.03)'}}
-      },
-      plugins:{
-        legend:{display:true,labels:{color:'white'}},
-        tooltip:{mode:'index',intersect:false}
+    async function runPrediction(){
+      const ticker = tickerInput.value.trim();
+      if(!ticker) { status.textContent = 'Please enter a ticker'; return; }
+      status.textContent = `Fetching & predicting ${ticker.toUpperCase()} — please wait...`;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/predict', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({symbol: ticker})
+        });
+        if(!res.ok){
+          const txt = await res.text();
+          status.textContent = `Error: ${res.status} — ${txt}`;
+          output.style.display='none';
+        } else {
+          const data = await res.json();
+          renderResult(data);
+          status.textContent = `Prediction complete for ${data.symbol}`;
+        }
+      } catch(err){
+        status.textContent = 'Network or server error: ' + err;
+        output.style.display='none';
+      } finally {
+        btn.disabled = false;
       }
     }
-  });
-  return App.predictionChart;
-}
 
-function renderPredictionChart(data){
-  try{
-    const chart = ensurePredictionChart();
-
-    // Build timeline & series from historical_data if provided
-    let labels = [];
-    let historicalClose = [];
-    if(data && data.data_analysis && data.data_analysis.total_data_points && data.model_health && data.model_health.data_range){
-      // We might not have raw OHLC time series in API response - attempt to use historical_data if server included it
-    }
-    // If server returns confidence_data with means, we can plot them directly
-    const predictions = data.predictions || {};
-    const conf = data.confidence_data || data.confidenceData || data.confidence_data || null;
-
-    // We'll plot a mini chart showing current price (single point) + predicted close with confidence band
-    const current = data.current_price || 0;
-    const predicted = (data.predicted_prices && data.predicted_prices.close) || (predictions.Close && predictions.Close.predicted) || current;
-
-    // Prepare small timeline: ["Now","Predicted"]
-    labels = ['Current', 'Predicted'];
-    const seriesCurrent = [current, current];
-    const seriesPred = [null, predicted];
-
-    // Confidence band: if conf.Close exists with lower/upper (arrays), use them
-    let lower = null, upper = null;
-    if(conf && conf.Close && conf.Close.lower){
-      lower = [null, conf.Close.lower[0]];
-      upper = [null, conf.Close.upper[0]];
-    }
-
-    // Build datasets
-    const datasets = [
-      {
-        label:'Current Price',data:seriesCurrent,borderColor:'rgba(255,255,255,0.12)',backgroundColor:'rgba(255,255,255,0.04)',pointRadius:3,pointBackgroundColor:'#94a3b8'
-      },
-      {
-        label:'Predicted Close',data:seriesPred,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--accent-blue').trim()||'#00e6ff',backgroundColor:'rgba(0,230,255,0.06)',pointRadius:6,pointBackgroundColor:'#00e6ff',tension:0.3
-      }
-    ];
-
-    // if confidence exists, add as filled area
-    if(lower && upper){
-      datasets.push({
-        label:'Confidence Upper',
-        data:upper,
-        borderWidth:0,
-        pointRadius:0,
-        fill:'-1',
-        backgroundColor:'rgba(0,230,255,0.08)',
-        borderColor:'transparent'
-      });
-      datasets.push({
-        label:'Confidence Lower',
-        data:lower,
-        borderWidth:0,
-        pointRadius:0,
-        fill:false,
-        backgroundColor:'rgba(0,230,255,0.02)',
-        borderColor:'transparent'
-      });
-    }
-
-    chart.data = {labels,datasets};
-    chart.update();
-
-    // Also render history chart if server returned a sample historical series (try to parse)
-    renderHistoryIfAvailable(data);
-
-    // Confidence chart (summary) - optional small gauge
-    renderConfidenceSummary(data);
-
-  }catch(e){
-    console.error('renderPredictionChart',e);
-  }
-}
-
-/* renderHistoryIfAvailable attempts to use an array from server 'historical' if provided */
-function renderHistoryIfAvailable(data){
-  try{
-    // Some servers include a 'historical' field with array of {Date,Close}
-    let hist = null;
-    if(data && data.historical && Array.isArray(data.historical)){
-      hist = data.historical;
-    } else if(data && data.raw_history && Array.isArray(data.raw_history)){
-      hist = data.raw_history;
-    } else {
-      // Not provided, fallback to minimal dummy series
-      hist = null;
-    }
-
-    const ctx = document.getElementById('historyChart').getContext('2d');
-    if(App.historyChart) App.historyChart.destroy();
-
-    if(!hist){
-      // show placeholder sin wave / small demo series if no history present
-      const labels = Array.from({length:30},(_,i)=>`-${30-i}d`);
-      const values = labels.map((_,i)=> 100 + Math.sin(i/3)*5 + (Math.random()-0.5)*2);
-      App.historyChart = new Chart(ctx, {
-        type:'line',
-        data:{labels,datasets:[{label:'Close',data:values,borderColor:'#00ff9d',tension:0.25,pointRadius:0,fill:true,backgroundColor:'rgba(0,255,157,0.06)'}]},
-        options:{responsive:true,plugins:{legend:{display:false}}}
-      });
-      return;
-    }
-
-    // Build arrays
-    const labels = hist.map(r=> r.Date || r.date || r.timestamp || '');
-    const values = hist.map(r=> Number(r.Close || r.close || r.c || 0));
-    App.historyChart = new Chart(ctx, {
-      type:'line',
-      data:{labels,datasets:[{label:'Close',data:values,borderColor:'#00ff9d',tension:0.12,pointRadius:0,fill:true,backgroundColor:'rgba(0,255,157,0.06)'}]},
-      options:{responsive:true,plugins:{legend:{display:false}}}
-    });
-
-  }catch(e){ console.error(e) }
-}
-
-/* Confidence chart (summary) */
-function renderConfidenceSummary(data){
-  try{
-    const conf = data.confidence || (data.confidence_data && data.confidence_data.Close ? {Close: (data.confidence_data.Close.mean ? Math.round((data.confidence_data.Close.mean[0] / (data.predicted_prices?.close||1))*100) : 80)} : null);
-    const ctx = document.getElementById('confidenceChart').getContext('2d');
-    if(App.confidenceChart) App.confidenceChart.destroy();
-
-    const value = conf && conf.Close ? Math.round(conf.Close) : 75;
-    App.confidenceChart = new Chart(ctx, {
-      type:'doughnut',
-      data:{
-        labels:['Confidence','Remaining'],
-        datasets:[{data:[value,100-value],backgroundColor:['#00e6ff','#1f2937'],borderWidth:0}]
-      },
-      options:{responsive:true,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
-    });
-
-  }catch(e){ console.error(e) }
-}
-
-/* ------------- Generate All (placeholder) ------------- */
-document.getElementById('generateAllBtn').addEventListener('click', async ()=>{
-  notify('Batch generation queued — this runs on the server (simulated)', 'success');
-});
-
-/* ------------- Predict & refresh buttons ------------- */
-document.getElementById('predictBtn').addEventListener('click', ()=>{
-  if(App.selected) runPrediction(App.selected.symbol);
-  else notify('Select a stock first','error');
-});
-document.getElementById('refreshBtn').addEventListener('click', async ()=>{
-  if(!App.selected) return notify('Select a stock first','error');
-  // refresh stock list to update live price
-  await fetchStocks();
-  notify('Market data refreshed');
-});
-
-/* Quick Predict */
-document.getElementById('quickPredictBtn').addEventListener('click', ()=>{
-  if(App.selected) runPrediction(App.selected.symbol);
-  else notify('Select a stock first','error');
-});
-
-/* Download snapshot - creates a JSON file */
-document.getElementById('downloadReportBtn').addEventListener('click', ()=>{
-  if(!App.predictionData) return notify('No prediction data to download','error');
-  const blob = new Blob([JSON.stringify(App.predictionData,null,2)],{type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = `${App.selected.symbol}_prediction_${(new Date()).toISOString().slice(0,10)}.json`; a.click();
-  URL.revokeObjectURL(url);
-});
-
-/* ------------- Stock search debounce ------------- */
-const stockSearch = document.getElementById('stockSearch');
-stockSearch.addEventListener('input', debounce((e)=>{
-  const q = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('.stock-item').forEach(item=>{
-    const sym = item.querySelector('.stock-symbol').textContent.toLowerCase();
-    const name = item.querySelector('.hint')?.textContent.toLowerCase() || '';
-    item.style.display = (sym.includes(q) || name.includes(q)) ? 'flex' : 'none';
-  });
-}, CONFIG.DEBOUNCE));
-
-function debounce(fn, delay){
-  let t;
-  return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), delay); }
-}
-
-/* ------------- Search predictions input (top) ------------- */
-document.getElementById('searchInput').addEventListener('input', debounce((e)=>{
-  console.log('Search predictions:', e.target.value);
-}, CONFIG.DEBOUNCE));
-
-/* ------------- Startup ------------- */
-(async function init(){
-  await fetchStocks();
-  // attempt to auto-predict first stock lightly (no heavy training)
-  // init charts blank
-  ensurePredictionChart();
-  // hide iframe loader after little while if it still shows
-  setTimeout(()=>{
-    const l = document.getElementById('iframeLoader');
-    if(l) l.style.display = 'none';
-  }, 6000);
-})();
-
-</script>
+    btn.addEventListener('click', runPrediction);
+    tickerInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') runPrediction(); });
+  </script>
 </body>
 </html>
