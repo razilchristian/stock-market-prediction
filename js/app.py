@@ -122,6 +122,23 @@ def create_advanced_features(data):
         if hasattr(data, 'columns'):
             print(f"📊 Input data columns: {data.columns.tolist()}")
         
+        # Handle MultiIndex columns from yfinance - FIXED APPROACH
+        if isinstance(data.columns, pd.MultiIndex):
+            print("🔄 Detected MultiIndex columns, converting to single level...")
+            # Create a new DataFrame with flattened columns
+            flattened_data = pd.DataFrame()
+            
+            # Extract each column properly from MultiIndex
+            for col in data.columns:
+                if col[1] == '':  # If second level is empty (like for Date)
+                    flattened_data[col[0]] = data[col]
+                else:
+                    # Use the column name from first level only
+                    flattened_data[col[0]] = data[col]
+            
+            data = flattened_data
+            print(f"✅ Converted MultiIndex to single level columns: {data.columns.tolist()}")
+        
         # Ensure we have a proper DataFrame
         if not isinstance(data, pd.DataFrame):
             print("⚠️ Converting input to DataFrame")
