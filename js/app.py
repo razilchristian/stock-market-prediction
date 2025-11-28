@@ -749,8 +749,6 @@ def internal_error(error): return jsonify({"error":"Internal server error"}), 50
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    print("🚀 Starting Enhanced Multi-Target AI Stock Prediction Platform...")
-    print(f"📡 Binding to 0.0.0.0:{port} (debug disabled)")
-    # Use Flask's run only for local debug; on Render / production use gunicorn
-    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    print("Starting Flask app with model persistence...")
+    os.makedirs('templates', exist_ok=True); os.makedirs('static', exist_ok=True)
+    server.run(host='0.0.0.0', port=8080, debug=True, threaded=True)
