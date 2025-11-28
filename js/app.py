@@ -985,37 +985,44 @@ class AdvancedMultiTargetPredictor:
         alerts = []
         
         try:
-            # Calculate overall change - FIXED: Handle array/Series properly
+            # Calculate overall change - FIXED: Handle pandas Series properly
             changes = []
             for target in ['Open', 'High', 'Low', 'Close']:
                 if target in predictions and len(predictions[target]) > 0:
-                    # Extract scalar value safely from numpy array
-                    pred_array = predictions[target]
-                    if hasattr(pred_array, 'item'):  # For numpy arrays
-                        pred_value = pred_array.item() if pred_array.size == 1 else pred_array[0]
-                    else:
-                        pred_value = pred_array[0] if hasattr(pred_array, '__getitem__') else pred_array
+                    # Extract scalar value safely from any array-like object
+                    pred_value = predictions[target]
+                    if hasattr(pred_value, 'iloc'):  # pandas Series
+                        pred_value = pred_value.iloc[0]
+                    elif hasattr(pred_value, 'item'):  # numpy array
+                        pred_value = pred_value.item() if pred_value.size == 1 else pred_value[0]
+                    elif hasattr(pred_value, '__getitem__'):  # list or other iterable
+                        pred_value = pred_value[0]
                     
                     # Extract current price safely
-                    if hasattr(current_price, 'item'):  # For numpy arrays
-                        current_val = current_price.item() if current_price.size == 1 else current_price[0]
-                    else:
-                        current_val = current_price[0] if hasattr(current_price, '__getitem__') else current_price
+                    current_val = current_price
+                    if hasattr(current_val, 'iloc'):  # pandas Series
+                        current_val = current_val.iloc[0]
+                    elif hasattr(current_val, 'item'):  # numpy array
+                        current_val = current_val.item() if current_val.size == 1 else current_val[0]
+                    elif hasattr(current_val, '__getitem__'):  # list or other iterable
+                        current_val = current_val[0]
                     
-                    # Ensure we have valid numbers and avoid division by zero
-                    if (isinstance(pred_value, (int, float)) and 
-                        isinstance(current_val, (int, float)) and 
-                        current_val != 0 and 
-                        not np.isnan(pred_value) and 
-                        not np.isnan(current_val)):
-                        
+                    # Convert to float to ensure numeric comparison
+                    try:
+                        pred_value = float(pred_value)
+                        current_val = float(current_val)
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    # Ensure valid numbers and avoid division by zero
+                    if current_val != 0 and not np.isnan(pred_value) and not np.isnan(current_val):
                         change = ((pred_value - current_val) / current_val) * 100
-                        changes.append(float(change))
+                        changes.append(change)
             
             if changes:
                 avg_change = np.mean(changes)
                 
-                # Price movement alerts
+                # Use explicit boolean conditions
                 if abs(avg_change) > 15:
                     alerts.append({
                         'level': '🔴 CRITICAL',
@@ -1036,17 +1043,22 @@ class AdvancedMultiTargetPredictor:
                 # Convert to list of floats safely
                 crisis_vals = []
                 for prob in crisis_probs:
-                    if hasattr(prob, 'item'):  # For numpy arrays
-                        crisis_val = prob.item() if prob.size == 1 else prob[0]
-                    elif hasattr(prob, '__iter__') and not isinstance(prob, str):
-                        crisis_val = prob[0] if len(prob) > 0 else 0.1
-                    else:
-                        crisis_val = float(prob)
+                    crisis_val = prob
+                    if hasattr(crisis_val, 'iloc'):  # pandas Series
+                        crisis_val = crisis_val.iloc[0]
+                    elif hasattr(crisis_val, 'item'):  # numpy array
+                        crisis_val = crisis_val.item() if crisis_val.size == 1 else crisis_val[0]
+                    elif hasattr(crisis_val, '__getitem__'):  # list or other iterable
+                        crisis_val = crisis_val[0]
                     
-                    crisis_vals.append(crisis_val)
+                    try:
+                        crisis_vals.append(float(crisis_val))
+                    except (ValueError, TypeError):
+                        crisis_vals.append(0.1)  # default if conversion fails
                 
                 if crisis_vals:
                     avg_crisis_prob = np.mean(crisis_vals)
+                    # Use explicit boolean conditions
                     if avg_crisis_prob > 0.7:
                         alerts.append({
                             'level': '🔴 CRITICAL',
@@ -1075,6 +1087,148 @@ class AdvancedMultiTargetPredictor:
             })
         
         return alerts
+
+    def generate_multi_scenarios(self, predictions, current_price):
+        """Generate multiple market scenarios based on predictions - FIXED"""
+        try:
+            base_change = 0  # Default no change
+            
+            if 'Close' in predictions and len(predictions['Close']) > 0:
+                # Extract scalar value safely from any array-like object
+                pred_value = predictions['Close']
+                if hasattr(pred_value, 'iloc'):  # pandas Series
+                    predicted_close = pred_value.iloc[0]
+                elif hasattr(pred_value, 'item'):  # numpy array
+                    predicted_close = pred_value.item() if pred_value.size == 1 else pred_value[0]
+                elif hasattr(pred_value, '__getitem__'):  # list or other iterable
+                    predicted_close = pred_value[0]
+                else:
+                    predicted_close = pred_value
+                
+                # Extract current price safely
+                current_val = current_price
+                if hasattr(current_val, 'iloc'):  # pandas Series
+                    current_val = current_val.iloc[0]
+                elif hasattr(current_val, 'item'):  # numpy array
+                    current_val = current_val.item() if current_val.size == 1 else current_val[0]
+                elif hasattr(current_val, '__getitem__'):  # list or other iterable
+                    current_val = current_val[0]
+                
+                # Convert to float to ensure numeric comparison
+                try:
+                    predicted_close = float(predicted_close)
+                    current_val = float(current_val)
+                except (ValueError, TypeError):
+                    predicted_close = current_val  # fallback to avoid errors
+                
+                # Ensure valid numbers and avoid division by zero
+                if current_val != 0 and not np.isnan(predicted_close) and not np.isnan(current_val):
+                    base_change = ((predicted_close - current_val) / current_val) * 100
+            
+            scenarios = {
+                'base': {
+                    'probability': 50,
+                    'price_change': base_change,
+                    'description': self.get_scenario_description(base_change)
+                },
+                'bullish': {
+                    'probability': 25,
+                    'price_change': base_change * 1.3,
+                    'description': self.get_scenario_description(base_change * 1.3)
+                },
+                'bearish': {
+                    'probability': 15,
+                    'price_change': base_change * 0.7,
+                    'description': self.get_scenario_description(base_change * 0.7)
+                },
+                'sideways': {
+                    'probability': 10,
+                    'price_change': base_change * 0.3,
+                    'description': self.get_scenario_description(base_change * 0.3)
+                }
+            }
+            
+            return scenarios
+            
+        except Exception as e:
+            print(f"⚠️ Error generating scenarios: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'base': {'probability': 100, 'price_change': 0, 'description': 'Market analysis unavailable'}
+            }
+
+    def predict_next_day_prices(self, data):
+        """Predict next day OHLC prices with crisis detection - FIXED"""
+        if not self.is_fitted:
+            return None, None, None, None, "Models not trained"
+        
+        try:
+            print("🔮 Generating multi-target predictions...")
+            
+            # Prepare data for prediction
+            X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data)
+            
+            if X is None or len(X) == 0:
+                return None, None, None, None, "Error in data preparation - no sequences"
+            
+            # Get the most recent sequences for prediction
+            X_pred = X[-1:]  # Use only the most recent sequence
+            
+            # Make predictions for each target
+            predictions_scaled = {}
+            for target in targets:
+                if target in self.models:
+                    try:
+                        pred = self.models[target].predict(X_pred)
+                        predictions_scaled[target] = pred
+                    except Exception as e:
+                        print(f"⚠️ Prediction failed for {target}: {e}")
+                        # Use last known value as fallback
+                        if target in data.columns:
+                            predictions_scaled[target] = np.array([data[target].iloc[-1]])
+                        else:
+                            predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
+                else:
+                    print(f"⚠️ No model for {target}, using current price")
+                    predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
+            
+            # Inverse transform predictions to get actual prices
+            predictions_actual = {}
+            for target in targets:
+                if target in predictions_scaled and target in self.scaler_targets:
+                    try:
+                        pred_reshaped = predictions_scaled[target].reshape(-1, 1)
+                        predictions_actual[target] = self.scaler_targets[target].inverse_transform(pred_reshaped).flatten()
+                    except Exception as e:
+                        print(f"⚠️ Inverse transform failed for {target}: {e}")
+                        predictions_actual[target] = predictions_scaled[target]
+                else:
+                    predictions_actual[target] = np.array([data['Close'].iloc[-1]])
+            
+            # Calculate confidence bands
+            confidence_data = self.calculate_confidence_bands_multi(X_pred)
+            
+            # Predict crisis probability
+            crisis_probs = self.predict_crisis_probability(data_scaled)
+            
+            # Generate scenarios - FIXED: Extract scalar current price safely
+            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+            if hasattr(current_close, 'iloc'):  # pandas Series
+                current_close = current_close.iloc[0]
+            elif hasattr(current_close, 'item'):  # numpy array
+                current_close = current_close.item() if current_close.size == 1 else current_close[0]
+            
+            scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
+            
+            print("✅ Multi-target prediction complete")
+            return predictions_actual, confidence_data, scenarios, crisis_probs, None
+            
+        except Exception as e:
+            print(f"❌ Prediction error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None, None, None, None, f"Prediction error: {str(e)}"
     
     def generate_multi_scenarios(self, predictions, current_price):
         """Generate multiple market scenarios based on predictions - FIXED"""
