@@ -1,3 +1,4 @@
+# full updated script with ambiguous-truth-value fixes
 import pandas as pd
 import numpy as np
 import dash
@@ -493,7 +494,7 @@ def get_live_stock_data_enhanced(ticker):
                 print(f"🔄 Trying {strategy['name']} for {ticker}...")
                 hist_data = strategy["func"]()
                 
-                if not hist_data.empty and len(hist_data) > 50:
+                if isinstance(hist_data, pd.DataFrame) and (not hist_data.empty) and len(hist_data) > 50:
                     current_price = hist_data['Close'].iloc[-1]
                     hist_data = hist_data.reset_index()
                     
@@ -506,6 +507,8 @@ def get_live_stock_data_enhanced(ticker):
                     
                     print(f"✅ Successfully fetched {len(hist_data)} data points for {ticker}")
                     return hist_data, current_price, None
+                else:
+                    print(f"⚠️ Strategy {strategy['name']} returned insufficient or non-DataFrame result.")
                     
             except Exception as e:
                 error_msg = str(e).lower()
@@ -1157,141 +1160,6 @@ class AdvancedMultiTargetPredictor:
             return {
                 'base': {'probability': 100, 'price_change': 0, 'description': 'Market analysis unavailable'}
             }
-
-    def predict_next_day_prices(self, data):
-        """Predict next day OHLC prices with crisis detection - FIXED"""
-        if not self.is_fitted:
-            return None, None, None, None, "Models not trained"
-        
-        try:
-            print("🔮 Generating multi-target predictions...")
-            
-            # Prepare data for prediction
-            X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data)
-            
-            if X is None or len(X) == 0:
-                return None, None, None, None, "Error in data preparation - no sequences"
-            
-            # Get the most recent sequences for prediction
-            X_pred = X[-1:]  # Use only the most recent sequence
-            
-            # Make predictions for each target
-            predictions_scaled = {}
-            for target in targets:
-                if target in self.models:
-                    try:
-                        pred = self.models[target].predict(X_pred)
-                        predictions_scaled[target] = pred
-                    except Exception as e:
-                        print(f"⚠️ Prediction failed for {target}: {e}")
-                        # Use last known value as fallback
-                        if target in data.columns:
-                            predictions_scaled[target] = np.array([data[target].iloc[-1]])
-                        else:
-                            predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
-                else:
-                    print(f"⚠️ No model for {target}, using current price")
-                    predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
-            
-            # Inverse transform predictions to get actual prices
-            predictions_actual = {}
-            for target in targets:
-                if target in predictions_scaled and target in self.scaler_targets:
-                    try:
-                        pred_reshaped = predictions_scaled[target].reshape(-1, 1)
-                        predictions_actual[target] = self.scaler_targets[target].inverse_transform(pred_reshaped).flatten()
-                    except Exception as e:
-                        print(f"⚠️ Inverse transform failed for {target}: {e}")
-                        predictions_actual[target] = predictions_scaled[target]
-                else:
-                    predictions_actual[target] = np.array([data['Close'].iloc[-1]])
-            
-            # Calculate confidence bands
-            confidence_data = self.calculate_confidence_bands_multi(X_pred)
-            
-            # Predict crisis probability
-            crisis_probs = self.predict_crisis_probability(data_scaled)
-            
-            # Generate scenarios - FIXED: Extract scalar current price safely
-            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
-            if hasattr(current_close, 'iloc'):  # pandas Series
-                current_close = current_close.iloc[0]
-            elif hasattr(current_close, 'item'):  # numpy array
-                current_close = current_close.item() if current_close.size == 1 else current_close[0]
-            
-            scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
-            
-            print("✅ Multi-target prediction complete")
-            return predictions_actual, confidence_data, scenarios, crisis_probs, None
-            
-        except Exception as e:
-            print(f"❌ Prediction error: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return None, None, None, None, f"Prediction error: {str(e)}"
-    
-    def generate_multi_scenarios(self, predictions, current_price):
-        """Generate multiple market scenarios based on predictions - FIXED"""
-        try:
-            if 'Close' in predictions and len(predictions['Close']) > 0:
-                # Extract scalar value safely from numpy array
-                pred_array = predictions['Close']
-                if hasattr(pred_array, 'item'):  # For numpy arrays
-                    predicted_close = pred_array.item() if pred_array.size == 1 else pred_array[0]
-                else:
-                    predicted_close = pred_array[0] if hasattr(pred_array, '__getitem__') else pred_array
-                
-                # Extract current price safely
-                if hasattr(current_price, 'item'):  # For numpy arrays
-                    current_val = current_price.item() if current_price.size == 1 else current_price[0]
-                else:
-                    current_val = current_price[0] if hasattr(current_price, '__getitem__') else current_price
-                
-                # Ensure valid numbers and avoid division by zero
-                if (isinstance(predicted_close, (int, float)) and 
-                    isinstance(current_val, (int, float)) and 
-                    current_val != 0 and 
-                    not np.isnan(predicted_close) and 
-                    not np.isnan(current_val)):
-                    
-                    base_change = ((predicted_close - current_val) / current_val) * 100
-                else:
-                    base_change = 0  # Default no change
-            else:
-                base_change = 0  # Default no change
-            
-            scenarios = {
-                'base': {
-                    'probability': 50,
-                    'price_change': base_change,
-                    'description': self.get_scenario_description(base_change)
-                },
-                'bullish': {
-                    'probability': 25,
-                    'price_change': base_change * 1.3,
-                    'description': self.get_scenario_description(base_change * 1.3)
-                },
-                'bearish': {
-                    'probability': 15,
-                    'price_change': base_change * 0.7,
-                    'description': self.get_scenario_description(base_change * 0.7)
-                },
-                'sideways': {
-                    'probability': 10,
-                    'price_change': base_change * 0.3,
-                    'description': self.get_scenario_description(base_change * 0.3)
-                }
-            }
-            
-            return scenarios
-            
-        except Exception as e:
-            print(f"⚠️ Error generating scenarios: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                'base': {'probability': 100, 'price_change': 0, 'description': 'Market analysis unavailable'}
-            }
     def get_scenario_description(self, change):
         """Get descriptive scenario analysis"""
         try:
@@ -1617,7 +1485,10 @@ def predict_stock():
     """Enhanced API endpoint for multi-target stock prediction with better error handling"""
     try:
         data = request.get_json()
-        symbol = data.get('symbol', 'SPY').upper()
+        # Guard against None data
+        if data is None:
+            data = {}
+        symbol = (data.get('symbol') or 'SPY').upper()
         
         print(f"🔮 Generating MULTI-TARGET predictions for {symbol}...")
         
@@ -1715,8 +1586,11 @@ def predict_stock():
     except Exception as e:
         print(f"❌ Multi-target prediction error: {e}")
         # Provide comprehensive fallback response
+        # Guard if request.json is None
+        data = request.get_json() or {}
+        symbol_arg = (data.get('symbol') or 'SPY').upper()
         return provide_fallback_prediction(
-            data.get('symbol', 'SPY').upper() if data else 'SPY', 
+            symbol_arg, 
             100.00,  # Default price
             None
         )
@@ -1729,12 +1603,23 @@ def provide_fallback_prediction(symbol, current_price, historical_data):
             base_prices = {'AAPL': 182, 'MSFT': 407, 'GOOGL': 172, 'AMZN': 178, 'TSLA': 175, 'SPY': 445}
             current_price = base_prices.get(symbol, 100.00)
         
+        # Safely check historical_data existence and length
+        has_large_history = False
+        try:
+            # check for None first, then len if available
+            if historical_data is not None and hasattr(historical_data, '__len__'):
+                has_large_history = len(historical_data) > 100
+            else:
+                has_large_history = False
+        except Exception:
+            has_large_history = False
+        
         # Generate realistic prediction with some randomness
         change_percent = (random.random() - 0.5) * 8  # -4% to +4%
         predicted_price = current_price * (1 + change_percent / 100)
         
         # Calculate confidence based on data availability
-        confidence = 75 if historical_data and len(historical_data) > 100 else 65
+        confidence = 75 if has_large_history else 65
         
         return jsonify({
             "symbol": symbol,
