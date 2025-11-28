@@ -989,12 +989,26 @@ class AdvancedMultiTargetPredictor:
             changes = []
             for target in ['Open', 'High', 'Low', 'Close']:
                 if target in predictions and len(predictions[target]) > 0:
-                    # Extract scalar value safely
-                    pred_value = predictions[target][0] if hasattr(predictions[target], '__iter__') else predictions[target]
-                    current_val = current_price[0] if hasattr(current_price, '__iter__') else current_price
+                    # Extract scalar value safely from numpy array
+                    pred_array = predictions[target]
+                    if hasattr(pred_array, 'item'):  # For numpy arrays
+                        pred_value = pred_array.item() if pred_array.size == 1 else pred_array[0]
+                    else:
+                        pred_value = pred_array[0] if hasattr(pred_array, '__getitem__') else pred_array
                     
-                    # Ensure we have valid numbers
-                    if isinstance(pred_value, (int, float)) and isinstance(current_val, (int, float)) and current_val != 0:
+                    # Extract current price safely
+                    if hasattr(current_price, 'item'):  # For numpy arrays
+                        current_val = current_price.item() if current_price.size == 1 else current_price[0]
+                    else:
+                        current_val = current_price[0] if hasattr(current_price, '__getitem__') else current_price
+                    
+                    # Ensure we have valid numbers and avoid division by zero
+                    if (isinstance(pred_value, (int, float)) and 
+                        isinstance(current_val, (int, float)) and 
+                        current_val != 0 and 
+                        not np.isnan(pred_value) and 
+                        not np.isnan(current_val)):
+                        
                         change = ((pred_value - current_val) / current_val) * 100
                         changes.append(float(change))
             
@@ -1022,10 +1036,14 @@ class AdvancedMultiTargetPredictor:
                 # Convert to list of floats safely
                 crisis_vals = []
                 for prob in crisis_probs:
-                    if hasattr(prob, '__iter__'):
-                        crisis_vals.extend([float(p) for p in prob])
+                    if hasattr(prob, 'item'):  # For numpy arrays
+                        crisis_val = prob.item() if prob.size == 1 else prob[0]
+                    elif hasattr(prob, '__iter__') and not isinstance(prob, str):
+                        crisis_val = prob[0] if len(prob) > 0 else 0.1
                     else:
-                        crisis_vals.append(float(prob))
+                        crisis_val = float(prob)
+                    
+                    crisis_vals.append(crisis_val)
                 
                 if crisis_vals:
                     avg_crisis_prob = np.mean(crisis_vals)
@@ -1059,11 +1077,32 @@ class AdvancedMultiTargetPredictor:
         return alerts
     
     def generate_multi_scenarios(self, predictions, current_price):
-        """Generate multiple market scenarios based on predictions"""
+        """Generate multiple market scenarios based on predictions - FIXED"""
         try:
             if 'Close' in predictions and len(predictions['Close']) > 0:
-                predicted_close = predictions['Close'][0]
-                base_change = ((predicted_close - current_price) / current_price) * 100
+                # Extract scalar value safely from numpy array
+                pred_array = predictions['Close']
+                if hasattr(pred_array, 'item'):  # For numpy arrays
+                    predicted_close = pred_array.item() if pred_array.size == 1 else pred_array[0]
+                else:
+                    predicted_close = pred_array[0] if hasattr(pred_array, '__getitem__') else pred_array
+                
+                # Extract current price safely
+                if hasattr(current_price, 'item'):  # For numpy arrays
+                    current_val = current_price.item() if current_price.size == 1 else current_price[0]
+                else:
+                    current_val = current_price[0] if hasattr(current_price, '__getitem__') else current_price
+                
+                # Ensure valid numbers and avoid division by zero
+                if (isinstance(predicted_close, (int, float)) and 
+                    isinstance(current_val, (int, float)) and 
+                    current_val != 0 and 
+                    not np.isnan(predicted_close) and 
+                    not np.isnan(current_val)):
+                    
+                    base_change = ((predicted_close - current_val) / current_val) * 100
+                else:
+                    base_change = 0  # Default no change
             else:
                 base_change = 0  # Default no change
             
@@ -1094,10 +1133,11 @@ class AdvancedMultiTargetPredictor:
             
         except Exception as e:
             print(f"⚠️ Error generating scenarios: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'base': {'probability': 100, 'price_change': 0, 'description': 'Market analysis unavailable'}
             }
-    
     def get_scenario_description(self, change):
         """Get descriptive scenario analysis"""
         try:
