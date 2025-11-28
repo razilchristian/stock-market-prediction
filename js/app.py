@@ -116,56 +116,117 @@ def create_advanced_features(data):
         print("🔄 Creating comprehensive technical indicators...")
         data = data.copy()
         
+        # Ensure we have the required columns and they are numeric
+        required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        
+        # Check if all required columns exist
+        missing_columns = [col for col in required_columns if col not in data.columns]
+        if missing_columns:
+            print(f"⚠️ Missing columns: {missing_columns}")
+            # Create missing columns with default values
+            for col in missing_columns:
+                if col == 'Volume':
+                    data[col] = 1000000  # Default volume
+                else:
+                    data[col] = 100.0   # Default price
+        
         # Ensure numeric columns and handle Dtype errors
-        for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+        for col in required_columns:
             data[col] = pd.to_numeric(data[col], errors='coerce')
+            # Fill any NaN values that resulted from conversion
+            data[col] = data[col].fillna(method='ffill').fillna(method='bfill').fillna(100.0 if col != 'Volume' else 1000000)
         
-        # Basic price features
-        data['Return'] = data['Close'].pct_change()
-        data['Volatility'] = data['Return'].rolling(window=5).std()
-        data['MA_5'] = data['Close'].rolling(window=5).mean()
-        data['MA_20'] = data['Close'].rolling(window=20).mean()
-        data['MA_50'] = data['Close'].rolling(window=50).mean()
+        # Basic price features with error handling
+        try:
+            data['Return'] = data['Close'].pct_change()
+            data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std()
+        except:
+            data['Return'] = 0
+            data['Volatility'] = 0
         
-        # Close ratios
-        data['Close_Ratio_5'] = data['Close'] / data['MA_5']
-        data['Close_Ratio_20'] = data['Close'] / data['MA_20']
-        data['Close_Ratio_50'] = data['Close'] / data['MA_50']
+        # Moving averages with error handling
+        try:
+            data['MA_5'] = data['Close'].rolling(window=5, min_periods=1).mean()
+            data['MA_20'] = data['Close'].rolling(window=20, min_periods=1).mean()
+            data['MA_50'] = data['Close'].rolling(window=50, min_periods=1).mean()
+        except:
+            data['MA_5'] = data['Close']
+            data['MA_20'] = data['Close']
+            data['MA_50'] = data['Close']
         
-        # Volume features
-        data['Volume_MA'] = data['Volume'].rolling(window=5).mean()
-        data['Volume_Ratio'] = data['Volume'] / data['Volume_MA']
+        # Close ratios with error handling
+        try:
+            data['Close_Ratio_5'] = data['Close'] / data['MA_5'].replace(0, 1)  # Avoid division by zero
+            data['Close_Ratio_20'] = data['Close'] / data['MA_20'].replace(0, 1)
+            data['Close_Ratio_50'] = data['Close'] / data['MA_50'].replace(0, 1)
+        except:
+            data['Close_Ratio_5'] = 1
+            data['Close_Ratio_20'] = 1
+            data['Close_Ratio_50'] = 1
         
-        # Price features
-        data['Price_Range'] = (data['High'] - data['Low']) / data['Close']
-        data['HL_Ratio'] = data['High'] / data['Low']
-        data['OC_Ratio'] = data['Open'] / data['Close']
+        # Volume features with error handling
+        try:
+            data['Volume_MA'] = data['Volume'].rolling(window=5, min_periods=1).mean()
+            data['Volume_Ratio'] = data['Volume'] / data['Volume_MA'].replace(0, 1)
+        except:
+            data['Volume_MA'] = data['Volume']
+            data['Volume_Ratio'] = 1
         
-        # Technical indicators with error handling
+        # Price features with error handling
+        try:
+            data['Price_Range'] = (data['High'] - data['Low']) / data['Close'].replace(0, 1)
+            data['HL_Ratio'] = data['High'] / data['Low'].replace(0, 1)
+            data['OC_Ratio'] = data['Open'] / data['Close'].replace(0, 1)
+        except:
+            data['Price_Range'] = 0.01
+            data['HL_Ratio'] = 1
+            data['OC_Ratio'] = 1
+        
+        # Technical indicators with comprehensive error handling
         try:
             data['RSI'] = calculate_rsi(data['Close'])
-        except:
+        except Exception as e:
+            print(f"⚠️ RSI calculation failed: {e}")
             data['RSI'] = 50
             
         try:
-            data['MACD'] = data['Close'].ewm(span=12).mean() - data['Close'].ewm(span=26).mean()
-            data['MACD_Signal'] = data['MACD'].ewm(span=9).mean()
+            data['MACD'] = data['Close'].ewm(span=12, min_periods=1).mean() - data['Close'].ewm(span=26, min_periods=1).mean()
+            data['MACD_Signal'] = data['MACD'].ewm(span=9, min_periods=1).mean()
             data['MACD_Histogram'] = data['MACD'] - data['MACD_Signal']
+        except Exception as e:
+            print(f"⚠️ MACD calculation failed: {e}")
+            data['MACD'] = 0
+            data['MACD_Signal'] = 0
+            data['MACD_Histogram'] = 0
+        
+        # Momentum indicators with error handling
+        try:
+            data['Momentum_5'] = data['Close'] / data['Close'].shift(5).replace(0, 1) - 1
+            data['Momentum_10'] = data['Close'] / data['Close'].shift(10).replace(0, 1) - 1
         except:
-            data['MACD'] = data['MACD_Signal'] = data['MACD_Histogram'] = 0
+            data['Momentum_5'] = 0
+            data['Momentum_10'] = 0
         
-        # Momentum indicators
-        data['Momentum_5'] = data['Close'] / data['Close'].shift(5) - 1
-        data['Momentum_10'] = data['Close'] / data['Close'].shift(10) - 1
-        
-        # Fill missing values
+        # Fill missing values more robustly
         data = data.fillna(method='ffill').fillna(method='bfill')
         
-        print(f"✅ Created {len(data.columns)} advanced features")
+        # Final check for any remaining NaN values
+        for col in data.columns:
+            if data[col].isna().any():
+                if col in ['RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram']:
+                    data[col] = data[col].fillna(0)
+                elif 'Ratio' in col or 'Momentum' in col:
+                    data[col] = data[col].fillna(1)
+                else:
+                    data[col] = data[col].fillna(0)
+        
+        print(f"✅ Created {len([col for col in data.columns if col not in required_columns])} advanced features")
+        print(f"📊 Total columns: {len(data.columns)}")
         return data
         
     except Exception as e:
-        print(f"❌ Error in feature creation: {e}")
+        print(f"❌ Critical error in feature creation: {e}")
+        # Return the original data as fallback
         return data
 
 def detect_crises(data, threshold=0.05):
@@ -367,47 +428,46 @@ class AdvancedMultiTargetPredictor:
         self.model_health_metrics = {}
         
     def prepare_multi_target_data(self, data, target_days=1):
-        """Prepare data for multi-target prediction (Open, High, Low, Close)"""
-        try:
-            print("🔄 Preparing multi-target prediction data...")
-            
-            # Create advanced features
-            data_with_features = create_advanced_features(data)
-            
-            # Define features for prediction
-            base_features = ['Open', 'High', 'Low', 'Volume']
-            technical_features = ['Volatility', 'Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50', 
-                                 'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 'OC_Ratio', 
-                                 'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'Momentum_5', 'Momentum_10']
-            
-            # Only use features that exist in our data
-            available_columns = data_with_features.columns.tolist()
-            features = [f for f in (base_features + technical_features) if f in available_columns]
-            
-            # Targets we want to predict
-            targets = ['Open', 'High', 'Low', 'Close']
-            
-            print(f"📊 Using {len(features)} features for {len(targets)} targets")
-            
-            # Scale features and targets
-            data_scaled = data_with_features.copy()
-            data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
-            
-            # Scale targets separately
-            self.scaler_targets = {}
-            for target in targets:
-                self.scaler_targets[target] = StandardScaler()
-                data_scaled[target] = self.scaler_targets[target].fit_transform(data_with_features[[target]])
-            
-            # Create sequences for time series prediction
-            X, y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
-            
-            return X, y_arrays, features, targets, data_scaled
-            
-        except Exception as e:
-            print(f"❌ Error preparing multi-target data: {e}")
-            return None, None, None, None, None
-    
+    """Prepare data for multi-target prediction (Open, High, Low, Close)"""
+    try:
+        print("🔄 Preparing multi-target prediction data...")
+        
+        # Create advanced features
+        data_with_features = create_advanced_features(data)
+        
+        # Define features for prediction
+        base_features = ['Open', 'High', 'Low', 'Volume']
+        technical_features = ['Volatility', 'Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50', 
+                             'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 'OC_Ratio', 
+                             'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'Momentum_5', 'Momentum_10']
+        
+        # Only use features that exist in our data
+        available_columns = data_with_features.columns.tolist()
+        features = [f for f in (base_features + technical_features) if f in available_columns]
+        
+        # Targets we want to predict
+        targets = ['Open', 'High', 'Low', 'Close']
+        
+        print(f"📊 Using {len(features)} features for {len(targets)} targets")
+        
+        # Scale features and targets
+        data_scaled = data_with_features.copy()
+        data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
+        
+        # Scale targets separately
+        self.scaler_targets = {}
+        for target in targets:
+            self.scaler_targets[target] = StandardScaler()
+            data_scaled[target] = self.scaler_targets[target].fit_transform(data_with_features[[target]])
+        
+        # Create sequences for time series prediction
+        X, y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
+        
+        return X, y_arrays, features, targets, data_scaled
+        
+    except Exception as e:
+        print(f"❌ Error preparing multi-target data: {e}")
+        return None, None, None, None, None
     def create_sequences_multi_target(self, data, features, targets, window_size=30):
         """Create sequences for time series prediction with multiple targets"""
         try:
