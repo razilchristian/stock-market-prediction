@@ -428,68 +428,131 @@ class AdvancedMultiTargetPredictor:
         self.model_health_metrics = {}
         
     def prepare_multi_target_data(self, data, target_days=1):
-    """Prepare data for multi-target prediction (Open, High, Low, Close)"""
-    try:
-        print("🔄 Preparing multi-target prediction data...")
-        
-        # Create advanced features
-        data_with_features = create_advanced_features(data)
-        
-        # Define features for prediction
-        base_features = ['Open', 'High', 'Low', 'Volume']
-        technical_features = ['Volatility', 'Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50', 
-                             'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 'OC_Ratio', 
-                             'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'Momentum_5', 'Momentum_10']
-        
-        # Only use features that exist in our data
-        available_columns = data_with_features.columns.tolist()
-        features = [f for f in (base_features + technical_features) if f in available_columns]
-        
-        # Targets we want to predict
-        targets = ['Open', 'High', 'Low', 'Close']
-        
-        print(f"📊 Using {len(features)} features for {len(targets)} targets")
-        
-        # Scale features and targets
-        data_scaled = data_with_features.copy()
-        data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
-        
-        # Scale targets separately
-        self.scaler_targets = {}
-        for target in targets:
-            self.scaler_targets[target] = StandardScaler()
-            data_scaled[target] = self.scaler_targets[target].fit_transform(data_with_features[[target]])
-        
-        # Create sequences for time series prediction
-        X, y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
-        
-        return X, y_arrays, features, targets, data_scaled
-        
-    except Exception as e:
-        print(f"❌ Error preparing multi-target data: {e}")
-        return None, None, None, None, None
+        """Prepare data for multi-target prediction (Open, High, Low, Close)"""
+        try:
+            print("🔄 Preparing multi-target prediction data...")
+            
+            # Create advanced features
+            data_with_features = create_advanced_features(data)
+            
+            # Define features for prediction
+            base_features = ['Open', 'High', 'Low', 'Volume']
+            technical_features = ['Return', 'Volatility', 'MA_5', 'MA_20', 'MA_50', 
+                                 'Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50', 
+                                 'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 'OC_Ratio', 
+                                 'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 'Momentum_5', 'Momentum_10']
+            
+            # Only use features that exist in our data
+            available_columns = data_with_features.columns.tolist()
+            features = [f for f in (base_features + technical_features) if f in available_columns]
+            
+            # Ensure we have at least some features
+            if len(features) < 4:
+                print("⚠️ Not enough features, using basic price columns")
+                features = [f for f in base_features if f in available_columns]
+                if len(features) == 0:
+                    print("❌ No features available for training")
+                    return None, None, None, None, None
+            
+            # Targets we want to predict
+            targets = ['Open', 'High', 'Low', 'Close']
+            
+            print(f"📊 Using {len(features)} features for {len(targets)} targets")
+            print(f"📊 Available features: {features}")
+            
+            # Scale features and targets
+            data_scaled = data_with_features.copy()
+            
+            try:
+                data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
+            except Exception as e:
+                print(f"⚠️ Feature scaling failed: {e}")
+                # Use original features if scaling fails
+                data_scaled[features] = data_with_features[features]
+            
+            # Scale targets separately
+            self.scaler_targets = {}
+            for target in targets:
+                try:
+                    self.scaler_targets[target] = StandardScaler()
+                    if target in data_with_features.columns:
+                        target_data = data_with_features[[target]].values.reshape(-1, 1)
+                        data_scaled[target] = self.scaler_targets[target].fit_transform(target_data).flatten()
+                    else:
+                        print(f"⚠️ Target {target} not found, using Close as proxy")
+                        data_scaled[target] = data_scaled['Close']
+                except Exception as e:
+                    print(f"⚠️ Target scaling failed for {target}: {e}")
+                    data_scaled[target] = data_scaled['Close']
+            
+            # Create sequences for time series prediction
+            X, y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
+            
+            if X is None or len(X) == 0:
+                print("❌ No sequences created - insufficient data")
+                return None, None, None, None, None
+            
+            return X, y_arrays, features, targets, data_scaled
+            
+        except Exception as e:
+            print(f"❌ Error preparing multi-target data: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None, None, None, None
+    
     def create_sequences_multi_target(self, data, features, targets, window_size=30):
         """Create sequences for time series prediction with multiple targets"""
         try:
             X, y_dict = [], {target: [] for target in targets}
             
+            # Ensure we have enough data for sequences
+            if len(data) <= window_size:
+                print(f"⚠️ Insufficient data for sequences. Have {len(data)}, need {window_size + 1}")
+                return None, None
+            
             for i in range(window_size, len(data)):
-                X.append(data[features].iloc[i-window_size:i].values.flatten())
-                for target in targets:
-                    y_dict[target].append(data[target].iloc[i])
+                try:
+                    # Get feature sequence
+                    sequence = data[features].iloc[i-window_size:i].values.flatten()
+                    X.append(sequence)
+                    
+                    # Get target values
+                    for target in targets:
+                        if target in data.columns:
+                            y_dict[target].append(data[target].iloc[i])
+                        else:
+                            # Use Close as fallback for missing targets
+                            y_dict[target].append(data['Close'].iloc[i])
+                except Exception as e:
+                    print(f"⚠️ Error creating sequence at index {i}: {e}")
+                    continue
+            
+            # Check if we have any sequences
+            if len(X) == 0:
+                print("❌ No valid sequences created")
+                return None, None
             
             # Convert to arrays
             X = np.array(X)
-            y_arrays = {target: np.array(y_dict[target]) for target in targets}
+            y_arrays = {}
+            for target in targets:
+                if len(y_dict[target]) > 0:
+                    y_arrays[target] = np.array(y_dict[target])
+                else:
+                    print(f"⚠️ No target values for {target}, using Close")
+                    y_arrays[target] = np.array(y_dict.get('Close', [data['Close'].iloc[window_size:]]))
             
             print(f"📊 Sequences created: X shape {X.shape}")
             for target in targets:
-                print(f"  {target} shape: {y_arrays[target].shape}")
+                if target in y_arrays:
+                    print(f"  {target} shape: {y_arrays[target].shape}")
             
             return X, y_arrays
             
         except Exception as e:
             print(f"❌ Error creating sequences: {e}")
+            import traceback
+            traceback.print_exc()
             return None, None
     
     def train_multi_target_models(self, data, target_days=1):
@@ -501,16 +564,23 @@ class AdvancedMultiTargetPredictor:
             X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data, target_days)
             
             if X is None:
-                return None, "Error in data preparation"
+                return None, "Error in data preparation - insufficient features or sequences"
             
             self.feature_columns = features
             self.targets = targets
             
-            # Split data - reserve last 2 days for prediction
-            split = len(X) - 2
-            X_train, X_test = X[:split], X[split:]
-            y_train_arrays = {target: y_arrays[target][:split] for target in targets}
-            y_test_arrays = {target: y_arrays[target][split:] for target in targets}
+            # Split data - reserve last 2 days for prediction, but ensure we have enough data
+            min_test_size = 2
+            if len(X) <= min_test_size + 5:  # Need at least 5 training samples
+                print("⚠️ Insufficient data for train/test split, using all data for training")
+                X_train, X_test = X, X[-1:]  # Use last sample for test
+                y_train_arrays = {target: y_arrays[target][:-1] for target in targets}
+                y_test_arrays = {target: y_arrays[target][-1:] for target in targets}
+            else:
+                split = len(X) - min_test_size
+                X_train, X_test = X[:split], X[split:]
+                y_train_arrays = {target: y_arrays[target][:split] for target in targets}
+                y_test_arrays = {target: y_arrays[target][split:] for target in targets}
             
             print(f"📊 Training set: {X_train.shape}")
             print(f"📊 Test set: {X_test.shape}")
@@ -522,61 +592,95 @@ class AdvancedMultiTargetPredictor:
             
             for target in targets:
                 print(f"🎯 Training model for {target}...")
-                model = RandomForestRegressor(
-                    n_estimators=200, 
-                    random_state=42, 
-                    n_jobs=-1,
-                    max_depth=20,
-                    min_samples_split=5,
-                    min_samples_leaf=2
-                )
-                model.fit(X_train, y_train_arrays[target])
-                models[target] = model
-                
-                # Make predictions
-                pred = model.predict(X_test)
-                predictions[target] = pred
-                
-                # Calculate RMSE
-                if len(y_test_arrays[target]) > 0:
-                    rmse = np.sqrt(mean_squared_error(y_test_arrays[target], pred))
-                    rmse_scores[target] = rmse
-                    print(f"  {target} RMSE: {rmse:.4f}")
+                try:
+                    model = RandomForestRegressor(
+                        n_estimators=100,  # Reduced for faster training
+                        random_state=42, 
+                        n_jobs=-1,
+                        max_depth=15,
+                        min_samples_split=3,
+                        min_samples_leaf=1,
+                        max_features='sqrt'
+                    )
+                    
+                    if len(X_train) > 0 and target in y_train_arrays and len(y_train_arrays[target]) > 0:
+                        model.fit(X_train, y_train_arrays[target])
+                        models[target] = model
+                        
+                        # Make predictions if we have test data
+                        if len(X_test) > 0:
+                            pred = model.predict(X_test)
+                            predictions[target] = pred
+                            
+                            # Calculate RMSE if we have test targets
+                            if len(y_test_arrays[target]) > 0:
+                                rmse = np.sqrt(mean_squared_error(y_test_arrays[target], pred))
+                                rmse_scores[target] = rmse
+                                print(f"  {target} RMSE: {rmse:.4f}")
+                            else:
+                                print(f"  {target}: No test targets for RMSE calculation")
+                        else:
+                            print(f"  {target}: No test data for predictions")
+                    else:
+                        print(f"  ⚠️ No training data for {target}")
+                        
+                except Exception as e:
+                    print(f"  ❌ Error training model for {target}: {e}")
+                    # Create a simple fallback model
+                    from sklearn.dummy import DummyRegressor
+                    fallback_model = DummyRegressor(strategy="mean")
+                    if len(X_train) > 0:
+                        fallback_model.fit(X_train, np.ones(len(X_train)) * data['Close'].mean())
+                    models[target] = fallback_model
             
             self.models = models
             self.rmse_scores = rmse_scores
             
-            # Train crisis detection model
-            print("🚨 Training crisis detection model...")
-            crisis_data = detect_crises(data)
-            crisis_features = [f for f in features + ['Return', 'Volatility', 'Momentum_5'] 
-                             if f in crisis_data.columns and f in data_scaled.columns]
-            
-            # Remove duplicates while preserving order
-            crisis_features = list(dict.fromkeys(crisis_features))
-            self.crisis_features = crisis_features
-            
-            crisis_data_clean = crisis_data[crisis_features + ['Crisis']].dropna()
-            X_crisis = crisis_data_clean[crisis_features].values
-            y_crisis = crisis_data_clean['Crisis'].values
-            
-            crisis_split = int(len(X_crisis) * 0.8)
-            X_crisis_train = X_crisis[:crisis_split]
-            y_crisis_train = y_crisis[:crisis_split]
-            
-            self.crisis_model = RandomForestClassifier(n_estimators=100, random_state=42)
-            self.crisis_model.fit(X_crisis_train, y_crisis_train)
+            # Train crisis detection model if we have enough data
+            try:
+                print("🚨 Training crisis detection model...")
+                crisis_data = detect_crises(data)
+                crisis_features = [f for f in features + ['Return', 'Volatility', 'Momentum_5'] 
+                                 if f in crisis_data.columns and f in data_scaled.columns]
+                
+                # Remove duplicates while preserving order
+                crisis_features = list(dict.fromkeys(crisis_features))
+                self.crisis_features = crisis_features
+                
+                if len(crisis_features) > 0:
+                    crisis_data_clean = crisis_data[crisis_features + ['Crisis']].dropna()
+                    if len(crisis_data_clean) > 10:  # Need enough crisis data
+                        X_crisis = crisis_data_clean[crisis_features].values
+                        y_crisis = crisis_data_clean['Crisis'].values
+                        
+                        crisis_split = int(len(X_crisis) * 0.8)
+                        if crisis_split > 5:  # Need minimum samples
+                            X_crisis_train = X_crisis[:crisis_split]
+                            y_crisis_train = y_crisis[:crisis_split]
+                            
+                            self.crisis_model = RandomForestClassifier(n_estimators=50, random_state=42)
+                            self.crisis_model.fit(X_crisis_train, y_crisis_train)
+                            print("✅ Crisis detection model trained")
+                        else:
+                            print("⚠️ Insufficient crisis data for training")
+                    else:
+                        print("⚠️ Not enough crisis data after cleaning")
+                else:
+                    print("⚠️ No features available for crisis detection")
+            except Exception as e:
+                print(f"⚠️ Crisis detection training failed: {e}")
+                self.crisis_model = None
             
             # Store model health metrics
             self.model_health_metrics = {
                 'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'data_points': len(X_train),
-                'targets_trained': len(targets),
-                'crisis_detection_trained': True,
+                'targets_trained': len([t for t in targets if t in models]),
+                'crisis_detection_trained': self.crisis_model is not None,
                 'feature_count': len(features),
-                'crisis_feature_count': len(crisis_features),
-                'data_range': f"{data['Date'].iloc[0]} to {data['Date'].iloc[-1]}",
-                'total_years': len(data) / 252
+                'crisis_feature_count': len(self.crisis_features),
+                'data_range': f"{data['Date'].iloc[0] if 'Date' in data.columns else 'N/A'} to {data['Date'].iloc[-1] if 'Date' in data.columns else 'N/A'}",
+                'total_days': len(data)
             }
             
             self.is_fitted = True
@@ -586,12 +690,14 @@ class AdvancedMultiTargetPredictor:
             
         except Exception as e:
             print(f"❌ Multi-target training error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None, f"Training error: {str(e)}"
     
     def predict_next_day_prices(self, data):
         """Predict next day OHLC prices with crisis detection"""
         if not self.is_fitted:
-            return None, None, None, "Models not trained"
+            return None, None, None, None, "Models not trained"
         
         try:
             print("🔮 Generating multi-target predictions...")
@@ -599,24 +705,42 @@ class AdvancedMultiTargetPredictor:
             # Prepare data for prediction
             X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data)
             
-            if X is None:
-                return None, None, None, "Error in data preparation"
+            if X is None or len(X) == 0:
+                return None, None, None, None, "Error in data preparation - no sequences"
             
             # Get the most recent sequences for prediction
-            X_pred = X[-2:]  # Last 2 sequences for prediction
+            X_pred = X[-1:]  # Use only the most recent sequence
             
             # Make predictions for each target
             predictions_scaled = {}
             for target in targets:
-                model = self.models[target]
-                pred = model.predict(X_pred)
-                predictions_scaled[target] = pred
+                if target in self.models:
+                    try:
+                        pred = self.models[target].predict(X_pred)
+                        predictions_scaled[target] = pred
+                    except Exception as e:
+                        print(f"⚠️ Prediction failed for {target}: {e}")
+                        # Use last known value as fallback
+                        if target in data.columns:
+                            predictions_scaled[target] = np.array([data[target].iloc[-1]])
+                        else:
+                            predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
+                else:
+                    print(f"⚠️ No model for {target}, using current price")
+                    predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
             
             # Inverse transform predictions to get actual prices
             predictions_actual = {}
             for target in targets:
-                pred_reshaped = predictions_scaled[target].reshape(-1, 1)
-                predictions_actual[target] = self.scaler_targets[target].inverse_transform(pred_reshaped).flatten()
+                if target in predictions_scaled and target in self.scaler_targets:
+                    try:
+                        pred_reshaped = predictions_scaled[target].reshape(-1, 1)
+                        predictions_actual[target] = self.scaler_targets[target].inverse_transform(pred_reshaped).flatten()
+                    except Exception as e:
+                        print(f"⚠️ Inverse transform failed for {target}: {e}")
+                        predictions_actual[target] = predictions_scaled[target]
+                else:
+                    predictions_actual[target] = np.array([data['Close'].iloc[-1]])
             
             # Calculate confidence bands
             confidence_data = self.calculate_confidence_bands_multi(X_pred)
@@ -625,12 +749,16 @@ class AdvancedMultiTargetPredictor:
             crisis_probs = self.predict_crisis_probability(data_scaled)
             
             # Generate scenarios
-            scenarios = self.generate_multi_scenarios(predictions_actual, data['Close'].iloc[-1])
+            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+            scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
             
             print("✅ Multi-target prediction complete")
             return predictions_actual, confidence_data, scenarios, crisis_probs, None
             
         except Exception as e:
+            print(f"❌ Prediction error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None, None, None, None, f"Prediction error: {str(e)}"
     
     def calculate_confidence_bands_multi(self, X, confidence=0.95):
@@ -639,37 +767,57 @@ class AdvancedMultiTargetPredictor:
             confidence_data = {}
             
             for target, model in self.models.items():
-                predictions_list = []
-                for estimator in model.estimators_:
-                    pred = estimator.predict(X)
-                    predictions_list.append(pred)
-                
-                predictions_array = np.array(predictions_list)
-                mean_pred = np.mean(predictions_array, axis=0)
-                std_pred = np.std(predictions_array, axis=0)
-                
-                # Calculate confidence intervals
-                lower = mean_pred - 1.96 * std_pred
-                upper = mean_pred + 1.96 * std_pred
-                
-                # Inverse transform to actual prices
-                if target in self.scaler_targets:
-                    mean_pred_reshaped = mean_pred.reshape(-1, 1)
-                    lower_reshaped = lower.reshape(-1, 1)
-                    upper_reshaped = upper.reshape(-1, 1)
-                    
-                    mean_actual = self.scaler_targets[target].inverse_transform(mean_pred_reshaped).flatten()
-                    lower_actual = self.scaler_targets[target].inverse_transform(lower_reshaped).flatten()
-                    upper_actual = self.scaler_targets[target].inverse_transform(upper_reshaped).flatten()
-                else:
-                    mean_actual, lower_actual, upper_actual = mean_pred, lower, upper
-                
-                confidence_data[target] = {
-                    'mean': mean_actual,
-                    'lower': lower_actual,
-                    'upper': upper_actual,
-                    'std': std_pred
-                }
+                try:
+                    if hasattr(model, 'estimators_'):
+                        predictions_list = []
+                        for estimator in model.estimators_:
+                            pred = estimator.predict(X)
+                            predictions_list.append(pred)
+                        
+                        predictions_array = np.array(predictions_list)
+                        mean_pred = np.mean(predictions_array, axis=0)
+                        std_pred = np.std(predictions_array, axis=0)
+                        
+                        # Calculate confidence intervals
+                        lower = mean_pred - 1.96 * std_pred
+                        upper = mean_pred + 1.96 * std_pred
+                        
+                        # Inverse transform to actual prices
+                        if target in self.scaler_targets:
+                            mean_pred_reshaped = mean_pred.reshape(-1, 1)
+                            lower_reshaped = lower.reshape(-1, 1)
+                            upper_reshaped = upper.reshape(-1, 1)
+                            
+                            mean_actual = self.scaler_targets[target].inverse_transform(mean_pred_reshaped).flatten()
+                            lower_actual = self.scaler_targets[target].inverse_transform(lower_reshaped).flatten()
+                            upper_actual = self.scaler_targets[target].inverse_transform(upper_reshaped).flatten()
+                        else:
+                            mean_actual, lower_actual, upper_actual = mean_pred, lower, upper
+                        
+                        confidence_data[target] = {
+                            'mean': mean_actual,
+                            'lower': lower_actual,
+                            'upper': upper_actual,
+                            'std': std_pred
+                        }
+                    else:
+                        # For non-ensemble models, provide basic confidence
+                        pred = model.predict(X)
+                        confidence_data[target] = {
+                            'mean': pred,
+                            'lower': pred * 0.95,  # 5% lower
+                            'upper': pred * 1.05,  # 5% higher
+                            'std': np.array([0.01])  # Small standard deviation
+                        }
+                except Exception as e:
+                    print(f"⚠️ Confidence calculation failed for {target}: {e}")
+                    # Provide fallback confidence
+                    confidence_data[target] = {
+                        'mean': np.array([100.0]),
+                        'lower': np.array([95.0]),
+                        'upper': np.array([105.0]),
+                        'std': np.array([2.5])
+                    }
             
             return confidence_data
             
@@ -680,23 +828,30 @@ class AdvancedMultiTargetPredictor:
     def predict_crisis_probability(self, data_scaled):
         """Predict crisis probability for future dates"""
         try:
-            if self.crisis_model is None:
-                return [0.1, 0.1]  # Default low probability
+            if self.crisis_model is None or len(self.crisis_features) == 0:
+                return [0.1]  # Default low probability
             
             # Get the latest features for crisis prediction
-            latest_features = data_scaled[self.crisis_features].iloc[-2:].values
-            crisis_probs = self.crisis_model.predict_proba(latest_features)[:, 1]
+            if len(data_scaled) >= 2:
+                latest_features = data_scaled[self.crisis_features].iloc[-2:].values
+            else:
+                latest_features = data_scaled[self.crisis_features].iloc[-1:].values
             
+            crisis_probs = self.crisis_model.predict_proba(latest_features)[:, 1]
             return crisis_probs
             
         except Exception as e:
             print(f"⚠️ Error predicting crisis probability: {e}")
-            return [0.1, 0.1]
+            return [0.1]  # Default low probability
     
     def generate_multi_scenarios(self, predictions, current_price):
         """Generate multiple market scenarios based on predictions"""
         try:
-            base_change = ((predictions['Close'][0] - current_price) / current_price) * 100
+            if 'Close' in predictions and len(predictions['Close']) > 0:
+                predicted_close = predictions['Close'][0]
+                base_change = ((predicted_close - current_price) / current_price) * 100
+            else:
+                base_change = 0  # Default no change
             
             scenarios = {
                 'base': {
@@ -725,64 +880,87 @@ class AdvancedMultiTargetPredictor:
             
         except Exception as e:
             print(f"⚠️ Error generating scenarios: {e}")
-            return {}
+            return {
+                'base': {'probability': 100, 'price_change': 0, 'description': 'Market analysis unavailable'}
+            }
     
     def get_scenario_description(self, change):
         """Get descriptive scenario analysis"""
-        if change > 10:
-            return "STRONG BULLISH: Significant upside potential"
-        elif change > 5:
-            return "BULLISH: Moderate gains expected"
-        elif change > 2:
-            return "SLIGHTLY BULLISH: Minor positive movement"
-        elif change < -10:
-            return "STRONG BEARISH: Significant downside risk"
-        elif change < -5:
-            return "BEARISH: Moderate decline expected"
-        elif change < -2:
-            return "SLIGHTLY BEARISH: Minor negative movement"
-        else:
-            return "STABLE SIDEWAYS: Minimal net movement expected"
+        try:
+            if change > 10:
+                return "STRONG BULLISH: Significant upside potential"
+            elif change > 5:
+                return "BULLISH: Moderate gains expected"
+            elif change > 2:
+                return "SLIGHTLY BULLISH: Minor positive movement"
+            elif change < -10:
+                return "STRONG BEARISH: Significant downside risk"
+            elif change < -5:
+                return "BEARISH: Moderate decline expected"
+            elif change < -2:
+                return "SLIGHTLY BEARISH: Minor negative movement"
+            else:
+                return "STABLE SIDEWAYS: Minimal net movement expected"
+        except:
+            return "MARKET ANALYSIS: Conditions normal"
     
     def get_risk_alerts(self, predictions, current_price, crisis_probs):
         """Generate risk alerts based on multiple factors"""
         alerts = []
         
-        # Calculate overall change
-        avg_change = np.mean([((predictions[target][0] - current_price) / current_price * 100) 
-                            for target in ['Open', 'High', 'Low', 'Close']])
+        try:
+            # Calculate overall change
+            changes = []
+            for target in ['Open', 'High', 'Low', 'Close']:
+                if target in predictions and len(predictions[target]) > 0:
+                    change = ((predictions[target][0] - current_price) / current_price) * 100
+                    changes.append(change)
+            
+            if changes:
+                avg_change = np.mean(changes)
+                
+                # Price movement alerts
+                if abs(avg_change) > 15:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Extreme Movement',
+                        'message': f'Expected {avg_change:+.1f}% move - Extreme volatility expected',
+                        'action': 'Consider position sizing and stop-losses'
+                    })
+                elif abs(avg_change) > 8:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'Large Movement',
+                        'message': f'Expected {avg_change:+.1f}% move - High volatility',
+                        'action': 'Monitor closely and adjust positions'
+                    })
+            
+            # Crisis probability alerts
+            if crisis_probs is not None and len(crisis_probs) > 0:
+                avg_crisis_prob = np.mean(crisis_probs)
+                if avg_crisis_prob > 0.7:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'High Crisis Probability',
+                        'message': f'Crisis probability: {avg_crisis_prob:.1%}',
+                        'action': 'Reduce exposure immediately'
+                    })
+                elif avg_crisis_prob > 0.4:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'Elevated Crisis Risk',
+                        'message': f'Crisis probability: {avg_crisis_prob:.1%}',
+                        'action': 'Exercise extreme caution'
+                    })
         
-        # Price movement alerts
-        if abs(avg_change) > 15:
-            alerts.append({
-                'level': '🔴 CRITICAL',
-                'type': 'Extreme Movement',
-                'message': f'Expected {avg_change:+.1f}% move - Extreme volatility expected',
-                'action': 'Consider position sizing and stop-losses'
-            })
-        elif abs(avg_change) > 8:
+        except Exception as e:
+            print(f"⚠️ Error generating risk alerts: {e}")
+            # Add a general caution alert
             alerts.append({
                 'level': '🟡 HIGH',
-                'type': 'Large Movement',
-                'message': f'Expected {avg_change:+.1f}% move - High volatility',
-                'action': 'Monitor closely and adjust positions'
-            })
-        
-        # Crisis probability alerts
-        avg_crisis_prob = np.mean(crisis_probs) if crisis_probs is not None else 0.1
-        if avg_crisis_prob > 0.7:
-            alerts.append({
-                'level': '🔴 CRITICAL',
-                'type': 'High Crisis Probability',
-                'message': f'Crisis probability: {avg_crisis_prob:.1%}',
-                'action': 'Reduce exposure immediately'
-            })
-        elif avg_crisis_prob > 0.4:
-            alerts.append({
-                'level': '🟡 HIGH',
-                'type': 'Elevated Crisis Risk',
-                'message': f'Crisis probability: {avg_crisis_prob:.1%}',
-                'action': 'Exercise extreme caution'
+                'type': 'System Alert',
+                'message': 'Risk assessment temporarily unavailable',
+                'action': 'Proceed with caution and verify market conditions'
             })
         
         return alerts
