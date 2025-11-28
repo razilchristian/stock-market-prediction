@@ -1536,8 +1536,8 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
     
-    # Run the application
-    app.run_server(
+    # Run the application - Updated for newer Dash versions
+    app.run(
         host='0.0.0.0',
         port=8080,
         debug=True,
