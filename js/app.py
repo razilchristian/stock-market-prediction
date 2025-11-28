@@ -114,6 +114,27 @@ def create_advanced_features(data):
     """Create comprehensive technical indicators with enhanced features"""
     try:
         print("🔄 Creating comprehensive technical indicators...")
+        
+        # DEBUG: Check what we're receiving
+        print(f"📊 Input data type: {type(data)}")
+        if hasattr(data, 'shape'):
+            print(f"📊 Input data shape: {data.shape}")
+        if hasattr(data, 'columns'):
+            print(f"📊 Input data columns: {data.columns.tolist()}")
+        
+        # Ensure we have a proper DataFrame
+        if not isinstance(data, pd.DataFrame):
+            print("⚠️ Converting input to DataFrame")
+            try:
+                data = pd.DataFrame(data)
+            except Exception as e:
+                print(f"❌ Failed to convert to DataFrame: {e}")
+                # Create a basic DataFrame as fallback
+                data = pd.DataFrame({
+                    'Open': [100.0], 'High': [101.0], 'Low': [99.0], 
+                    'Close': [100.0], 'Volume': [1000000]
+                })
+        
         data = data.copy()
         
         # Ensure we have the required columns and they are numeric
@@ -123,72 +144,127 @@ def create_advanced_features(data):
         missing_columns = [col for col in required_columns if col not in data.columns]
         if missing_columns:
             print(f"⚠️ Missing columns: {missing_columns}")
+            print(f"📊 Available columns: {data.columns.tolist()}")
             # Create missing columns with default values
             for col in missing_columns:
                 if col == 'Volume':
                     data[col] = 1000000  # Default volume
                 else:
-                    data[col] = 100.0   # Default price
+                    # Use Close if available, otherwise default
+                    if 'Close' in data.columns:
+                        data[col] = data['Close']
+                    else:
+                        data[col] = 100.0   # Default price
         
-        # Ensure numeric columns and handle Dtype errors
+        # Ensure numeric columns and handle Dtype errors - FIXED APPROACH
         for col in required_columns:
-            data[col] = pd.to_numeric(data[col], errors='coerce')
-            # Fill any NaN values that resulted from conversion
-            data[col] = data[col].fillna(method='ffill').fillna(method='bfill').fillna(100.0 if col != 'Volume' else 1000000)
+            if col in data.columns:
+                try:
+                    # Convert to numeric, coerce errors to NaN
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                    
+                    # Check if we have any valid data
+                    if data[col].isna().all():
+                        print(f"⚠️ Column {col} has all NaN values after conversion, filling with defaults")
+                        if col == 'Volume':
+                            data[col] = 1000000
+                        else:
+                            data[col] = 100.0
+                    else:
+                        # Fill any NaN values that resulted from conversion
+                        data[col] = data[col].fillna(method='ffill').fillna(method='bfill')
+                        # Final fallback
+                        if data[col].isna().any():
+                            if col == 'Volume':
+                                data[col] = data[col].fillna(1000000)
+                            else:
+                                data[col] = data[col].fillna(100.0)
+                except Exception as e:
+                    print(f"❌ Error processing column {col}: {e}")
+                    if col == 'Volume':
+                        data[col] = 1000000
+                    else:
+                        data[col] = 100.0
         
-        # Basic price features with error handling
+        # Ensure we have enough data points
+        if len(data) < 5:
+            print(f"⚠️ Very small dataset: {len(data)} rows. Padding with synthetic data.")
+            # Create some synthetic data for technical indicators to work
+            while len(data) < 30:
+                new_row = {}
+                for col in required_columns:
+                    if col == 'Volume':
+                        new_row[col] = 1000000
+                    else:
+                        # Create slight variations for synthetic data
+                        base_value = data[col].iloc[-1] if len(data) > 0 else 100.0
+                        new_row[col] = base_value * random.uniform(0.99, 1.01)
+                data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+        
+        print(f"📊 Data prepared: {len(data)} rows, {len(data.columns)} columns")
+        
+        # Now create features with proper error handling
         try:
-            data['Return'] = data['Close'].pct_change()
-            data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std()
-        except:
+            data['Return'] = data['Close'].pct_change().fillna(0)
+        except Exception as e:
+            print(f"⚠️ Return calculation failed: {e}")
             data['Return'] = 0
+        
+        try:
+            data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
+        except Exception as e:
+            print(f"⚠️ Volatility calculation failed: {e}")
             data['Volatility'] = 0
         
-        # Moving averages with error handling
+        # Moving averages
         try:
             data['MA_5'] = data['Close'].rolling(window=5, min_periods=1).mean()
             data['MA_20'] = data['Close'].rolling(window=20, min_periods=1).mean()
             data['MA_50'] = data['Close'].rolling(window=50, min_periods=1).mean()
-        except:
+        except Exception as e:
+            print(f"⚠️ Moving averages failed: {e}")
             data['MA_5'] = data['Close']
             data['MA_20'] = data['Close']
             data['MA_50'] = data['Close']
         
-        # Close ratios with error handling
+        # Close ratios with division by zero protection
         try:
-            data['Close_Ratio_5'] = data['Close'] / data['MA_5'].replace(0, 1)  # Avoid division by zero
+            data['Close_Ratio_5'] = data['Close'] / data['MA_5'].replace(0, 1)
             data['Close_Ratio_20'] = data['Close'] / data['MA_20'].replace(0, 1)
             data['Close_Ratio_50'] = data['Close'] / data['MA_50'].replace(0, 1)
-        except:
+        except Exception as e:
+            print(f"⚠️ Close ratios failed: {e}")
             data['Close_Ratio_5'] = 1
             data['Close_Ratio_20'] = 1
             data['Close_Ratio_50'] = 1
         
-        # Volume features with error handling
+        # Volume features
         try:
             data['Volume_MA'] = data['Volume'].rolling(window=5, min_periods=1).mean()
             data['Volume_Ratio'] = data['Volume'] / data['Volume_MA'].replace(0, 1)
-        except:
+        except Exception as e:
+            print(f"⚠️ Volume features failed: {e}")
             data['Volume_MA'] = data['Volume']
             data['Volume_Ratio'] = 1
         
-        # Price features with error handling
+        # Price features
         try:
             data['Price_Range'] = (data['High'] - data['Low']) / data['Close'].replace(0, 1)
             data['HL_Ratio'] = data['High'] / data['Low'].replace(0, 1)
             data['OC_Ratio'] = data['Open'] / data['Close'].replace(0, 1)
-        except:
+        except Exception as e:
+            print(f"⚠️ Price features failed: {e}")
             data['Price_Range'] = 0.01
             data['HL_Ratio'] = 1
             data['OC_Ratio'] = 1
         
-        # Technical indicators with comprehensive error handling
+        # Technical indicators
         try:
             data['RSI'] = calculate_rsi(data['Close'])
         except Exception as e:
             print(f"⚠️ RSI calculation failed: {e}")
             data['RSI'] = 50
-            
+        
         try:
             data['MACD'] = data['Close'].ewm(span=12, min_periods=1).mean() - data['Close'].ewm(span=26, min_periods=1).mean()
             data['MACD_Signal'] = data['MACD'].ewm(span=9, min_periods=1).mean()
@@ -199,35 +275,55 @@ def create_advanced_features(data):
             data['MACD_Signal'] = 0
             data['MACD_Histogram'] = 0
         
-        # Momentum indicators with error handling
+        # Momentum indicators
         try:
-            data['Momentum_5'] = data['Close'] / data['Close'].shift(5).replace(0, 1) - 1
-            data['Momentum_10'] = data['Close'] / data['Close'].shift(10).replace(0, 1) - 1
-        except:
+            data['Momentum_5'] = (data['Close'] / data['Close'].shift(5).replace(0, 1)) - 1
+            data['Momentum_10'] = (data['Close'] / data['Close'].shift(10).replace(0, 1)) - 1
+        except Exception as e:
+            print(f"⚠️ Momentum indicators failed: {e}")
             data['Momentum_5'] = 0
             data['Momentum_10'] = 0
         
-        # Fill missing values more robustly
+        # Fill any remaining NaN values
         data = data.fillna(method='ffill').fillna(method='bfill')
         
-        # Final check for any remaining NaN values
+        # Final safety check - replace any remaining NaN with defaults
         for col in data.columns:
             if data[col].isna().any():
                 if col in ['RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram']:
                     data[col] = data[col].fillna(0)
                 elif 'Ratio' in col or 'Momentum' in col:
                     data[col] = data[col].fillna(1)
-                else:
+                elif 'Volatility' in col or 'Return' in col:
                     data[col] = data[col].fillna(0)
+                else:
+                    data[col] = data[col].fillna(100.0 if col != 'Volume' else 1000000)
         
-        print(f"✅ Created {len([col for col in data.columns if col not in required_columns])} advanced features")
+        # Count created features (excluding original columns)
+        original_cols = required_columns + ['Date'] if 'Date' in data.columns else required_columns
+        created_features = [col for col in data.columns if col not in original_cols]
+        
+        print(f"✅ Created {len(created_features)} advanced features")
         print(f"📊 Total columns: {len(data.columns)}")
+        print(f"📊 Feature columns: {created_features}")
+        
         return data
         
     except Exception as e:
         print(f"❌ Critical error in feature creation: {e}")
-        # Return the original data as fallback
-        return data
+        import traceback
+        traceback.print_exc()
+        
+        # Return basic data as fallback
+        print("🔄 Returning basic data as fallback...")
+        if isinstance(data, pd.DataFrame):
+            return data
+        else:
+            # Create a minimal DataFrame
+            return pd.DataFrame({
+                'Open': [100.0], 'High': [101.0], 'Low': [99.0], 
+                'Close': [100.0], 'Volume': [1000000]
+            })
 
 def detect_crises(data, threshold=0.05):
     """Detect crisis periods based on price movements"""
