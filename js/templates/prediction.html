@@ -2,211 +2,780 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Prediction — AI Stock Predictor</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <style>
-    :root{
-      --bg:#0f1724; --card:#0f1724; --muted:#94a3b8; --accent:#00e6ff; --good:#00ff9d; --bad:#ff4d7c;
-      --panel:#111827; --card-border:#2a2a4a; --mono: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    }
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#080813 0%, #0f1724 100%);font-family:var(--mono);color:#fff}
-    .container{max-width:1100px;margin:28px auto;padding:22px}
-    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-    header h1{font-size:20px;color:var(--accent);margin:0}
-    .card{background:var(--panel);border:1px solid var(--card-border);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 6px 22px rgba(0,0,0,.4)}
-    .grid{display:flex;gap:16px;flex-wrap:wrap}
-    .col{flex:1;min-width:240px}
-    label{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
-    input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #263044;background:#0b1220;color:#fff;font-size:15px}
-    button.primary{background:linear-gradient(90deg,var(--accent),#00ff9d);border:none;color:#072025;padding:12px 16px;border-radius:10px;font-weight:700;cursor:pointer}
-    .result-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
-    .stat{flex:1;min-width:150px;padding:12px;border-radius:8px;background:#0b1220;border:1px solid #222;color:#fff}
-    pre{white-space:pre-wrap;background:#07101a;padding:12px;border-radius:8px;border:1px solid #18262f;color:#e6f7ff}
-    .small{font-size:13px;color:var(--muted)}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stock Predictions - AlphaAnalytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ---------- FULL UI CSS (restored) ---------- */
+/* Core reset & fonts */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+:root{
+  --primary-white: #ffffff;
+  --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  --bg-dark: #0f0f23;
+  --bg-card: rgba(30, 30, 46, 0.8);
+  --bg-card-hover: rgba(40, 40, 62, 0.9);
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0c0;
+  --text-muted: #707090;
+  --border-color: rgba(255,255,255,0.1);
+  --hover-color: rgba(0,230,255,0.15);
+  --active-color: #00e6ff;
+  --up-color: #00ff9d;
+  --down-color: #ff4d7c;
+  --accent-blue: #00e6ff;
+  --accent-teal: #00ff9d;
+  --accent-purple: #8a2be2;
+  --accent-pink: #ff4d7c;
+  --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --glass: rgba(255,255,255,0.03);
+}
+
+body.light {
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --bg-dark: #ffffff;
+  --bg-card: rgba(255,255,255,0.9);
+  --bg-card-hover: rgba(255,255,255,1);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: rgba(0,0,0,0.1);
+  --hover-color: rgba(0,119,204,0.1);
+  --active-color: #0077cc;
+  --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+html,body { height:100%; }
+body {
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  transition: all 0.4s ease;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+.container {
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+  max-width:1400px;
+  margin:0 auto;
+}
+
+/* Navbar */
+.navbar {
+  background: rgba(15,15,35,0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  padding: 0;
+}
+.nav-wrap { max-width:1400px; margin:0 auto; padding: 0 20px; }
+.nav-row {
+  display:flex; align-items:center; justify-content:space-between; padding:12px 0;
+}
+.logo {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size:28px; font-weight:700;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  display:flex; align-items:center; gap:8px;
+}
+.logo i{ font-size:24px; }
+.nav-items { display:flex; gap:8px; list-style:none; }
+.nav-item {
+  padding:10px 16px; border-radius:12px; color:var(--text-secondary);
+  text-decoration:none; font-weight:500; font-size:14px;
+  transition: all 0.3s ease; display:flex; align-items:center; gap:6px;
+}
+.nav-item:hover { background:var(--hover-color); color:var(--active-color); transform: translateY(-2px); }
+.nav-item.active { background:var(--active-color); color:var(--bg-dark); box-shadow:var(--shadow-glow); }
+
+.menu-toggle { display:none; flex-direction:column; gap:4px; background:none; border:none; cursor:pointer; padding:8px; }
+.menu-toggle span { width:24px; height:2px; background:var(--text-primary); border-radius:2px; transition:all .3s; }
+
+/* Mobile */
+@media (max-width:768px) {
+  .nav-items { display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-dark); border-top:1px solid var(--border-color); padding:16px; flex-direction:column; gap:8px; z-index:1000; }
+  .nav-items.show{ display:flex; }
+  .nav-item { padding:12px 16px; border-radius:8px; justify-content:flex-start; }
+  .menu-toggle { display:flex; }
+}
+
+/* Main content */
+.main-content {
+  flex:1;
+  padding:24px;
+  display:flex;
+  flex-direction:column;
+  gap:32px;
+}
+
+/* Header */
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:20px; }
+.header h1 { font-family:'Space Grotesk', sans-serif; font-size:32px; font-weight:700; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header-controls { display:flex; gap:16px; align-items:center; }
+
+/* Search bar */
+.search-container { position:relative; width:400px; max-width:100%; }
+.search-bar {
+  width:100%; padding:14px 20px 14px 48px; background:var(--bg-card); border:1px solid var(--border-color);
+  border-radius:16px; color:var(--text-primary); font-size:15px; font-weight:500; transition:all .3s; backdrop-filter: blur(10px);
+}
+.search-bar:focus { outline:none; border-color:var(--active-color); box-shadow:var(--shadow-glow); }
+.search-icon { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:18px; }
+
+/* Buttons */
+.action-buttons { display:flex; gap:12px; }
+.btn { padding:12px 20px; border:none; border-radius:12px; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all .3s; }
+.btn-primary { background:var(--active-color); color:var(--bg-dark); box-shadow:var(--shadow-glow); }
+.btn-secondary { background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); }
+.btn:disabled { opacity:.6; cursor:not-allowed; transform:none !important; }
+
+/* AI Insight */
+.ai-insight { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); }
+.ai-insight-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.ai-insight-header h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.ai-icon { font-size:20px; color:var(--active-color); }
+.ai-content { color:var(--text-primary); font-size:15px; line-height:1.6; }
+
+/* Dashboard layout */
+.prediction-dashboard { display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .prediction-dashboard{ grid-template-columns:1fr; } }
+
+/* Stock selector */
+.stock-selector { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
+.stock-selector::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
+.stock-selector:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
+.stock-selector h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:16px; }
+.stock-search-container { position:relative; margin-bottom:16px; }
+.stock-search { width:100%; padding:14px 20px 14px 48px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:12px; color:var(--text-primary); font-size:15px; font-weight:500; transition:all .3s; }
+.stock-search:focus { outline:none; border-color:var(--active-color); box-shadow:var(--shadow-glow); }
+.stock-search-icon { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:18px; }
+.stock-list { display:flex; flex-direction:column; gap:10px; max-height:400px; overflow-y:auto; }
+.stock-item { display:flex; justify-content:space-between; align-items:center; padding:16px; background:var(--bg-dark); border-radius:12px; cursor:pointer; transition:all .3s; border:1px solid var(--border-color); }
+.stock-item:hover { border-color:var(--active-color); transform:translateY(-2px); }
+.stock-item.active { background:var(--active-color); color:var(--bg-dark); border-color:var(--active-color); }
+.stock-info { display:flex; flex-direction:column; }
+.stock-symbol { font-weight:700; font-size:16px; font-family:'Space Grotesk', sans-serif; }
+.stock-name { font-size:13px; color:var(--text-secondary); margin-top:4px; }
+.stock-price { font-weight:700; font-size:16px; font-family:'Space Grotesk', sans-serif; }
+.price-up { color:var(--up-color); }
+.price-down { color:var(--down-color); }
+
+/* Prediction card */
+.prediction-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
+.prediction-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
+.prediction-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
+.prediction-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.prediction-title { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; }
+.prediction-actions { display:flex; gap:10px; }
+.prediction-chart { height:200px; background:var(--bg-dark); border-radius:12px; margin-bottom:20px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
+.prediction-details { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.prediction-item { display:flex; flex-direction:column; gap:6px; }
+.prediction-label { font-size:13px; color:var(--text-secondary); font-weight:500; }
+.prediction-value { font-size:18px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
+.confidence-high { color:var(--up-color); }
+.confidence-medium { color:#ffa500; }
+.confidence-low { color:var(--down-color); }
+
+/* Next day predictions */
+.next-day-predictions { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); margin-bottom:32px; display:none; }
+.next-day-predictions h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.predictions-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+@media (max-width:900px){ .predictions-grid{ grid-template-columns:repeat(2,1fr); } }
+@media (max-width:480px){ .predictions-grid{ grid-template-columns:1fr; } }
+.prediction-type { background:var(--bg-dark); padding:20px; border-radius:12px; border:1px solid var(--border-color); text-align:center; }
+.prediction-type-label { font-size:14px; color:var(--text-secondary); margin-bottom:8px; }
+.prediction-type-value { font-size:20px; font-weight:700; font-family:'Space Grotesk', sans-serif; margin-bottom:6px; }
+.prediction-type-change { font-size:14px; font-weight:600; }
+
+/* Metrics */
+.metrics-section { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .metrics-section{ grid-template-columns:repeat(2,1fr); } }
+@media (max-width:480px){ .metrics-section{ grid-template-columns:1fr; } }
+.metric-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; display:flex; flex-direction:column; align-items:center; text-align:center; position:relative; overflow:hidden; }
+.metric-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
+.metric-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
+.metric-icon { font-size:28px; margin-bottom:12px; color:var(--active-color); }
+.metric-value { font-size:32px; font-weight:700; margin-bottom:8px; font-family:'Space Grotesk', sans-serif; }
+.metric-label { font-size:14px; color:var(--text-secondary); font-weight:500; }
+
+/* Charts */
+.charts-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .charts-section{ grid-template-columns:1fr; } }
+.chart-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
+.chart-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
+.chart-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
+.chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.chart-title { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; }
+.chart-actions select { padding:8px 12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:14px; font-weight:500; }
+.chart-container { height:250px; background:var(--bg-dark); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
+
+/* Loading & iframe removed (we removed Dash iframe) */
+.loading-overlay { display:none; }
+
+/* Shimmer */
+.shimmer { background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%); background-size:200% 100%; animation: shimmer 1.5s infinite; border-radius:4px; }
+@keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
+
+/* Notification */
+.notification { position: fixed; top:20px; right:20px; padding:16px 20px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border-color); backdrop-filter: blur(10px); z-index:10000; transform:translateX(400px); transition: transform .3s ease; max-width:400px; }
+.notification.show { transform:translateX(0); }
+.notification.success { border-color: var(--up-color); }
+.notification.error { border-color: var(--down-color); }
+.notification-content { display:flex; align-items:center; gap:12px; }
+.notification-icon { font-size:20px; }
+.notification.success .notification-icon { color:var(--up-color); }
+.notification.error .notification-icon { color:var(--down-color); }
+.notification-message { flex:1; font-size:14px; font-weight:500; }
+
+/* Responsive tweaks */
+@media (max-width:768px){
+  .navbar { padding:0 16px; }
+  .nav-row { flex-wrap:wrap; }
+  .main-content { padding:16px; }
+  .header { flex-direction:column; align-items:flex-start; }
+  .header-controls { width:100%; justify-content:space-between; }
+  .search-container { width:100%; }
+}
+@media (max-width:480px){
+  .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
+}
+</style>
 </head>
 <body>
-  <!-- NAVIGATION -->
-<div class="navbar">
-  <div class="brand">
-    <h1><i class="fas fa-chart-line"></i> AlphaAnalytics</h1>
-    <div class="small" style="margin-left:8px;color:var(--muted)">Prediction</div>
+<div class="container">
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="nav-wrap">
+      <div class="nav-row">
+        <div class="logo"><i class="fas fa-chart-line"></i> AlphaAnalytics</div>
+        <button class="menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+        <nav class="nav-items">
+          <a href="/jeet" class="nav-item"><i class="fas fa-home"></i>Dashboard</a>
+          <a href="/portfolio" class="nav-item"><i class="fas fa-briefcase"></i>Portfolio</a>
+          <a href="/mystock" class="nav-item"><i class="fas fa-star"></i>My Stock</a>
+          <a href="/deposit" class="nav-item"><i class="fas fa-wallet"></i>Deposit</a>
+          <a href="/insight" class="nav-item"><i class="fas fa-brain"></i>Insight</a>
+          <a href="/prediction" class="nav-item active"><i class="fas fa-crystal-ball"></i>Prediction</a>
+          <a href="/news" class="nav-item"><i class="fas fa-newspaper"></i>News</a>
+          <a href="/videos" class="nav-item"><i class="fas fa-play-circle"></i>Videos</a>
+          <a href="/Superstars" class="nav-item"><i class="fas fa-trophy"></i>Superstars</a>
+          <a href="/alerts" class="nav-item"><i class="fas fa-bell"></i>Alerts</a>
+          <a href="/help" class="nav-item"><i class="fas fa-question-circle"></i>Help</a>
+          <a href="/profile" class="nav-item"><i class="fas fa-user"></i>Profile</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <div class="notification-content">
+      <i class="fas fa-check-circle notification-icon"></i>
+      <div class="notification-message" id="notificationMessage">Operation completed successfully!</div>
+    </div>
   </div>
 
-  <button class="menu-toggle" id="menuToggle" aria-label="Menu">
-    <i class="fas fa-bars"></i>
-  </button>
-
-  <nav class="nav-links" id="navLinks">
-    <a href="/jeet" class="nav-item"><i class="fas fa-home"></i>Dashboard</a>
-    <a href="/portfolio" class="nav-item"><i class="fas fa-briefcase"></i>Portfolio</a>
-    <a href="/mystock" class="nav-item"><i class="fas fa-star"></i>My Stock</a>
-    <a href="/deposit" class="nav-item"><i class="fas fa-wallet"></i>Deposit</a>
-    <a href="/insight" class="nav-item"><i class="fas fa-brain"></i>Insight</a>
-    <a href="/prediction" class="nav-item active"><i class="fas fa-crystal-ball"></i>Prediction</a>
-    <a href="/news" class="nav-item"><i class="fas fa-newspaper"></i>News</a>
-    <a href="/videos" class="nav-item"><i class="fas fa-play-circle"></i>Videos</a>
-    <a href="/Superstars" class="nav-item"><i class="fas fa-trophy"></i>Superstars</a>
-    <a href="/alerts" class="nav-item"><i class="fas fa-bell"></i>Alerts</a>
-    <a href="/help" class="nav-item"><i class="fas fa-question-circle"></i>Help</a>
-    <a href="/profile" class="nav-item"><i class="fas fa-user"></i>Profile</a>
-  </nav>
-</div>
-
-  <div class="container">
-    <header>
-      <h1>🔮 AI Multi-Target Stock Prediction</h1>
-      <div class="small">Prediction engine — Flask API (models persisted)</div>
-    </header>
-
-    <div class="card">
-      <div class="grid">
-        <div class="col">
-          <label for="ticker">Stock Ticker</label>
-          <input id="ticker" type="text" placeholder="e.g., AAPL, SPY, TSLA" value="SPY"/>
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="header">
+      <h1>AI Stock Predictions</h1>
+      <div class="header-controls">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input id="globalSearch" class="search-bar" placeholder="Search predictions..." />
         </div>
-        <div class="col" style="flex:0 0 220px;display:flex;align-items:end;justify-content:flex-end">
-          <button id="predictBtn" class="primary">🚀 Predict</button>
+        <div class="action-buttons">
+          <button class="btn btn-primary" id="generateAllBtn"><i class="fas fa-bolt"></i>Generate All</button>
+          <button class="btn btn-secondary" id="themeBtn"><i class="fas fa-palette"></i>Theme</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-insight">
+      <div class="ai-insight-header">
+        <i class="fas fa-robot ai-icon"></i>
+        <h3>AI Prediction Engine</h3>
+      </div>
+      <div class="ai-content" id="aiInsightText">
+        Our AI analyzes historical data, technical indicators and market signals to generate next-day predictions.
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-section">
+      <div class="metric-card">
+        <div class="metric-icon"><i class="fas fa-bullseye"></i></div>
+        <div class="metric-value" id="metricAccuracy">—</div>
+        <div class="metric-label">Prediction Accuracy</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon"><i class="fas fa-trophy"></i></div>
+        <div class="metric-value" id="metricProfit">—</div>
+        <div class="metric-label">Profitable Predictions</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon"><i class="fas fa-bolt"></i></div>
+        <div class="metric-value" id="metricLatency">—</div>
+        <div class="metric-label">Avg. Processing Time</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon"><i class="fas fa-database"></i></div>
+        <div class="metric-value" id="metricHistory">—</div>
+        <div class="metric-label">Historical Data</div>
+      </div>
+    </div>
+
+    <!-- Next Day Predictions -->
+    <div class="next-day-predictions" id="nextDayPredictions">
+      <h3 id="nextDayHeader">📈 Next Day Price Predictions</h3>
+      <div class="predictions-grid" id="predictionsGrid"></div>
+    </div>
+
+    <!-- Prediction Dashboard -->
+    <div class="prediction-dashboard">
+      <!-- Stock Selector -->
+      <div class="stock-selector">
+        <h3>Select Stock</h3>
+        <div class="stock-search-container">
+          <i class="fas fa-search stock-search-icon"></i>
+          <input id="stockSearch" class="stock-search" placeholder="Search stocks..." />
+        </div>
+        <div class="stock-list" id="stockList">
+          <!-- Filled by JS -->
         </div>
       </div>
 
-      <div id="status" class="small" style="margin-top:12px;color:var(--muted)">Enter a ticker and click Predict. Models are saved on first train and reused later.</div>
+      <!-- Prediction Card -->
+      <div class="prediction-card">
+        <div class="prediction-header">
+          <div class="prediction-title" id="selectedStock">SPY - SPDR S&P 500 ETF</div>
+          <div class="prediction-actions">
+            <button class="btn btn-secondary" id="refreshBtn"><i class="fas fa-sync-alt"></i>Refresh</button>
+            <button class="btn btn-primary" id="predictBtn"><i class="fas fa-chart-line"></i>Predict</button>
+          </div>
+        </div>
+
+        <div class="prediction-chart" id="predictionChart">
+          <div>Select a stock and click Predict to generate AI-powered forecasts</div>
+        </div>
+
+        <div class="prediction-details">
+          <div class="prediction-item">
+            <div class="prediction-label">Current Price</div>
+            <div class="prediction-value" id="currentPrice">—</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">Predicted Close</div>
+            <div class="prediction-value" id="predictedPrice">—</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">Confidence</div>
+            <div class="prediction-value confidence-high" id="confidenceLevel">—</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">Time Horizon</div>
+            <div class="prediction-value" id="timeHorizon">Next Day</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div id="output" class="card" style="display:none"></div>
-  </div>
-
-  <script>
-    const btn = document.getElementById('predictBtn');
-    const tickerInput = document.getElementById('ticker');
-    const output = document.getElementById('output');
-    const status = document.getElementById('status');
-
-    function formatCurrency(n){
-      try{ return '$' + Number(n).toFixed(2); } catch(e){ return String(n); }
-    }
-
-    function renderResult(obj){
-      output.style.display = 'block';
-      output.innerHTML = '';
-
-      // Top summary
-      const h = document.createElement('div');
-      h.innerHTML = `
-        <h2 style="margin:0 0 8px 0;color:var(--accent)">Prediction — ${obj.symbol}</h2>
-        <div class="small">Prediction date: ${obj.prediction_date} • Market: ${obj.market_status}</div>
-        <div class="result-row" style="margin-top:12px">
-          <div class="stat">
-            <div class="small">Current Price</div>
-            <div style="font-size:22px;font-weight:700">${formatCurrency(obj.current_price)}</div>
-            <div class="small">Last trading day: ${obj.last_trading_day}</div>
-          </div>
-          <div class="stat">
-            <div class="small">Predicted Close</div>
-            <div style="font-size:22px;font-weight:700">${formatCurrency(obj.predicted_prices.close)}</div>
-            <div style="font-weight:700;color:${obj.change_percent>=0? 'var(--good)':'var(--bad)'}">${obj.change_percent>=0? '▲':'▼'} ${obj.change_percent}%</div>
-          </div>
-          <div class="stat">
-            <div class="small">Risk Level</div>
-            <div style="font-size:18px;font-weight:700">${obj.risk_level}</div>
-            <div class="small">Crisis Prob: ${ (obj.crisis_probability*100).toFixed(1) }%</div>
+    <!-- Charts -->
+    <div class="charts-section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Historical Performance</div>
+          <div class="chart-actions">
+            <select id="historyRange">
+              <option>1 Month</option>
+              <option>3 Months</option>
+              <option>1 Year</option>
+              <option selected>10 Years</option>
+            </select>
           </div>
         </div>
-        <div style="margin-top:12px">
-          <strong>Recommendation:</strong> ${obj.recommendation}
-        </div>
-      `;
-      output.appendChild(h);
+        <div class="chart-container" id="historicalChart">Historical performance chart will appear here</div>
+      </div>
 
-      // detailed predictions
-      const details = document.createElement('div');
-      details.style.marginTop = '16px';
-      details.innerHTML = `
-        <h3 style="color:var(--accent);margin:0 0 10px 0">Multi-target Predictions</h3>
-        <div class="result-row">
-          <div class="stat"><div class="small">Open</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.open)}</div></div>
-          <div class="stat"><div class="small">High</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.high)}</div></div>
-          <div class="stat"><div class="small">Low</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.low)}</div></div>
-          <div class="stat"><div class="small">Close</div><div style="font-weight:700">${formatCurrency(obj.predicted_prices.close)}</div></div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Prediction Confidence</div>
+          <div class="chart-actions">
+            <select id="confidenceFilter">
+              <option>All Stocks</option>
+              <option>Tech Sector</option>
+              <option selected>Selected Stock</option>
+            </select>
+          </div>
         </div>
-      `;
-      output.appendChild(details);
+        <div class="chart-container" id="confidenceChart">Confidence chart will appear here</div>
+      </div>
+    </div>
 
-      // scenarios
-      const scen = document.createElement('div');
-      scen.style.marginTop = '16px';
-      scen.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Market Scenarios</h3>`;
-      const sbox = document.createElement('div'); sbox.className = 'result-row';
-      ['base','bullish','bearish','sideways'].forEach(key => {
-        const sc = obj.scenarios && obj.scenarios[key] ? obj.scenarios[key] : null;
-        const card = document.createElement('div'); card.className='stat';
-        card.innerHTML = `<div style="font-weight:700">${key.toUpperCase()}</div>
-                          <div class="small">Prob: ${sc? sc.probability : 'N/A'}%</div>
-                          <div style="margin-top:8px">${sc? sc.description : 'N/A'}</div>
-                          <div style="margin-top:8px" class="small">Change: ${sc? (sc.price_change||0).toFixed(2) + '%' : 'N/A'}</div>`;
-        sbox.appendChild(card);
+    <!-- Model / Disclaimer -->
+    <div class="card" style="padding:20px">
+      <h3 style="color:var(--accent-blue); margin-bottom:8px">Model & Deployment</h3>
+      
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* ---------- FULL UI JS (restored & fixed) ---------- */
+
+const CONFIG = {
+  API_BASE_URL: window.location.origin,
+  DEBOUNCE_DELAY: 300,
+  NOTIFICATION_DURATION: 4500
+};
+
+const AppState = {
+  allStocks: [],
+  selectedStock: null,
+  isGenerating: false,
+  currentPredictions: null
+};
+
+/* Mobile menu */
+class MobileMenu {
+  constructor() {
+    this.menuToggle = document.querySelector('.menu-toggle');
+    this.navItems = document.querySelector('.nav-items');
+    this.isOpen = false;
+    this.init();
+  }
+  init(){
+    if(this.menuToggle && this.navItems){
+      this.menuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggle();
       });
-      scen.appendChild(sbox);
-      output.appendChild(scen);
-
-      // risk alerts
-      const alerts = document.createElement('div'); alerts.style.marginTop='16px';
-      alerts.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Risk Alerts</h3>`;
-      if(obj.risk_alerts && obj.risk_alerts.length>0){
-        obj.risk_alerts.forEach(a => {
-          const el = document.createElement('div'); el.className='stat';
-          el.style.marginBottom='8px';
-          el.innerHTML = `<div style="font-weight:700">${a.level} — ${a.type}</div><div class="small">${a.message}</div><div class="small">Action: ${a.action}</div>`;
-          alerts.appendChild(el);
-        });
-      } else {
-        const el = document.createElement('div'); el.className='stat'; el.innerHTML = `<div class="small">No critical risk alerts detected</div>`; alerts.appendChild(el);
-      }
-      output.appendChild(alerts);
-
-      // model health + raw JSON toggle
-      const raw = document.createElement('div'); raw.style.marginTop='16px';
-      raw.innerHTML = `<h3 style="color:var(--accent);margin:0 0 10px 0">Model Health</h3>
-                       <div class="small">Trained: ${obj.model_health.training_date || 'N/A'} • Data points: ${obj.data_analysis.total_data_points || 'N/A'}</div>
-                       <details style="margin-top:10px">
-                         <summary style="cursor:pointer;color:var(--muted)">Show raw response JSON</summary>
-                         <pre>${JSON.stringify(obj, null, 2)}</pre>
-                       </details>`;
-      output.appendChild(raw);
-    }
-
-    async function runPrediction(){
-      const ticker = tickerInput.value.trim();
-      if(!ticker) { status.textContent = 'Please enter a ticker'; return; }
-      status.textContent = `Fetching & predicting ${ticker.toUpperCase()} — please wait...`;
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/predict', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({symbol: ticker})
-        });
-        if(!res.ok){
-          const txt = await res.text();
-          status.textContent = `Error: ${res.status} — ${txt}`;
-          output.style.display='none';
-        } else {
-          const data = await res.json();
-          renderResult(data);
-          status.textContent = `Prediction complete for ${data.symbol}`;
+      document.addEventListener('click', (event) => {
+        if(this.isOpen && !event.target.closest('.navbar')){
+          this.close();
         }
-      } catch(err){
-        status.textContent = 'Network or server error: ' + err;
-        output.style.display='none';
-      } finally {
-        btn.disabled = false;
-      }
+      });
     }
+  }
+  toggle(){ this.isOpen = !this.isOpen; this.navItems.classList.toggle('show'); const spans = this.menuToggle.querySelectorAll('span'); spans.forEach(s=>s.classList.toggle('active')); }
+  close(){ this.isOpen = false; this.navItems.classList.remove('show'); const spans = this.menuToggle.querySelectorAll('span'); spans.forEach(s=>s.classList.remove('active')); }
+}
 
-    btn.addEventListener('click', runPrediction);
-    tickerInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') runPrediction(); });
-  </script>
+/* Notifications */
+class NotificationManager {
+  static show(message, type='success') {
+    const n = document.getElementById('notification');
+    const msg = document.getElementById('notificationMessage');
+    if(!n || !msg){ console.log(`${type.toUpperCase()}: ${message}`); return; }
+    msg.textContent = message;
+    n.className = `notification ${type}`;
+    n.classList.add('show');
+    const icon = n.querySelector('.notification-icon');
+    icon.className = type === 'success' ? 'fas fa-check-circle notification-icon' : 'fas fa-exclamation-circle notification-icon';
+    setTimeout(()=> n.classList.remove('show'), CONFIG.NOTIFICATION_DURATION);
+  }
+}
+
+/* API service */
+class StockAPIService {
+  static async fetchStocks(){
+    try {
+      const res = await fetch(`${CONFIG.API_BASE_URL}/api/stocks`);
+      if(!res.ok) throw new Error('Failed to fetch stocks');
+      return await res.json();
+    } catch(err){
+      console.error('fetchStocks error', err);
+      NotificationManager.show('Using fallback stock list', 'error');
+      return [
+        { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
+        { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
+        { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
+        { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
+        { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
+        { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
+        { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
+        { symbol: "SPY", name: "SPDR S&P 500 ETF", price: 445.20, change: 0.45 },
+        { symbol: "QQQ", name: "Invesco QQQ Trust", price: 378.90, change: 0.67 },
+        { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 }
+      ];
+    }
+  }
+
+  static async predict(symbol){
+    try {
+      const res = await fetch(`${CONFIG.API_BASE_URL}/api/predict`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ symbol })
+      });
+      if(!res.ok){
+        const txt = await res.text();
+        throw new Error(`Server: ${res.status} ${txt}`);
+      }
+      return await res.json();
+    } catch(err){
+      console.error('predict error', err);
+      throw err;
+    }
+  }
+}
+
+/* Stock List Manager */
+class StockListManager {
+  constructor(){
+    this.stockListEl = document.getElementById('stockList');
+    this.searchEl = document.getElementById('stockSearch');
+    this.debounced = this.debounce(this.filterList.bind(this), CONFIG.DEBOUNCE_DELAY);
+    this.init();
+  }
+  init(){
+    if(this.searchEl) this.searchEl.addEventListener('input', this.debounced);
+  }
+  async populate(){
+    if(!this.stockListEl) return;
+    this.stockListEl.innerHTML = `<div class="stat" style="text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading stocks...</div>`;
+    AppState.allStocks = await StockAPIService.fetchStocks();
+    this.render();
+    if(AppState.allStocks.length>0) this.select(AppState.allStocks[0]);
+  }
+  render(){
+    this.stockListEl.innerHTML = '';
+    AppState.allStocks.forEach(s => this.stockListEl.appendChild(this.createItem(s)));
+  }
+  createItem(stock){
+    const item = document.createElement('div');
+    item.className = 'stock-item';
+    item.innerHTML = `
+      <div class="stock-info">
+        <div class="stock-symbol">${stock.symbol}</div>
+        <div class="stock-name">${stock.name}</div>
+      </div>
+      <div class="stock-price ${stock.change>=0? 'price-up':'price-down'}">$${(stock.price||0).toFixed(2)} <span>${stock.change>=0? '+':''}${(stock.change||0).toFixed(2)}%</span></div>
+    `;
+    item.addEventListener('click', () => this.select(stock));
+    return item;
+  }
+  select(stock){
+    document.querySelectorAll('.stock-item').forEach(i=>i.classList.remove('active'));
+    const found = Array.from(document.querySelectorAll('.stock-item')).find(i=> i.querySelector('.stock-symbol')?.textContent === stock.symbol);
+    if(found) found.classList.add('active');
+    AppState.selectedStock = stock;
+    document.getElementById('selectedStock').textContent = `${stock.symbol} - ${stock.name}`;
+    document.getElementById('currentPrice').textContent = `$${(stock.price||0).toFixed(2)}`;
+    PredictionDisplay.reset();
+  }
+  filterList(e){
+    const q = (e.target.value||'').toLowerCase().trim();
+    document.querySelectorAll('.stock-item').forEach(item=>{
+      const symbol = item.querySelector('.stock-symbol').textContent.toLowerCase();
+      const name = item.querySelector('.stock-name').textContent.toLowerCase();
+      item.style.display = (symbol.includes(q) || name.includes(q)) ? 'flex' : 'none';
+    });
+  }
+  debounce(fn, wait){
+    let t;
+    return function(...args){
+      clearTimeout(t);
+      t = setTimeout(()=>fn.apply(this, args), wait);
+    }
+  }
+}
+
+/* Prediction Display */
+class PredictionDisplay {
+  static reset(){
+    document.getElementById('predictedPrice').textContent = '—';
+    document.getElementById('confidenceLevel').textContent = '—';
+    document.getElementById('predictionChart').innerHTML = '<div>Select a stock and click Predict to generate AI-powered forecasts</div>';
+    this.hideNextDay();
+  }
+  static update(data){
+    if(!data) return;
+    const cp = data.current_price ?? data.current?.price ?? 0;
+    const close = (data.predicted_prices && data.predicted_prices.close) ? data.predicted_prices.close : (data.predictions?.Close?.predicted || cp);
+    const change = cp !== 0 ? ((close - cp) / cp) * 100 : 0;
+    document.getElementById('currentPrice').textContent = `$${cp.toFixed(2)}`;
+    document.getElementById('predictedPrice').innerHTML = `$${(close).toFixed(2)} <span style="color:${change>=0? 'var(--up-color)':'var(--down-color)'}">(${change>=0? '+':''}${change.toFixed(2)}%)</span>`;
+    const conf = data.confidence?.Close ?? data.confidence_level ?? (data.confidence_data?.Close?.mean ? 88 : 75);
+    this.updateConfidence(conf);
+    this.updateChart(data);
+    this.updateInsight(data);
+    if(data.predictions || data.predicted_prices) this.showNextDayPredictions(data.predictions || data.predicted_prices, cp);
+    AppState.currentPredictions = data;
+  }
+  static updateConfidence(conf){
+    const el = document.getElementById('confidenceLevel');
+    let txt = `Low (${Math.round(conf)}%)`, cls='confidence-low';
+    if(conf >= 85){ txt = `High (${Math.round(conf)}%)`; cls='confidence-high'; }
+    else if(conf >= 75){ txt = `Medium (${Math.round(conf)}%)`; cls='confidence-medium'; }
+    el.textContent = txt;
+    el.className = `prediction-value ${cls}`;
+  }
+  static updateChart(data){
+    const el = document.getElementById('predictionChart');
+    if(!el) return;
+    const symbol = AppState.selectedStock?.symbol || (data.symbol || 'N/A');
+    const cp = data.current_price ?? 0;
+    const predicted = (data.predicted_prices && data.predicted_prices.close) ? data.predicted_prices.close : (data.predictions?.Close?.predicted || cp);
+    const change = cp ? ((predicted - cp)/cp)*100 : 0;
+    el.innerHTML = `
+      <div style="padding:20px;text-align:center">
+        <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px">AI Prediction Analysis</div>
+        <div style="font-size:16px;font-weight:bold;color:var(--active-color)">${symbol} Next Day Forecast</div>
+        <div style="margin-top:20px;font-size:13px;color:var(--text-muted)">Based on historical data and technical indicators</div>
+        <div style="margin-top:16px;padding:14px;background:var(--bg-dark);border-radius:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span>Current: $${cp.toFixed(2)}</span>
+            <span>Predicted: $${predicted.toFixed(2)}</span>
+          </div>
+          <div style="height:8px;background:var(--border-color);border-radius:4px;margin-top:8px;overflow:hidden">
+            <div style="height:100%;background:${predicted>=cp? 'var(--up-color)':'var(--down-color)'};width:${Math.min(100, Math.max(10, 50 + change))}%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  static updateInsight(data){
+    const el = document.getElementById('aiInsightText');
+    if(el) el.textContent = data.insight || data.summary || 'AI analysis completed. Interpret predictions with caution.';
+  }
+  static showNextDayPredictions(preds, currentPrice){
+    const grid = document.getElementById('predictionsGrid');
+    const section = document.getElementById('nextDayPredictions');
+    if(!grid || !section) return;
+    grid.innerHTML = '';
+    const types = [
+      { key:'Open', label:'Open Price', icon:'fa-door-open' },
+      { key:'High', label:'High Price', icon:'fa-arrow-up' },
+      { key:'Low', label:'Low Price', icon:'fa-arrow-down' },
+      { key:'Close', label:'Close Price', icon:'fa-door-closed' }
+    ];
+    types.forEach(t => {
+      const predVal = (preds[t.key] && (preds[t.key].predicted || preds[t.key])) ? (preds[t.key].predicted || preds[t.key]) : (preds[t.key.toLowerCase()] || null);
+      if(predVal == null) return;
+      const change = currentPrice ? ((predVal - currentPrice)/currentPrice)*100 : 0;
+      const el = document.createElement('div'); el.className = 'prediction-type';
+      el.innerHTML = `
+        <div class="prediction-type-label"><i class="fas ${t.icon}"></i> ${t.label}</div>
+        <div class="prediction-type-value">$${Number(predVal).toFixed(2)}</div>
+        <div class="prediction-type-change ${change>=0? 'price-up':'price-down'}">${change>=0? '+':''}${change.toFixed(2)}%</div>
+      `;
+      grid.appendChild(el);
+    });
+    section.style.display = 'block';
+  }
+  static hideNextDay(){ const s = document.getElementById('nextDayPredictions'); if(s) s.style.display='none'; }
+}
+
+/* Prediction Manager */
+class PredictionManager {
+  static async generate(){
+    if(!AppState.selectedStock) { NotificationManager.show('Select a stock first','error'); return; }
+    if(AppState.isGenerating) return;
+    AppState.isGenerating = true;
+    PredictionManager.updateButtons(true);
+    PredictionDisplay.reset();
+    try {
+      const symbol = AppState.selectedStock.symbol;
+      const data = await StockAPIService.predict(symbol);
+      PredictionDisplay.update(data);
+      NotificationManager.show(`Predictions ready for ${symbol}`,'success');
+      // update metric placeholders
+      document.getElementById('metricAccuracy').textContent = data.model_health?.training_date ? '—' : '—';
+      document.getElementById('metricHistory').textContent = data.data_analysis?.total_data_points ? `${data.data_analysis.total_data_points}` : '—';
+      document.getElementById('metricLatency').textContent = '—';
+      document.getElementById('metricProfit').textContent = '—';
+    } catch(err){
+      console.error(err);
+      NotificationManager.show('Prediction failed — see console','error');
+      PredictionDisplay.showError = function(msg){
+        const ch = document.getElementById('predictionChart');
+        if(ch) ch.innerHTML = `<div style="color:var(--down-color)">${msg}</div>`;
+      };
+      PredictionDisplay.showError(String(err));
+    } finally {
+      AppState.isGenerating = false;
+      PredictionManager.updateButtons(false);
+    }
+  }
+  static updateButtons(isLoading){
+    const pb = document.getElementById('predictBtn');
+    const rb = document.getElementById('refreshBtn');
+    const ga = document.getElementById('generateAllBtn');
+    if(pb) { pb.disabled = isLoading; pb.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin"></i> Predicting...' : '<i class="fas fa-chart-line"></i> Predict'; }
+    if(rb) rb.disabled = isLoading;
+    if(ga) ga.disabled = isLoading;
+  }
+  static async refresh(){
+    if(!AppState.selectedStock || AppState.isGenerating) return;
+    await PredictionManager.generate();
+  }
+  static async generateAll(){
+    if(AppState.isGenerating) return;
+    AppState.isGenerating = true;
+    const ga = document.getElementById('generateAllBtn');
+    if(ga){ ga.disabled=true; ga.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...'; }
+    NotificationManager.show('Generating predictions for all visible stocks','success');
+    // naive sequential generation for UI (you can batch server-side)
+    try {
+      for(const s of AppState.allStocks.slice(0, 10)){
+        await new Promise(res=>setTimeout(res, 600)); // gentle delay
+        try {
+          const d = await StockAPIService.predict(s.symbol);
+          console.log('Batch prediction', s.symbol, d.predicted_prices?.close);
+        } catch(e){ console.warn('Batch error', s.symbol, e); }
+      }
+      NotificationManager.show('Batch generation complete','success');
+    } finally {
+      AppState.isGenerating = false;
+      if(ga){ ga.disabled=false; ga.innerHTML = '<i class="fas fa-bolt"></i>Generate All'; }
+    }
+  }
+}
+
+/* Theme manager */
+class ThemeManager {
+  static toggle(){ document.body.classList.toggle('light'); localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark'); }
+  static load(){ const s = localStorage.getItem('theme'); if(s==='light') document.body.classList.add('light'); }
+}
+
+/* Wiring up UI */
+let stockListMgr;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  ThemeManager.load();
+  new MobileMenu();
+  stockListMgr = new StockListManager();
+  await stockListMgr.populate();
+  // setup buttons
+  document.getElementById('predictBtn').addEventListener('click', ()=>PredictionManager.generate());
+  document.getElementById('refreshBtn').addEventListener('click', ()=>PredictionManager.refresh());
+  document.getElementById('generateAllBtn').addEventListener('click', ()=>PredictionManager.generateAll());
+  document.getElementById('themeBtn').addEventListener('click', ()=>ThemeManager.toggle());
+  document.getElementById('globalSearch').addEventListener('input', (e)=> console.log('Search:', e.target.value));
+  // stock search enter key support
+  const stockSearch = document.getElementById('stockSearch');
+  if(stockSearch) stockSearch.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const q = e.target.value.trim().toLowerCase(); const found = AppState.allStocks.find(s=> s.symbol.toLowerCase()===q || s.name.toLowerCase().includes(q)); if(found) stockListMgr.select(found); }});
+});
+
+/* Simple global error handler */
+window.addEventListener('error', (ev) => {
+  console.error('Global error', ev.error || ev.message);
+  NotificationManager.show('An unexpected error occurred','error');
+});
+</script>
 </body>
 </html>
