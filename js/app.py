@@ -269,12 +269,6 @@ class AdvancedMultiTargetPredictor:
             print("Load failure:", e)
             return False
 
-    # prepare_multi_target_data, create_sequences_multi_target, train_multi_target_models,
-    # predict_next_day_prices, calculate_confidence_bands_multi, predict_crisis_probability,
-    # get_risk_alerts, generate_multi_scenarios, get_scenario_description
-    # -- For brevity, these functions are identical to the robust implementations you already had.
-    # We'll include essential implementations below (compact but functional).
-
     def prepare_multi_target_data(self, data, target_days=1):
         try:
             data_with_features = create_advanced_features(data)
@@ -587,23 +581,54 @@ def get_trading_recommendation(change_percent, risk_level, crisis_prob):
     if change_percent < -1: return "💼 CAUTIOUS SELL"
     return "🔄 HOLD"
 
-# ---------------- NAVIGATION MAP and routes ----------------
+# ---------------- NAVIGATION MAP ----------------
 NAVIGATION_MAP = {
     'index':'/','jeet':'/jeet','portfolio':'/portfolio','mystock':'/mystock','deposit':'/deposit',
     'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/superstars',
     'alerts':'/alerts','help':'/help','profile':'/profile'
 }
 
-@server.route('/')
-def index(): return render_template('jeet.html', navigation=NAVIGATION_MAP)
-@server.route('/jeet')
-def jeet_page(): return render_template('jeet.html', navigation=NAVIGATION_MAP)
-@server.route('/prediction')
-def prediction_page(): return render_template('prediction.html', navigation=NAVIGATION_MAP)
-# (other routes can remain as earlier)
+# ---------------- Dynamic routes for NAVIGATION_MAP ----------------
+def _find_template_for_page(page_key):
+    """
+    Try possible template filenames for given page_key and return the first that exists.
+    Order: <page>.html, <Page>.html, <page_key_lower>.html, <page_key_title>.html
+    If none exist, returns 'jeet.html' as safe fallback.
+    """
+    candidates = [
+        f"{page_key}.html",
+        f"{page_key.capitalize()}.html",
+        f"{page_key.lower()}.html",
+        f"{page_key.title()}.html",
+    ]
+    for fn in candidates:
+        full = os.path.join(current_dir, 'templates', fn)
+        if os.path.exists(full):
+            return fn
+    fallback = 'jeet.html'
+    if os.path.exists(os.path.join(current_dir, 'templates', fallback)):
+        return fallback
+    return 'index.html'
+
+# Register routes dynamically
+for page_name, route_path in NAVIGATION_MAP.items():
+    def make_view(p=page_name):
+        def view():
+            template_name = _find_template_for_page(p)
+            return render_template(template_name, navigation=NAVIGATION_MAP)
+        return view
+    try:
+        server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
+    except AssertionError:
+        try:
+            server.url_map._rules = [r for r in server.url_map._rules if r.endpoint != page_name]
+            server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
+        except Exception:
+            pass
+
 @server.route('/navigate/<page_name>')
 def navigate_to_page(page_name):
-    return redirect(NAVIGATION_MAP.get(page_name,'/'))
+    return redirect(NAVIGATION_MAP.get(page_name, '/'))
 
 # ---------------- API endpoints ----------------
 @server.route('/api/stocks')
@@ -751,4 +776,5 @@ def internal_error(error): return jsonify({"error":"Internal server error"}), 50
 if __name__ == '__main__':
     print("Starting Flask app with model persistence...")
     os.makedirs('templates', exist_ok=True); os.makedirs('static', exist_ok=True)
-    server.run(host='0.0.0.0', port=8080, debug=True, threaded=True)
+    port = int(os.environ.get('PORT', 8080))
+    server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
