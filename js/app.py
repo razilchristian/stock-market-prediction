@@ -1,4 +1,4 @@
-# app.py — Flask only, with model persistence (joblib) and prediction.html wiring
+# app.py — Flask-only AI stock predictor with model persistence, robust yfinance fetch, diag endpoint
 import os
 import time
 import random
@@ -18,7 +18,11 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 from sklearn.dummy import DummyRegressor
-import joblib  # persist models
+import joblib
+
+# HTTP retries
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 warnings.filterwarnings('ignore')
 
@@ -26,7 +30,6 @@ warnings.filterwarnings('ignore')
 MODELS_DIR = 'models'
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-# ---------------- Flask ----------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 server = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -47,12 +50,29 @@ class RateLimiter:
                 elapsed = current_time - last_time
                 if elapsed < self.min_interval:
                     sleep_time = self.min_interval - elapsed
+                    # gentle sleep to respect rate limits
                     time.sleep(sleep_time)
                 self.last_called[func_name] = time.time()
             return func(*args, **kwargs)
         return wrapper
 
 rate_limiter = RateLimiter(max_per_minute=25)
+
+# ---------------- Shared requests session for yfinance ----------------
+def make_yf_session():
+    sess = requests.Session()
+    sess.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+    })
+    retries = Retry(total=4, backoff_factor=1.5, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET","POST"])
+    adapter = HTTPAdapter(max_retries=retries, pool_connections=10, pool_maxsize=10)
+    sess.mount('https://', adapter)
+    sess.mount('http://', adapter)
+    return sess
+
+_YF_SESSION = make_yf_session()
 
 # ---------------- Utility & feature functions ----------------
 def calculate_rsi(prices, window=14):
@@ -67,9 +87,8 @@ def calculate_rsi(prices, window=14):
         return pd.Series([50] * len(prices), index=prices.index)
 
 def create_advanced_features(data):
-    """(same robust feature creation as before)"""
     try:
-        # Convert multiindex -> single level if needed
+        # Flatten multiindex if necessary
         if isinstance(data.columns, pd.MultiIndex):
             flat = pd.DataFrame()
             for col in data.columns:
@@ -87,6 +106,7 @@ def create_advanced_features(data):
                     data[col] = 1000000
                 else:
                     data[col] = data['Close'] if 'Close' in data.columns else 100.0
+
         for col in required_columns:
             data[col] = pd.to_numeric(data[col], errors='coerce')
             if data[col].isna().all():
@@ -124,6 +144,7 @@ def create_advanced_features(data):
         data['Momentum_5'] = (data['Close'] / data['Close'].shift(5).replace(0,1)) - 1
         data['Momentum_10'] = (data['Close'] / data['Close'].shift(10).replace(0,1)) - 1
         data = data.fillna(method='ffill').fillna(method='bfill')
+
         # final fallback fills
         for col in data.columns:
             if data[col].isna().any():
@@ -138,9 +159,7 @@ def create_advanced_features(data):
         return data
     except Exception as e:
         print("Feature creation error:", e)
-        return pd.DataFrame({
-            'Open':[100.0],'High':[101.0],'Low':[99.0],'Close':[100.0],'Volume':[1000000]
-        })
+        return pd.DataFrame({'Open':[100.0],'High':[101.0],'Low':[99.0],'Close':[100.0],'Volume':[1000000]})
 
 def detect_crises(data, threshold=0.05):
     try:
@@ -180,35 +199,55 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
         low = min(open_price,close) - daily_range*random.uniform(0.2,0.8)
         highs.append(high); lows.append(low); opens.append(open_price)
     df = pd.DataFrame({'Date':dates.strftime('%Y-%m-%d'),'Open':opens,'High':highs,'Low':lows,'Close':prices,'Volume':volumes})
+    print(f"⚠️ Using fallback generated data for {ticker} ({len(df)} rows)")
     return df, prices[-1], None
 
-# ---------------- Live data fetching ----------------
+# ---------------- Robust live data fetching ----------------
 @rate_limiter
-def get_live_stock_data_enhanced(ticker):
-    try:
-        strategies = [
-            {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name":"2y"},
-            {"func": lambda: yf.Ticker(ticker).history(period="2y", interval="1d"), "name":"ticker.history"},
-            {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name":"1y"},
-        ]
-        for strategy in strategies:
+def get_live_stock_data_enhanced(ticker, max_attempts=3, sleep_between=2):
+    ticker = (ticker or '').strip().upper()
+    last_exception = None
+
+    strategies = [
+        {"name": "yf.download-2y", "func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=40, session=_YF_SESSION)},
+        {"name": "Ticker.history-2y", "func": lambda: yf.Ticker(ticker, session=_YF_SESSION).history(period="2y", interval="1d")},
+        {"name": "yf.download-1y", "func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=30, session=_YF_SESSION)},
+    ]
+
+    for strat in strategies:
+        for attempt in range(1, max_attempts + 1):
             try:
-                hist = strategy['func']()
-                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist)>50:
+                print(f"🔁 Attempt {attempt}/{max_attempts} — strategy: {strat['name']} for {ticker}")
+                hist = strat["func"]()
+                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 10:
                     hist = hist.reset_index()
                     if 'Date' in hist.columns:
                         hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
                     elif 'Datetime' in hist.columns:
                         hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
-                        hist = hist.drop(columns=['Datetime'])
-                    current_price = hist['Close'].iloc[-1]
+                        hist = hist.drop(columns=['Datetime'], errors='ignore')
+                    current_price = None
+                    if 'Close' in hist.columns and len(hist) > 0:
+                        current_price = float(hist['Close'].iloc[-1])
+                    print(f"✅ Fetched {len(hist)} rows for {ticker} using {strat['name']}")
                     return hist, current_price, None
+
+                print(f"⚠️ Strategy {strat['name']} returned insufficient data for {ticker} (len={None if hist is None else len(hist)})")
+                last_exception = f"Insufficient data from {strat['name']}"
+                time.sleep(sleep_between * attempt)
             except Exception as e:
-                if "429" in str(e): time.sleep(10)
+                last_exception = str(e)
+                msg = str(e).lower()
+                print(f"❌ {strat['name']} attempt {attempt} failed for {ticker}: {e}")
+                if "429" in msg or "rate limit" in msg or "throttle" in msg:
+                    print("⏳ Detected rate-limit; sleeping longer before retry")
+                    time.sleep(10 + sleep_between * attempt)
+                else:
+                    time.sleep(sleep_between * attempt)
                 continue
-        return generate_fallback_data(ticker)
-    except Exception as e:
-        return generate_fallback_data(ticker)
+
+    print(f"❌ All live strategies failed for {ticker}. Last error: {last_exception}")
+    return generate_fallback_data(ticker)
 
 # ---------------- Predictor with persistence ----------------
 class AdvancedMultiTargetPredictor:
@@ -253,7 +292,6 @@ class AdvancedMultiTargetPredictor:
             if not os.path.exists(path):
                 return False
             payload = joblib.load(path)
-            # restore
             self.models = payload.get('models', {})
             self.crisis_model = payload.get('crisis_model', None)
             self.scaler_features = payload.get('scaler_features', StandardScaler())
@@ -269,6 +307,7 @@ class AdvancedMultiTargetPredictor:
             print("Load failure:", e)
             return False
 
+    # prepare, sequence, train, predict implementations (compact but functional)
     def prepare_multi_target_data(self, data, target_days=1):
         try:
             data_with_features = create_advanced_features(data)
@@ -340,7 +379,6 @@ class AdvancedMultiTargetPredictor:
                 return None, "Insufficient data/features"
             self.feature_columns = features
             self.targets = targets
-            # simple split
             min_test = 2
             if len(X) <= min_test + 5:
                 X_train, X_test = X, X[-1:]
@@ -428,7 +466,6 @@ class AdvancedMultiTargetPredictor:
                         predictions_scaled[t] = np.array([data[t].iloc[-1] if t in data.columns else data['Close'].iloc[-1]])
                 else:
                     predictions_scaled[t] = np.array([data['Close'].iloc[-1]])
-            # inverse transform where possible
             predictions_actual = {}
             for t in targets:
                 if t in predictions_scaled and t in self.scaler_targets:
@@ -438,8 +475,7 @@ class AdvancedMultiTargetPredictor:
                         predictions_actual[t] = predictions_scaled[t]
                 else:
                     predictions_actual[t] = predictions_scaled[t]
-            confidence_data = {}  # minimal; you can enrich
-            # simple crisis prob
+            confidence_data = {}
             crisis_probs = self.predict_crisis_probability(data_scaled)
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
@@ -447,9 +483,6 @@ class AdvancedMultiTargetPredictor:
         except Exception as e:
             print("Predict error:", e)
             return None, None, None, None, str(e)
-
-    def calculate_confidence_bands_multi(self, X, confidence=0.95):
-        return {}
 
     def predict_crisis_probability(self, data_scaled):
         try:
@@ -535,7 +568,6 @@ class AdvancedMultiTargetPredictor:
         except:
             return "NORMAL"
 
-# global predictor instance — we will load per-symbol into it when needed
 predictor = AdvancedMultiTargetPredictor()
 
 # ---------------- Small helpers ----------------
@@ -571,60 +603,57 @@ def get_risk_level(change_percent, crisis_prob):
     return "🟢 LOW RISK"
 
 def get_trading_recommendation(change_percent, risk_level, crisis_prob):
-    if risk_level=="🔴 EXTREME RISK":
-        return "🚨 EXTREME CAUTION"
-    if risk_level=="🟡 HIGH RISK":
-        return "📈 CAUTIOUS"
-    if risk_level=="🟠 MEDIUM RISK":
-        return "🔄 HOLD / CONSIDER"
+    if risk_level=="🔴 EXTREME RISK": return "🚨 EXTREME CAUTION"
+    if risk_level=="🟡 HIGH RISK": return "📈 CAUTIOUS"
+    if risk_level=="🟠 MEDIUM RISK": return "🔄 HOLD / CONSIDER"
     if change_percent>2: return "✅ STRONG BUY"
     if change_percent < -1: return "💼 CAUTIOUS SELL"
     return "🔄 HOLD"
 
-# ---------------- NAVIGATION MAP ----------------
+# ---------------- NAVIGATION MAP and routes ----------------
 NAVIGATION_MAP = {
     'index':'/','jeet':'/jeet','portfolio':'/portfolio','mystock':'/mystock','deposit':'/deposit',
-    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/Superstars',
+    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/superstars',
     'alerts':'/alerts','help':'/help','profile':'/profile'
 }
 
-# ---------------- Dynamic routes for NAVIGATION_MAP ----------------
-def _find_template_for_page(page_key):
-    """
-    Try possible template filenames for given page_key and return the first that exists.
-    Order: <page>.html, <Page>.html, <page_key_lower>.html, <page_key_title>.html
-    If none exist, returns 'jeet.html' as safe fallback.
-    """
-    candidates = [
-        f"{page_key}.html",
-        f"{page_key.capitalize()}.html",
-        f"{page_key.lower()}.html",
-        f"{page_key.title()}.html",
-    ]
-    for fn in candidates:
-        full = os.path.join(current_dir, 'templates', fn)
-        if os.path.exists(full):
-            return fn
-    fallback = 'jeet.html'
-    if os.path.exists(os.path.join(current_dir, 'templates', fallback)):
-        return fallback
-    return 'index.html'
+# generic page renderer: tries to render template matching page name, falls back to index
+def render_nav_page(page_key):
+    page = page_key.lower()
+    template_name = f"{page}.html"
+    template_path = os.path.join(current_dir, 'templates', template_name)
+    if os.path.exists(template_path):
+        return render_template(template_name, navigation=NAVIGATION_MAP)
+    else:
+        # fallback if template missing
+        return render_template('jeet.html', navigation=NAVIGATION_MAP)
 
-# Register routes dynamically
-for page_name, route_path in NAVIGATION_MAP.items():
-    def make_view(p=page_name):
-        def view():
-            template_name = _find_template_for_page(p)
-            return render_template(template_name, navigation=NAVIGATION_MAP)
-        return view
-    try:
-        server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
-    except AssertionError:
-        try:
-            server.url_map._rules = [r for r in server.url_map._rules if r.endpoint != page_name]
-            server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
-        except Exception:
-            pass
+@server.route('/')
+def index(): return render_nav_page('jeet')
+@server.route('/jeet')
+def jeet_page(): return render_nav_page('jeet')
+@server.route('/portfolio')
+def portfolio_page(): return render_nav_page('portfolio')
+@server.route('/mystock')
+def mystock_page(): return render_nav_page('mystock')
+@server.route('/deposit')
+def deposit_page(): return render_nav_page('deposit')
+@server.route('/insight')
+def insight_page(): return render_nav_page('insight')
+@server.route('/prediction')
+def prediction_page(): return render_nav_page('prediction')
+@server.route('/news')
+def news_page(): return render_nav_page('news')
+@server.route('/videos')
+def videos_page(): return render_nav_page('videos')
+@server.route('/superstars')
+def superstars_page(): return render_nav_page('superstars')
+@server.route('/alerts')
+def alerts_page(): return render_nav_page('alerts')
+@server.route('/help')
+def help_page(): return render_nav_page('help')
+@server.route('/profile')
+def profile_page(): return render_nav_page('profile')
 
 @server.route('/navigate/<page_name>')
 def navigate_to_page(page_name):
@@ -634,7 +663,6 @@ def navigate_to_page(page_name):
 @server.route('/api/stocks')
 @rate_limiter
 def get_stocks_list():
-    # minimal: return popular list + try small yfinance fetch
     popular_stocks = [
         {"symbol":"AAPL","name":"Apple Inc.","price":182.63,"change":1.24},
         {"symbol":"MSFT","name":"Microsoft Corp.","price":407.57,"change":-0.85},
@@ -647,11 +675,12 @@ def get_stocks_list():
             t = yf.Ticker(stock['symbol'])
             h = t.history(period='1d', interval='1m')
             if not h.empty:
-                current = h['Close'].iloc[-1]
+                current = float(h['Close'].iloc[-1])
                 prev_close = t.info.get('previousClose', current)
                 change = ((current-prev_close)/prev_close)*100 if prev_close!=0 else 0.0
                 stock['price'] = round(current,2); stock['change']=round(change,2)
-        except Exception:
+        except Exception as e:
+            print(f"Stock fetch warning for {stock['symbol']}: {e}")
             continue
     return jsonify(popular_stocks)
 
@@ -659,28 +688,51 @@ def get_stocks_list():
 def health_check():
     return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"2.1.0"})
 
+@server.route('/api/diag')
+def diag_fetch():
+    """
+    Diagnostic endpoint to test live fetching on the deployed host.
+    Example: /api/diag?ticker=AAPL
+    """
+    ticker = (request.args.get('ticker') or 'AAPL').strip().upper()
+    try:
+        hist, price, err = get_live_stock_data_enhanced(ticker)
+        if err:
+            return jsonify({"ticker": ticker, "ok": False, "error": err}), 500
+        head = hist.head(3).to_dict(orient='records')
+        tail = hist.tail(3).to_dict(orient='records')
+        return jsonify({
+            "ticker": ticker,
+            "ok": True,
+            "rows": len(hist),
+            "columns": hist.columns.tolist(),
+            "sample_head": head,
+            "sample_tail": tail,
+            "current_price": price
+        })
+    except Exception as e:
+        return jsonify({"ticker": ticker, "ok": False, "error": str(e)}), 500
+
 @server.route('/api/predict', methods=['POST'])
 @rate_limiter
 def predict_stock():
     try:
         data = request.get_json() or {}
         symbol = (data.get('symbol') or 'SPY').upper().strip()
-        # try to load existing saved model first
+
+        # try to load saved model for this symbol
         loaded = predictor.load_from_disk(symbol)
+
         historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
-            return jsonify({"error":str(error)}), 400
+            return jsonify({"error": str(error)}), 400
 
-        # If model loaded and fitted, use it. Otherwise train and save.
         if not (loaded and predictor.is_fitted):
             rmse, train_err = predictor.train_multi_target_models(historical_data)
             if train_err:
-                # fallback response
                 return provide_fallback_prediction(symbol, current_price, historical_data)
-            # save
             predictor.save_to_disk(symbol)
 
-        # Predict
         predictions, confidence_data, scenarios, crisis_probs, pred_err = predictor.predict_next_day_prices(historical_data)
         if pred_err:
             return provide_fallback_prediction(symbol, current_price, historical_data)
@@ -775,6 +827,8 @@ def internal_error(error): return jsonify({"error":"Internal server error"}), 50
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("Starting Flask app with model persistence...")
-    os.makedirs('templates', exist_ok=True); os.makedirs('static', exist_ok=True)
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static', exist_ok=True)
+    # local debug port
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
