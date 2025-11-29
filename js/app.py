@@ -584,7 +584,7 @@ def get_trading_recommendation(change_percent, risk_level, crisis_prob):
 # ---------------- NAVIGATION MAP ----------------
 NAVIGATION_MAP = {
     'index':'/','jeet':'/jeet','portfolio':'/portfolio','mystock':'/mystock','deposit':'/deposit',
-    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/superstars',
+    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/Superstars',
     'alerts':'/alerts','help':'/help','profile':'/profile'
 }
 
