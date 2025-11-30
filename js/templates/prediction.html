@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* ---------- FULL UI CSS (restored) ---------- */
+/* ---------- FULL UI CSS (updated) ---------- */
 /* Core reset & fonts */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 :root{
@@ -32,6 +32,9 @@
   --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
   --glass: rgba(255,255,255,0.03);
+  --crisis-red: #ff4757;
+  --warning-orange: #ffa502;
+  --normal-green: #2ed573;
 }
 
 body.light {
@@ -47,6 +50,9 @@ body.light {
   --active-color: #0077cc;
   --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --crisis-red: #ff3838;
+  --warning-orange: #ff9f1a;
+  --normal-green: #00b894;
 }
 
 html,body { height:100%; }
@@ -221,6 +227,64 @@ body {
 .chart-actions select { padding:8px 12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:14px; font-weight:500; }
 .chart-container { height:250px; background:var(--bg-dark); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
 
+/* New Sections for Historical Performance & Confidence */
+.performance-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .performance-section{ grid-template-columns:1fr; } }
+
+.performance-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); }
+.performance-card h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+.performance-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+.performance-item { background:var(--bg-dark); padding:16px; border-radius:12px; border:1px solid var(--border-color); }
+.performance-label { font-size:12px; color:var(--text-secondary); margin-bottom:6px; }
+.performance-value { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
+.performance-subtext { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+.confidence-bars { display:flex; flex-direction:column; gap:12px; }
+.confidence-bar { display:flex; align-items:center; gap:12px; }
+.confidence-label { width:80px; font-size:13px; color:var(--text-secondary); }
+.confidence-track { flex:1; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; }
+.confidence-fill { height:100%; border-radius:4px; transition:width 0.5s ease; }
+.confidence-value { width:50px; text-align:right; font-size:13px; font-weight:600; }
+
+/* Crisis & Market Regime */
+.crisis-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .crisis-section{ grid-template-columns:1fr; } }
+
+.crisis-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); position:relative; overflow:hidden; }
+.crisis-card.critical { border-color:var(--crisis-red); }
+.crisis-card.warning { border-color:var(--warning-orange); }
+.crisis-card.normal { border-color:var(--normal-green); }
+
+.crisis-card h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:16px; }
+.crisis-card.critical h3 { color:var(--crisis-red); }
+.crisis-card.warning h3 { color:var(--warning-orange); }
+.crisis-card.normal h3 { color:var(--normal-green); }
+
+.crisis-indicator { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.crisis-icon { font-size:24px; }
+.crisis-level { font-size:20px; font-weight:700; }
+.crisis-probability { font-size:28px; font-weight:700; margin:16px 0; }
+.crisis-description { font-size:14px; color:var(--text-secondary); line-height:1.5; }
+
+.regime-indicators { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.regime-indicator { display:flex; align-items:center; gap:8px; padding:12px; background:var(--bg-dark); border-radius:8px; border:1px solid var(--border-color); }
+.regime-icon { font-size:16px; }
+.regime-text { font-size:13px; }
+
+/* Risk Alerts */
+.risk-alerts { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); margin-bottom:32px; display:none; }
+.risk-alerts h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; color:var(--crisis-red); }
+.alert-list { display:flex; flex-direction:column; gap:12px; }
+.alert-item { display:flex; align-items:flex-start; gap:12px; padding:16px; background:var(--bg-dark); border-radius:12px; border-left:4px solid var(--crisis-red); }
+.alert-item.warning { border-left-color:var(--warning-orange); }
+.alert-item.info { border-left-color:var(--accent-blue); }
+.alert-icon { font-size:18px; margin-top:2px; }
+.alert-content { flex:1; }
+.alert-level { font-size:14px; font-weight:700; margin-bottom:4px; }
+.alert-message { font-size:13px; color:var(--text-secondary); margin-bottom:4px; }
+.alert-action { font-size:12px; color:var(--text-muted); }
+
 /* Loading & iframe removed (we removed Dash iframe) */
 .loading-overlay { display:none; }
 
@@ -247,9 +311,12 @@ body {
   .header { flex-direction:column; align-items:flex-start; }
   .header-controls { width:100%; justify-content:space-between; }
   .search-container { width:100%; }
+  .performance-grid { grid-template-columns:1fr; }
+  .regime-indicators { grid-template-columns:1fr; }
 }
 @media (max-width:480px){
   .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
+  .performance-card, .crisis-card { padding:20px; }
 }
 </style>
 </head>
@@ -313,6 +380,12 @@ body {
       </div>
     </div>
 
+    <!-- Risk Alerts -->
+    <div class="risk-alerts" id="riskAlerts">
+      <h3><i class="fas fa-exclamation-triangle"></i> Risk Alerts</h3>
+      <div class="alert-list" id="alertList"></div>
+    </div>
+
     <!-- Metrics -->
     <div class="metrics-section">
       <div class="metric-card">
@@ -334,6 +407,45 @@ body {
         <div class="metric-icon"><i class="fas fa-database"></i></div>
         <div class="metric-value" id="metricHistory">—</div>
         <div class="metric-label">Historical Data</div>
+      </div>
+    </div>
+
+    <!-- Crisis & Market Regime -->
+    <div class="crisis-section">
+      <div class="crisis-card normal" id="crisisCard">
+        <h3><i class="fas fa-shield-alt"></i> Market Crisis Detection</h3>
+        <div class="crisis-indicator">
+          <i class="fas fa-check-circle crisis-icon" style="color:var(--normal-green)"></i>
+          <div class="crisis-level">Normal Market Conditions</div>
+        </div>
+        <div class="crisis-probability" id="crisisProbability">10%</div>
+        <div class="crisis-description" id="crisisDescription">Market conditions appear stable with normal volatility levels.</div>
+      </div>
+
+      <div class="crisis-card normal" id="regimeCard">
+        <h3><i class="fas fa-chart-line"></i> Market Regime</h3>
+        <div class="crisis-indicator">
+          <i class="fas fa-chart-bar crisis-icon" style="color:var(--normal-green)"></i>
+          <div class="crisis-level" id="regimeLevel">NORMAL</div>
+        </div>
+        <div class="regime-indicators">
+          <div class="regime-indicator">
+            <i class="fas fa-wave-square regime-icon"></i>
+            <div class="regime-text" id="volatilityIndicator">Volatility: Normal</div>
+          </div>
+          <div class="regime-indicator">
+            <i class="fas fa-tachometer-alt regime-icon"></i>
+            <div class="regime-text" id="momentumIndicator">Momentum: Neutral</div>
+          </div>
+          <div class="regime-indicator">
+            <i class="fas fa-volume-up regime-icon"></i>
+            <div class="regime-text" id="volumeIndicator">Volume: Average</div>
+          </div>
+          <div class="regime-indicator">
+            <i class="fas fa-balance-scale regime-icon"></i>
+            <div class="regime-text" id="sentimentIndicator">Sentiment: Balanced</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -392,6 +504,69 @@ body {
       </div>
     </div>
 
+    <!-- Performance & Confidence -->
+    <div class="performance-section">
+      <div class="performance-card">
+        <h3><i class="fas fa-chart-bar"></i> Historical Performance</h3>
+        <div class="performance-grid" id="performanceGrid">
+          <div class="performance-item">
+            <div class="performance-label">Model R² Score</div>
+            <div class="performance-value" id="r2Score">—</div>
+            <div class="performance-subtext">Higher is better</div>
+          </div>
+          <div class="performance-item">
+            <div class="performance-label">Direction Accuracy</div>
+            <div class="performance-value" id="directionAccuracy">—</div>
+            <div class="performance-subtext">Price movement prediction</div>
+          </div>
+          <div class="performance-item">
+            <div class="performance-label">RMSE</div>
+            <div class="performance-value" id="rmseScore">—</div>
+            <div class="performance-subtext">Lower is better</div>
+          </div>
+          <div class="performance-item">
+            <div class="performance-label">Overfitting Ratio</div>
+            <div class="performance-value" id="overfittingRatio">—</div>
+            <div class="performance-subtext">Close to 1.0 is ideal</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="performance-card">
+        <h3><i class="fas fa-chart-pie"></i> Prediction Confidence</h3>
+        <div class="confidence-bars" id="confidenceBars">
+          <div class="confidence-bar">
+            <div class="confidence-label">Open</div>
+            <div class="confidence-track">
+              <div class="confidence-fill" style="width: 0%; background: var(--accent-blue)"></div>
+            </div>
+            <div class="confidence-value">—</div>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-label">High</div>
+            <div class="confidence-track">
+              <div class="confidence-fill" style="width: 0%; background: var(--accent-teal)"></div>
+            </div>
+            <div class="confidence-value">—</div>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-label">Low</div>
+            <div class="confidence-track">
+              <div class="confidence-fill" style="width: 0%; background: var(--accent-purple)"></div>
+            </div>
+            <div class="confidence-value">—</div>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-label">Close</div>
+            <div class="confidence-track">
+              <div class="confidence-fill" style="width: 0%; background: var(--up-color)"></div>
+            </div>
+            <div class="confidence-value">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Charts -->
     <div class="charts-section">
       <div class="chart-card">
@@ -425,16 +600,19 @@ body {
     </div>
 
     <!-- Model / Disclaimer -->
-    <div class="card" style="padding:20px">
+    <div class="card" style="padding:20px; background:var(--bg-card); border-radius:20px; border:1px solid var(--border-color);">
       <h3 style="color:var(--accent-blue); margin-bottom:8px">Model & Deployment</h3>
-      
+      <p style="color:var(--text-secondary); font-size:14px; line-height:1.5;">
+        This AI prediction system uses advanced machine learning models with historical performance tracking, 
+        real-time confidence scoring, and market crisis detection. All predictions are for educational purposes only.
+      </p>
     </div>
 
   </main>
 </div>
 
 <script>
-/* ---------- FULL UI JS (restored & fixed) ---------- */
+/* ---------- FULL UI JS (updated with new features) ---------- */
 
 const CONFIG = {
   API_BASE_URL: window.location.origin,
@@ -601,7 +779,11 @@ class PredictionDisplay {
     document.getElementById('confidenceLevel').textContent = '—';
     document.getElementById('predictionChart').innerHTML = '<div>Select a stock and click Predict to generate AI-powered forecasts</div>';
     this.hideNextDay();
+    this.hideRiskAlerts();
+    this.resetPerformance();
+    this.resetCrisis();
   }
+
   static update(data){
     if(!data) return;
     const cp = data.current_price ?? data.current?.price ?? 0;
@@ -614,8 +796,16 @@ class PredictionDisplay {
     this.updateChart(data);
     this.updateInsight(data);
     if(data.predictions || data.predicted_prices) this.showNextDayPredictions(data.predictions || data.predicted_prices, cp);
+    
+    // Update new features
+    this.updatePerformance(data.historical_performance);
+    this.updateConfidenceBars(data.prediction_confidence);
+    this.updateCrisisDetection(data);
+    this.updateRiskAlerts(data.risk_alerts);
+    
     AppState.currentPredictions = data;
   }
+
   static updateConfidence(conf){
     const el = document.getElementById('confidenceLevel');
     let txt = `Low (${Math.round(conf)}%)`, cls='confidence-low';
@@ -624,6 +814,7 @@ class PredictionDisplay {
     el.textContent = txt;
     el.className = `prediction-value ${cls}`;
   }
+
   static updateChart(data){
     const el = document.getElementById('predictionChart');
     if(!el) return;
@@ -648,10 +839,12 @@ class PredictionDisplay {
       </div>
     `;
   }
+
   static updateInsight(data){
     const el = document.getElementById('aiInsightText');
     if(el) el.textContent = data.insight || data.summary || 'AI analysis completed. Interpret predictions with caution.';
   }
+
   static showNextDayPredictions(preds, currentPrice){
     const grid = document.getElementById('predictionsGrid');
     const section = document.getElementById('nextDayPredictions');
@@ -677,7 +870,205 @@ class PredictionDisplay {
     });
     section.style.display = 'block';
   }
+
   static hideNextDay(){ const s = document.getElementById('nextDayPredictions'); if(s) s.style.display='none'; }
+
+  static updatePerformance(performance){
+    if(!performance) return;
+    
+    const closePerf = performance.Close || performance.close || {};
+    document.getElementById('r2Score').textContent = closePerf.test_r2 ? closePerf.test_r2.toFixed(3) : '—';
+    document.getElementById('directionAccuracy').textContent = closePerf.test_direction_accuracy ? `${(closePerf.test_direction_accuracy * 100).toFixed(1)}%` : '—';
+    document.getElementById('rmseScore').textContent = closePerf.test_rmse ? closePerf.test_rmse.toFixed(4) : '—';
+    document.getElementById('overfittingRatio').textContent = closePerf.overfitting_ratio ? closePerf.overfitting_ratio.toFixed(2) : '—';
+  }
+
+  static resetPerformance(){
+    document.getElementById('r2Score').textContent = '—';
+    document.getElementById('directionAccuracy').textContent = '—';
+    document.getElementById('rmseScore').textContent = '—';
+    document.getElementById('overfittingRatio').textContent = '—';
+  }
+
+  static updateConfidenceBars(confidence){
+    if(!confidence) return;
+    
+    const targets = ['Open', 'High', 'Low', 'Close'];
+    targets.forEach(target => {
+      const confData = confidence[target];
+      if(confData) {
+        const bar = document.querySelector(`.confidence-bar:nth-child(${targets.indexOf(target) + 1}) .confidence-fill`);
+        const value = document.querySelector(`.confidence-bar:nth-child(${targets.indexOf(target) + 1}) .confidence-value`);
+        if(bar && value) {
+          const score = confData.confidence_score || 50;
+          bar.style.width = `${score}%`;
+          value.textContent = `${Math.round(score)}%`;
+        }
+      }
+    });
+  }
+
+  static updateCrisisDetection(data){
+    const crisisProb = data.crisis_probability || 0.1;
+    const marketRegime = data.market_regime || 'NORMAL';
+    
+    // Update crisis card
+    const crisisCard = document.getElementById('crisisCard');
+    const crisisProbability = document.getElementById('crisisProbability');
+    const crisisDescription = document.getElementById('crisisDescription');
+    
+    let crisisLevel = 'normal';
+    let crisisIcon = 'fa-check-circle';
+    let crisisColor = 'var(--normal-green)';
+    let description = 'Market conditions appear stable with normal volatility levels.';
+    
+    if(crisisProb > 0.7) {
+      crisisLevel = 'critical';
+      crisisIcon = 'fa-exclamation-triangle';
+      crisisColor = 'var(--crisis-red)';
+      description = 'High probability of market crisis detected. Exercise extreme caution.';
+    } else if(crisisProb > 0.4) {
+      crisisLevel = 'warning';
+      crisisIcon = 'fa-exclamation-circle';
+      crisisColor = 'var(--warning-orange)';
+      description = 'Elevated market risk detected. Monitor positions closely.';
+    }
+    
+    crisisCard.className = `crisis-card ${crisisLevel}`;
+    crisisCard.querySelector('.crisis-icon').className = `fas ${crisisIcon} crisis-icon`;
+    crisisCard.querySelector('.crisis-icon').style.color = crisisColor;
+    crisisCard.querySelector('.crisis-level').textContent = 
+      crisisLevel === 'critical' ? 'Critical Market Risk' : 
+      crisisLevel === 'warning' ? 'Elevated Market Risk' : 'Normal Market Conditions';
+    
+    crisisProbability.textContent = `${(crisisProb * 100).toFixed(1)}%`;
+    crisisDescription.textContent = description;
+    
+    // Update regime card
+    const regimeCard = document.getElementById('regimeCard');
+    const regimeLevel = document.getElementById('regimeLevel');
+    
+    regimeLevel.textContent = marketRegime;
+    regimeCard.className = `crisis-card ${crisisLevel}`; // Use same styling as crisis for now
+    
+    // Update regime indicators based on market regime
+    this.updateRegimeIndicators(marketRegime);
+  }
+
+  static updateRegimeIndicators(regime){
+    const indicators = {
+      volatility: document.getElementById('volatilityIndicator'),
+      momentum: document.getElementById('momentumIndicator'),
+      volume: document.getElementById('volumeIndicator'),
+      sentiment: document.getElementById('sentimentIndicator')
+    };
+    
+    const regimeSettings = {
+      'HIGH_VOLATILITY': {
+        volatility: 'Volatility: Very High',
+        momentum: 'Momentum: Erratic',
+        volume: 'Volume: Elevated',
+        sentiment: 'Sentiment: Fearful'
+      },
+      'ELEVATED_RISK': {
+        volatility: 'Volatility: High',
+        momentum: 'Momentum: Mixed',
+        volume: 'Volume: Above Average',
+        sentiment: 'Sentiment: Cautious'
+      },
+      'EXTREME_SENTIMENT': {
+        volatility: 'Volatility: Elevated',
+        momentum: 'Momentum: Strong',
+        volume: 'Volume: High',
+        sentiment: 'Sentiment: Extreme'
+      },
+      'STRONG_TREND': {
+        volatility: 'Volatility: Moderate',
+        momentum: 'Momentum: Strong',
+        volume: 'Volume: Normal',
+        sentiment: 'Sentiment: Confident'
+      },
+      'HIGH_VOLUME': {
+        volatility: 'Volatility: Normal',
+        momentum: 'Momentum: Normal',
+        volume: 'Volume: Very High',
+        sentiment: 'Sentiment: Active'
+      },
+      'NORMAL': {
+        volatility: 'Volatility: Normal',
+        momentum: 'Momentum: Neutral',
+        volume: 'Volume: Average',
+        sentiment: 'Sentiment: Balanced'
+      }
+    };
+    
+    const settings = regimeSettings[regime] || regimeSettings.NORMAL;
+    
+    Object.keys(indicators).forEach(key => {
+      if(indicators[key]) {
+        indicators[key].textContent = settings[key];
+      }
+    });
+  }
+
+  static updateRiskAlerts(alerts){
+    const alertList = document.getElementById('alertList');
+    const riskAlerts = document.getElementById('riskAlerts');
+    
+    if(!alerts || alerts.length === 0) {
+      riskAlerts.style.display = 'none';
+      return;
+    }
+    
+    alertList.innerHTML = '';
+    alerts.forEach(alert => {
+      const alertItem = document.createElement('div');
+      alertItem.className = 'alert-item';
+      
+      let alertType = 'info';
+      let icon = 'fa-info-circle';
+      
+      if(alert.level.includes('🔴')) {
+        alertType = 'critical';
+        icon = 'fa-exclamation-triangle';
+      } else if(alert.level.includes('🟡')) {
+        alertType = 'warning';
+        icon = 'fa-exclamation-circle';
+      }
+      
+      alertItem.classList.add(alertType);
+      alertItem.innerHTML = `
+        <i class="fas ${icon} alert-icon"></i>
+        <div class="alert-content">
+          <div class="alert-level">${alert.level} ${alert.type}</div>
+          <div class="alert-message">${alert.message}</div>
+          <div class="alert-action">${alert.action || 'Monitor closely'}</div>
+        </div>
+      `;
+      alertList.appendChild(alertItem);
+    });
+    
+    riskAlerts.style.display = 'block';
+  }
+
+  static hideRiskAlerts(){
+    const riskAlerts = document.getElementById('riskAlerts');
+    if(riskAlerts) riskAlerts.style.display = 'none';
+  }
+
+  static resetCrisis(){
+    const crisisCard = document.getElementById('crisisCard');
+    const regimeCard = document.getElementById('regimeCard');
+    
+    crisisCard.className = 'crisis-card normal';
+    regimeCard.className = 'crisis-card normal';
+    
+    document.getElementById('crisisProbability').textContent = '10%';
+    document.getElementById('crisisDescription').textContent = 'Market conditions appear stable with normal volatility levels.';
+    document.getElementById('regimeLevel').textContent = 'NORMAL';
+    
+    this.updateRegimeIndicators('NORMAL');
+  }
 }
 
 /* Prediction Manager */
