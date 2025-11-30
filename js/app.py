@@ -16,7 +16,7 @@ from flask import Flask, send_from_directory, render_template, jsonify, request,
 
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.dummy import DummyRegressor
 import joblib  # persist models
 
@@ -222,6 +222,9 @@ class AdvancedMultiTargetPredictor:
         self.crisis_features = []
         self.model_health_metrics = {}
         self.targets = ['Open','High','Low','Close']
+        self.historical_performance = {}
+        self.prediction_confidence = {}
+        self.market_regime = "NORMAL"
 
     def model_file(self, symbol):
         safe = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
@@ -238,7 +241,10 @@ class AdvancedMultiTargetPredictor:
                 'feature_columns': self.feature_columns,
                 'crisis_features': self.crisis_features,
                 'model_health_metrics': self.model_health_metrics,
-                'targets': self.targets
+                'targets': self.targets,
+                'historical_performance': self.historical_performance,
+                'prediction_confidence': self.prediction_confidence,
+                'market_regime': self.market_regime
             }
             joblib.dump(payload, self.model_file(symbol))
             print(f"✅ Saved model to {self.model_file(symbol)}")
@@ -263,6 +269,9 @@ class AdvancedMultiTargetPredictor:
             self.crisis_features = payload.get('crisis_features', [])
             self.model_health_metrics = payload.get('model_health_metrics', {})
             self.targets = payload.get('targets', ['Open','High','Low','Close'])
+            self.historical_performance = payload.get('historical_performance', {})
+            self.prediction_confidence = payload.get('prediction_confidence', {})
+            self.market_regime = payload.get('market_regime', "NORMAL")
             print(f"✅ Loaded model from {path}")
             return True
         except Exception as e:
@@ -333,6 +342,145 @@ class AdvancedMultiTargetPredictor:
             print("Seq error:", e)
             return None, None
 
+    def calculate_historical_performance(self, X_train, y_train, X_test, y_test):
+        """Calculate comprehensive historical performance metrics"""
+        performance = {}
+        for target in self.targets:
+            if target in self.models and target in y_train and target in y_test:
+                try:
+                    model = self.models[target]
+                    # Training performance
+                    y_train_pred = model.predict(X_train)
+                    y_test_pred = model.predict(X_test)
+                    
+                    train_rmse = np.sqrt(mean_squared_error(y_train[target], y_train_pred))
+                    test_rmse = np.sqrt(mean_squared_error(y_test[target], y_test_pred))
+                    train_mae = mean_absolute_error(y_train[target], y_train_pred)
+                    test_mae = mean_absolute_error(y_test[target], y_test_pred)
+                    train_r2 = r2_score(y_train[target], y_train_pred)
+                    test_r2 = r2_score(y_test[target], y_test_pred)
+                    
+                    # Direction accuracy
+                    train_dir_acc = np.mean((np.diff(y_train[target]) * np.diff(y_train_pred)) > 0)
+                    test_dir_acc = np.mean((np.diff(y_test[target]) * np.diff(y_test_pred)) > 0)
+                    
+                    performance[target] = {
+                        'train_rmse': float(train_rmse),
+                        'test_rmse': float(test_rmse),
+                        'train_mae': float(train_mae),
+                        'test_mae': float(test_mae),
+                        'train_r2': float(train_r2),
+                        'test_r2': float(test_r2),
+                        'train_direction_accuracy': float(train_dir_acc),
+                        'test_direction_accuracy': float(test_dir_acc),
+                        'overfitting_ratio': float(test_rmse / train_rmse) if train_rmse > 0 else 1.0
+                    }
+                except Exception as e:
+                    print(f"Performance calculation error for {target}: {e}")
+                    performance[target] = {
+                        'train_rmse': 0.0, 'test_rmse': 0.0, 'train_mae': 0.0, 'test_mae': 0.0,
+                        'train_r2': 0.0, 'test_r2': 0.0, 'train_direction_accuracy': 0.0,
+                        'test_direction_accuracy': 0.0, 'overfitting_ratio': 1.0
+                    }
+        return performance
+
+    def calculate_prediction_confidence(self, X_pred):
+        """Calculate confidence scores for predictions"""
+        confidence = {}
+        for target in self.targets:
+            if target in self.models:
+                try:
+                    model = self.models[target]
+                    if hasattr(model, 'estimators_'):  # Random Forest
+                        predictions = []
+                        for estimator in model.estimators_:
+                            pred = estimator.predict(X_pred)
+                            predictions.append(pred[0])
+                        
+                        mean_pred = np.mean(predictions)
+                        std_pred = np.std(predictions)
+                        confidence_interval = 1.96 * std_pred
+                        
+                        # Confidence score based on coefficient of variation
+                        if mean_pred != 0:
+                            cv = std_pred / abs(mean_pred)
+                            confidence_score = max(0, 1 - cv) * 100
+                        else:
+                            confidence_score = 50.0
+                            
+                        confidence[target] = {
+                            'confidence_score': float(confidence_score),
+                            'mean_prediction': float(mean_pred),
+                            'std_deviation': float(std_pred),
+                            'confidence_interval': float(confidence_interval),
+                            'predictions_count': len(predictions)
+                        }
+                    else:
+                        # For non-ensemble models, use a default confidence
+                        pred = model.predict(X_pred)[0]
+                        confidence[target] = {
+                            'confidence_score': 75.0,
+                            'mean_prediction': float(pred),
+                            'std_deviation': 0.0,
+                            'confidence_interval': float(pred * 0.05),
+                            'predictions_count': 1
+                        }
+                except Exception as e:
+                    print(f"Confidence calculation error for {target}: {e}")
+                    confidence[target] = {
+                        'confidence_score': 50.0,
+                        'mean_prediction': 0.0,
+                        'std_deviation': 0.0,
+                        'confidence_interval': 0.0,
+                        'predictions_count': 0
+                    }
+        return confidence
+
+    def detect_market_regime(self, data):
+        """Detect current market regime based on technical indicators"""
+        try:
+            if len(data) < 20:
+                return "NORMAL"
+            
+            recent_data = data.tail(20)
+            
+            # Calculate regime indicators
+            volatility = recent_data['Volatility'].mean()
+            rsi = recent_data['RSI'].iloc[-1]
+            momentum = recent_data['Momentum_5'].iloc[-1]
+            volume_ratio = recent_data['Volume_Ratio'].iloc[-1]
+            
+            # Crisis probability from crisis model
+            crisis_prob = 0.1
+            if self.crisis_model and len(self.crisis_features) > 0:
+                available_features = [f for f in self.crisis_features if f in data.columns]
+                if available_features:
+                    latest_features = data[available_features].iloc[-1:].values
+                    try:
+                        crisis_probs = self.crisis_model.predict_proba(latest_features)
+                        if crisis_probs.shape[1] > 1:
+                            crisis_prob = crisis_probs[0, 1]
+                    except:
+                        pass
+            
+            # Determine regime
+            if crisis_prob > 0.7 or volatility > 0.03:
+                return "HIGH_VOLATILITY"
+            elif crisis_prob > 0.4 or volatility > 0.02:
+                return "ELEVATED_RISK"
+            elif rsi > 70 or rsi < 30:
+                return "EXTREME_SENTIMENT"
+            elif abs(momentum) > 0.05:
+                return "STRONG_TREND"
+            elif volume_ratio > 1.5:
+                return "HIGH_VOLUME"
+            else:
+                return "NORMAL"
+                
+        except Exception as e:
+            print(f"Market regime detection error: {e}")
+            return "NORMAL"
+
     def train_multi_target_models(self, data, target_days=1):
         try:
             X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data, target_days)
@@ -340,7 +488,8 @@ class AdvancedMultiTargetPredictor:
                 return None, "Insufficient data/features"
             self.feature_columns = features
             self.targets = targets
-            # simple split
+            
+            # Split data
             min_test = 2
             if len(X) <= min_test + 5:
                 X_train, X_test = X, X[-1:]
@@ -351,6 +500,7 @@ class AdvancedMultiTargetPredictor:
                 X_train, X_test = X[:split], X[split:]
                 y_train = {t: y_arrays[t][:split] for t in targets}
                 y_test = {t: y_arrays[t][split:] for t in targets}
+            
             models = {}
             rmse_scores = {}
             for t in targets:
@@ -373,8 +523,21 @@ class AdvancedMultiTargetPredictor:
                     if len(X_train)>0:
                         fallback.fit(X_train, np.ones(len(X_train))*data['Close'].mean())
                     models[t] = fallback
+            
             self.models = models
             self.rmse_scores = rmse_scores
+            
+            # Calculate historical performance
+            self.historical_performance = self.calculate_historical_performance(X_train, y_train, X_test, y_test)
+            
+            # Calculate initial prediction confidence
+            X_pred = X[-1:] if len(X) > 0 else X_train[-1:] if len(X_train) > 0 else None
+            if X_pred is not None:
+                self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
+            
+            # Detect market regime
+            self.market_regime = self.detect_market_regime(data)
+            
             # crisis model
             try:
                 crisis_data = detect_crises(data)
@@ -395,6 +558,7 @@ class AdvancedMultiTargetPredictor:
             except Exception as e:
                 print("Crisis train failed:", e)
                 self.crisis_model = None
+            
             self.model_health_metrics = {
                 'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'data_points': len(X),
@@ -403,7 +567,9 @@ class AdvancedMultiTargetPredictor:
                 'feature_count': len(features),
                 'crisis_feature_count': len(self.crisis_features),
                 'data_range': f"{data['Date'].iloc[0] if 'Date' in data.columns else 'N/A'} to {data['Date'].iloc[-1] if 'Date' in data.columns else 'N/A'}",
-                'total_days': len(data)
+                'total_days': len(data),
+                'market_regime': self.market_regime,
+                'average_confidence': np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0.0
             }
             self.is_fitted = True
             return rmse_scores, None
@@ -419,6 +585,13 @@ class AdvancedMultiTargetPredictor:
             if X is None or len(X)==0:
                 return None, None, None, None, "Insufficient data for prediction"
             X_pred = X[-1:]
+            
+            # Update prediction confidence
+            self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
+            
+            # Update market regime
+            self.market_regime = self.detect_market_regime(data)
+            
             predictions_scaled = {}
             for t in targets:
                 if t in self.models:
@@ -428,6 +601,7 @@ class AdvancedMultiTargetPredictor:
                         predictions_scaled[t] = np.array([data[t].iloc[-1] if t in data.columns else data['Close'].iloc[-1]])
                 else:
                     predictions_scaled[t] = np.array([data['Close'].iloc[-1]])
+            
             # inverse transform where possible
             predictions_actual = {}
             for t in targets:
@@ -438,18 +612,33 @@ class AdvancedMultiTargetPredictor:
                         predictions_actual[t] = predictions_scaled[t]
                 else:
                     predictions_actual[t] = predictions_scaled[t]
-            confidence_data = {}  # minimal; you can enrich
-            # simple crisis prob
+            
+            confidence_data = self.calculate_confidence_bands_multi(X_pred)
             crisis_probs = self.predict_crisis_probability(data_scaled)
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
+            
             return predictions_actual, confidence_data, scenarios, crisis_probs, None
         except Exception as e:
             print("Predict error:", e)
             return None, None, None, None, str(e)
 
     def calculate_confidence_bands_multi(self, X, confidence=0.95):
-        return {}
+        """Enhanced confidence bands with prediction intervals"""
+        confidence_data = {}
+        for target in self.targets:
+            if target in self.models and target in self.prediction_confidence:
+                conf = self.prediction_confidence[target]
+                confidence_data[target] = {
+                    'mean': conf['mean_prediction'],
+                    'lower': conf['mean_prediction'] - conf['confidence_interval'],
+                    'upper': conf['mean_prediction'] + conf['confidence_interval'],
+                    'std': conf['std_deviation'],
+                    'confidence_score': conf['confidence_score'],
+                    'prediction_interval': f"±{conf['confidence_interval']:.4f}",
+                    'quality': "HIGH" if conf['confidence_score'] > 80 else "MEDIUM" if conf['confidence_score'] > 60 else "LOW"
+                }
+        return confidence_data
 
     def predict_crisis_probability(self, data_scaled):
         try:
@@ -492,12 +681,25 @@ class AdvancedMultiTargetPredictor:
                     alerts.append({'level':'🔴 CRITICAL','type':'Extreme Movement','message':f'Expected {avg:+.1f}% move'})
                 elif abs(avg)>8:
                     alerts.append({'level':'🟡 HIGH','type':'Large Movement','message':f'Expected {avg:+.1f}% move'})
+            
+            # Enhanced crisis alerts based on market regime
             if crisis_probs:
                 avgc = float(np.mean(crisis_probs))
+                if self.market_regime == "HIGH_VOLATILITY":
+                    alerts.append({'level':'🔴 CRITICAL','type':'High Volatility Regime','message':'Market in high volatility regime'})
+                elif self.market_regime == "ELEVATED_RISK":
+                    alerts.append({'level':'🟡 HIGH','type':'Elevated Risk Regime','message':'Market in elevated risk regime'})
+                
                 if avgc>0.7:
-                    alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Prob','message':f'{avgc:.1%}'})
+                    alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Prob','message':f'Crisis probability: {avgc:.1%}'})
                 elif avgc>0.4:
-                    alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis','message':f'{avgc:.1%}'})
+                    alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis','message':f'Crisis probability: {avgc:.1%}'})
+            
+            # Add confidence-based alerts
+            avg_confidence = np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0
+            if avg_confidence < 50:
+                alerts.append({'level':'🟡 HIGH','type':'Low Prediction Confidence','message':f'Model confidence: {avg_confidence:.1f}%'})
+                
         except Exception as e:
             alerts.append({'level':'🟡 HIGH','type':'System','message':'Risk assessment unavailable'})
         return alerts
@@ -514,10 +716,23 @@ class AdvancedMultiTargetPredictor:
                     base_change = ((float(pv)-float(current_val))/float(current_val))*100
                 except Exception:
                     base_change = 0
+            
+            # Adjust scenarios based on market regime
+            regime_multipliers = {
+                "HIGH_VOLATILITY": 1.5,
+                "ELEVATED_RISK": 1.3,
+                "EXTREME_SENTIMENT": 1.2,
+                "STRONG_TREND": 1.1,
+                "HIGH_VOLUME": 1.1,
+                "NORMAL": 1.0
+            }
+            
+            multiplier = regime_multipliers.get(self.market_regime, 1.0)
+            
             return {
                 'base':{'probability':50,'price_change':base_change,'description':self.get_scenario_description(base_change)},
-                'bullish':{'probability':25,'price_change':base_change*1.3,'description':self.get_scenario_description(base_change*1.3)},
-                'bearish':{'probability':15,'price_change':base_change*0.7,'description':self.get_scenario_description(base_change*0.7)},
+                'bullish':{'probability':25,'price_change':base_change*1.3*multiplier,'description':self.get_scenario_description(base_change*1.3*multiplier)},
+                'bearish':{'probability':15,'price_change':base_change*0.7*multiplier,'description':self.get_scenario_description(base_change*0.7*multiplier)},
                 'sideways':{'probability':10,'price_change':base_change*0.3,'description':self.get_scenario_description(base_change*0.3)}
             }
         except Exception:
@@ -711,6 +926,9 @@ def predict_stock():
             "scenarios": scenarios,
             "risk_alerts": risk_alerts,
             "model_health": predictor.model_health_metrics,
+            "historical_performance": predictor.historical_performance,
+            "prediction_confidence": predictor.prediction_confidence,
+            "market_regime": predictor.market_regime,
             "market_status": get_market_status()[1],
             "data_analysis": {
                 "total_data_points": len(historical_data),
