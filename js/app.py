@@ -16,7 +16,7 @@ from flask import Flask, send_from_directory, render_template, jsonify, request,
 
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, accuracy_score, classification_report
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.dummy import DummyRegressor
 import joblib  # persist models
 
@@ -25,20 +25,6 @@ warnings.filterwarnings('ignore')
 # ---------------- Config ----------------
 MODELS_DIR = 'models'
 os.makedirs(MODELS_DIR, exist_ok=True)
-
-# ---------------- Historical Crisis Data ----------------
-HISTORICAL_CRISES = {
-    '2008-09-15': {'name': 'Lehman Brothers Bankruptcy', 'severity': 'HIGH', 'market_drop': -4.4},
-    '2020-03-16': {'name': 'COVID-19 Crash', 'severity': 'HIGH', 'market_drop': -12.9},
-    '2020-03-12': {'name': 'COVID-19 Pandemic', 'severity': 'HIGH', 'market_drop': -9.5},
-    '2020-03-09': {'name': 'Oil Price War', 'severity': 'MEDIUM', 'market_drop': -7.6},
-    '2018-12-24': {'name': 'Christmas Eve Massacre', 'severity': 'MEDIUM', 'market_drop': -2.7},
-    '2011-08-08': {'name': 'US Credit Downgrade', 'severity': 'MEDIUM', 'market_drop': -6.7},
-    '2022-06-13': {'name': 'Inflation Fears', 'severity': 'MEDIUM', 'market_drop': -3.9},
-    '2022-09-13': {'name': 'CPI Shock', 'severity': 'MEDIUM', 'market_drop': -4.3},
-    '2023-03-10': {'name': 'SVB Collapse', 'severity': 'HIGH', 'market_drop': -1.5},
-    '2024-01-02': {'name': 'New Year Selloff', 'severity': 'LOW', 'market_drop': -1.2}
-}
 
 # ---------------- Flask ----------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -80,28 +66,8 @@ def calculate_rsi(prices, window=14):
     except:
         return pd.Series([50] * len(prices), index=prices.index)
 
-def calculate_volatility_breakdown(data, window=20):
-    """Enhanced volatility analysis"""
-    try:
-        data = data.copy()
-        returns = data['Close'].pct_change()
-        
-        # Multiple volatility measures
-        data['Volatility_Rolling'] = returns.rolling(window=window).std()
-        data['Volatility_EWM'] = returns.ewm(span=window).std()
-        data['Volatility_GARCH'] = returns.rolling(window=5).std()  # Simplified GARCH-like
-        
-        # Volatility regimes
-        data['High_Volatility'] = (data['Volatility_Rolling'] > data['Volatility_Rolling'].quantile(0.8)).astype(int)
-        data['Low_Volatility'] = (data['Volatility_Rolling'] < data['Volatility_Rolling'].quantile(0.2)).astype(int)
-        
-        return data
-    except Exception as e:
-        print(f"Volatility calculation error: {e}")
-        return data
-
 def create_advanced_features(data):
-    """Enhanced feature creation with crash indicators"""
+    """(same robust feature creation as before)"""
     try:
         # Convert multiindex -> single level if needed
         if isinstance(data.columns, pd.MultiIndex):
@@ -138,7 +104,6 @@ def create_advanced_features(data):
                         new_row[col] = base * random.uniform(0.99,1.01)
                 data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
 
-        # Basic features
         data['Return'] = data['Close'].pct_change().fillna(0)
         data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
         data['MA_5'] = data['Close'].rolling(window=5, min_periods=1).mean()
@@ -158,31 +123,7 @@ def create_advanced_features(data):
         data['MACD_Histogram'] = data['MACD'] - data['MACD_Signal']
         data['Momentum_5'] = (data['Close'] / data['Close'].shift(5).replace(0,1)) - 1
         data['Momentum_10'] = (data['Close'] / data['Close'].shift(10).replace(0,1)) - 1
-        
-        # Enhanced volatility features
-        data = calculate_volatility_breakdown(data)
-        
-        # Crash-specific features
-        data['Large_Drop'] = (data['Return'] < -0.03).astype(int)
-        data['Large_Gain'] = (data['Return'] > 0.03).astype(int)
-        data['Gap_Down'] = (data['Open'] < data['Close'].shift(1) * 0.98).astype(int)
-        data['Gap_Up'] = (data['Open'] > data['Close'].shift(1) * 1.02).astype(int)
-        
-        # Volatility clustering (GARCH-like)
-        data['Volatility_Cluster'] = (data['Volatility_Rolling'] > data['Volatility_Rolling'].shift(1)).astype(int)
-        
-        # Market stress indicators
-        data['Stress_Indicator'] = (
-            (data['RSI'] < 30) | 
-            (data['Volume_Ratio'] > 2) | 
-            (data['Price_Range'] > 0.05)
-        ).astype(int)
-        
-        # Trend weakness
-        data['Trend_Weakness'] = (abs(data['Close_Ratio_20'] - 1) > 0.1).astype(int)
-        
         data = data.fillna(method='ffill').fillna(method='bfill')
-        
         # final fallback fills
         for col in data.columns:
             if data[col].isna().any():
@@ -191,8 +132,6 @@ def create_advanced_features(data):
                 elif 'Ratio' in col or 'Momentum' in col:
                     data[col] = data[col].fillna(1)
                 elif 'Volatility' in col or 'Return' in col:
-                    data[col] = data[col].fillna(0)
-                elif any(x in col for x in ['Large','Gap','Stress','Trend','High','Low']):
                     data[col] = data[col].fillna(0)
                 else:
                     data[col] = data[col].fillna(100.0 if col!='Volume' else 1000000)
@@ -203,66 +142,14 @@ def create_advanced_features(data):
             'Open':[100.0],'High':[101.0],'Low':[99.0],'Close':[100.0],'Volume':[1000000]
         })
 
-def detect_crises_enhanced(data, threshold=0.05, volatility_threshold=0.03):
-    """Enhanced crisis detection with multiple indicators"""
+def detect_crises(data, threshold=0.05):
     try:
         data = data.copy()
-        
-        # Multiple crisis indicators
-        price_drop_crisis = (data['Return'] < -threshold).astype(int)
-        volatility_crisis = (data['Volatility_Rolling'] > volatility_threshold).astype(int)
-        volume_spike_crisis = (data['Volume_Ratio'] > 2.5).astype(int)
-        gap_down_crisis = data['Gap_Down']
-        stress_crisis = data['Stress_Indicator']
-        
-        # Combined crisis score (weighted)
-        data['Crisis_Score'] = (
-            price_drop_crisis * 0.4 +
-            volatility_crisis * 0.3 +
-            volume_spike_crisis * 0.15 +
-            gap_down_crisis * 0.1 +
-            stress_crisis * 0.05
-        )
-        
-        # Binary crisis indicator
-        data['Crisis'] = (data['Crisis_Score'] > 0.3).astype(int)
-        
-        # Crisis severity levels
-        data['Crisis_Severity'] = pd.cut(
-            data['Crisis_Score'],
-            bins=[-0.1, 0.1, 0.3, 0.6, 1.1],
-            labels=['NONE', 'LOW', 'MEDIUM', 'HIGH'],
-            right=False
-        ).fillna('NONE')
-        
+        data['Crisis'] = (data['Return'].abs()>threshold).astype(int)
         return data
-    except Exception as e:
-        print(f"Crisis detection error: {e}")
-        data['Crisis'] = 0
-        data['Crisis_Score'] = 0.0
-        data['Crisis_Severity'] = 'NONE'
-        return data
-
-def get_historical_crisis_context(date_str):
-    """Get historical crisis context for a given date"""
-    try:
-        target_date = datetime.strptime(date_str, '%Y-%m-%d')
-        crisis_context = []
-        
-        for crisis_date, crisis_info in HISTORICAL_CRISES.items():
-            crisis_dt = datetime.strptime(crisis_date, '%Y-%m-%d')
-            days_diff = (target_date - crisis_dt).days
-            
-            # Include crises within 30 days of the target date
-            if abs(days_diff) <= 30:
-                crisis_context.append({
-                    'days_from_crisis': days_diff,
-                    'crisis_info': crisis_info
-                })
-        
-        return sorted(crisis_context, key=lambda x: abs(x['days_from_crisis']))
     except:
-        return []
+        data['Crisis'] = 0
+        return data
 
 # ---------------- Fallback data generator ----------------
 def generate_fallback_data(ticker, base_price=None, days=2520):
@@ -328,7 +215,6 @@ class AdvancedMultiTargetPredictor:
     def __init__(self):
         self.models = {}
         self.crisis_model = None
-        self.crisis_severity_model = None
         self.scaler_features = StandardScaler()
         self.scaler_targets = {}
         self.is_fitted = False
@@ -339,7 +225,6 @@ class AdvancedMultiTargetPredictor:
         self.historical_performance = {}
         self.prediction_confidence = {}
         self.market_regime = "NORMAL"
-        self.crisis_history = []
 
     def model_file(self, symbol):
         safe = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
@@ -350,7 +235,6 @@ class AdvancedMultiTargetPredictor:
             payload = {
                 'models': self.models,
                 'crisis_model': self.crisis_model,
-                'crisis_severity_model': self.crisis_severity_model,
                 'scaler_features': self.scaler_features,
                 'scaler_targets': self.scaler_targets,
                 'is_fitted': self.is_fitted,
@@ -360,8 +244,7 @@ class AdvancedMultiTargetPredictor:
                 'targets': self.targets,
                 'historical_performance': self.historical_performance,
                 'prediction_confidence': self.prediction_confidence,
-                'market_regime': self.market_regime,
-                'crisis_history': self.crisis_history
+                'market_regime': self.market_regime
             }
             joblib.dump(payload, self.model_file(symbol))
             print(f"✅ Saved model to {self.model_file(symbol)}")
@@ -379,7 +262,6 @@ class AdvancedMultiTargetPredictor:
             # restore
             self.models = payload.get('models', {})
             self.crisis_model = payload.get('crisis_model', None)
-            self.crisis_severity_model = payload.get('crisis_severity_model', None)
             self.scaler_features = payload.get('scaler_features', StandardScaler())
             self.scaler_targets = payload.get('scaler_targets', {})
             self.is_fitted = payload.get('is_fitted', False)
@@ -390,7 +272,6 @@ class AdvancedMultiTargetPredictor:
             self.historical_performance = payload.get('historical_performance', {})
             self.prediction_confidence = payload.get('prediction_confidence', {})
             self.market_regime = payload.get('market_regime', "NORMAL")
-            self.crisis_history = payload.get('crisis_history', [])
             print(f"✅ Loaded model from {path}")
             return True
         except Exception as e:
@@ -405,28 +286,18 @@ class AdvancedMultiTargetPredictor:
                                   'Close_Ratio_5','Close_Ratio_20','Close_Ratio_50',
                                   'Volume_MA','Volume_Ratio','Price_Range','HL_Ratio','OC_Ratio',
                                   'RSI','MACD','MACD_Signal','MACD_Histogram','Momentum_5','Momentum_10']
-            
-            # Enhanced crisis features
-            crisis_features = ['Large_Drop','Large_Gain','Gap_Down','Gap_Up','Volatility_Cluster',
-                              'Stress_Indicator','Trend_Weakness','High_Volatility','Low_Volatility',
-                              'Volatility_Rolling','Volatility_EWM']
-            
             available_columns = data_with_features.columns.tolist()
-            features = [f for f in (base_features+technical_features+crisis_features) if f in available_columns]
-            
+            features = [f for f in (base_features+technical_features) if f in available_columns]
             if len(features) < 4:
                 features = [f for f in base_features if f in available_columns]
                 if len(features) == 0:
                     return None, None, None, None, None
-                    
             targets = self.targets
             data_scaled = data_with_features.copy()
-            
             try:
                 data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
             except Exception:
                 data_scaled[features] = data_with_features[features]
-                
             self.scaler_targets = {}
             for target in targets:
                 try:
@@ -438,7 +309,6 @@ class AdvancedMultiTargetPredictor:
                         data_scaled[target] = data_scaled['Close']
                 except Exception:
                     data_scaled[target] = data_scaled['Close']
-                    
             X,y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
             if X is None or len(X)==0:
                 return None, None, None, None, None
@@ -567,7 +437,7 @@ class AdvancedMultiTargetPredictor:
         return confidence
 
     def detect_market_regime(self, data):
-        """Enhanced market regime detection with crisis awareness"""
+        """Detect current market regime based on technical indicators"""
         try:
             if len(data) < 20:
                 return "NORMAL"
@@ -575,64 +445,41 @@ class AdvancedMultiTargetPredictor:
             recent_data = data.tail(20)
             
             # Calculate regime indicators
-            volatility = recent_data['Volatility_Rolling'].mean() if 'Volatility_Rolling' in recent_data.columns else recent_data['Volatility'].mean()
+            volatility = recent_data['Volatility'].mean()
             rsi = recent_data['RSI'].iloc[-1]
             momentum = recent_data['Momentum_5'].iloc[-1]
             volume_ratio = recent_data['Volume_Ratio'].iloc[-1]
             
-            # Enhanced crisis probability
-            crisis_prob = self.calculate_crisis_probability_enhanced(data)
+            # Crisis probability from crisis model
+            crisis_prob = 0.1
+            if self.crisis_model and len(self.crisis_features) > 0:
+                available_features = [f for f in self.crisis_features if f in data.columns]
+                if available_features:
+                    latest_features = data[available_features].iloc[-1:].values
+                    try:
+                        crisis_probs = self.crisis_model.predict_proba(latest_features)
+                        if crisis_probs.shape[1] > 1:
+                            crisis_prob = crisis_probs[0, 1]
+                    except:
+                        pass
             
-            # Market regime determination
-            if crisis_prob > 0.7 or volatility > 0.04:
-                return "CRISIS"
-            elif crisis_prob > 0.5 or volatility > 0.03:
+            # Determine regime
+            if crisis_prob > 0.7 or volatility > 0.03:
                 return "HIGH_VOLATILITY"
-            elif crisis_prob > 0.3 or volatility > 0.025:
+            elif crisis_prob > 0.4 or volatility > 0.02:
                 return "ELEVATED_RISK"
-            elif rsi > 75 or rsi < 25:
+            elif rsi > 70 or rsi < 30:
                 return "EXTREME_SENTIMENT"
-            elif abs(momentum) > 0.08:
+            elif abs(momentum) > 0.05:
                 return "STRONG_TREND"
-            elif volume_ratio > 2.0:
+            elif volume_ratio > 1.5:
                 return "HIGH_VOLUME"
-            elif volume_ratio < 0.5:
-                return "LOW_VOLUME"
             else:
                 return "NORMAL"
                 
         except Exception as e:
             print(f"Market regime detection error: {e}")
             return "NORMAL"
-
-    def calculate_crisis_probability_enhanced(self, data):
-        """Enhanced crisis probability calculation"""
-        try:
-            if self.crisis_model is None or len(self.crisis_features) == 0:
-                return 0.1
-            
-            # Get recent features for crisis prediction
-            recent_features = []
-            for feature in self.crisis_features:
-                if feature in data.columns:
-                    recent_features.append(data[feature].iloc[-1])
-                else:
-                    recent_features.append(0.0)
-            
-            if not recent_features:
-                return 0.1
-                
-            X_recent = np.array([recent_features])
-            crisis_probs = self.crisis_model.predict_proba(X_recent)
-            
-            if crisis_probs.shape[1] > 1:
-                return float(crisis_probs[0, 1])
-            else:
-                return float(crisis_probs[0, 0])
-                
-        except Exception as e:
-            print(f"Crisis probability calculation error: {e}")
-            return 0.1
 
     def train_multi_target_models(self, data, target_days=1):
         try:
@@ -688,111 +535,47 @@ class AdvancedMultiTargetPredictor:
             if X_pred is not None:
                 self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
             
-            # Enhanced crisis detection training
-            self.train_enhanced_crisis_models(data, data_scaled)
-            
             # Detect market regime
             self.market_regime = self.detect_market_regime(data)
             
-            # Build crisis history
-            self.build_crisis_history(data)
+            # crisis model
+            try:
+                crisis_data = detect_crises(data)
+                crisis_feats = [f for f in features+['Return','Volatility','Momentum_5'] if f in crisis_data.columns and f in data_scaled.columns]
+                crisis_feats = list(dict.fromkeys(crisis_feats))
+                self.crisis_features = crisis_feats
+                if len(crisis_feats)>0:
+                    cd = crisis_data[crisis_feats + ['Crisis']].dropna()
+                    if len(cd)>10:
+                        Xc = cd[crisis_feats].values
+                        yc = cd['Crisis'].values
+                        splitc = int(len(Xc)*0.8)
+                        if splitc>5:
+                            Xc_train = Xc[:splitc]; yc_train = yc[:splitc]
+                            crm = RandomForestClassifier(n_estimators=50, random_state=42)
+                            crm.fit(Xc_train, yc_train)
+                            self.crisis_model = crm
+            except Exception as e:
+                print("Crisis train failed:", e)
+                self.crisis_model = None
             
             self.model_health_metrics = {
                 'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'data_points': len(X),
                 'targets_trained': len([t for t in targets if t in self.models]),
                 'crisis_detection_trained': self.crisis_model is not None,
-                'crisis_severity_trained': self.crisis_severity_model is not None,
                 'feature_count': len(features),
                 'crisis_feature_count': len(self.crisis_features),
                 'data_range': f"{data['Date'].iloc[0] if 'Date' in data.columns else 'N/A'} to {data['Date'].iloc[-1] if 'Date' in data.columns else 'N/A'}",
                 'total_days': len(data),
                 'market_regime': self.market_regime,
-                'average_confidence': np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0.0,
-                'crisis_history_count': len(self.crisis_history)
+                'average_confidence': np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0.0
             }
             self.is_fitted = True
             return rmse_scores, None
         except Exception as e:
             print("Train error:", e)
             return None, str(e)
-
-    def train_enhanced_crisis_models(self, data, data_scaled):
-        """Train enhanced crisis detection models"""
-        try:
-            # Enhanced crisis detection with multiple indicators
-            crisis_data = detect_crises_enhanced(data)
-            
-            # Crisis classification features
-            crisis_feats = [
-                'Return', 'Volatility_Rolling', 'Volume_Ratio', 'RSI', 'MACD',
-                'Large_Drop', 'Gap_Down', 'Stress_Indicator', 'High_Volatility',
-                'Price_Range', 'Momentum_5', 'Close_Ratio_20'
-            ]
-            
-            crisis_feats = [f for f in crisis_feats if f in crisis_data.columns and f in data_scaled.columns]
-            crisis_feats = list(dict.fromkeys(crisis_feats))
-            self.crisis_features = crisis_feats
-            
-            if len(crisis_feats) > 0:
-                cd = crisis_data[crisis_feats + ['Crisis']].dropna()
-                if len(cd) > 20:
-                    Xc = cd[crisis_feats].values
-                    yc = cd['Crisis'].values
-                    splitc = int(len(Xc) * 0.8)
-                    
-                    if splitc > 10:
-                        # Binary crisis classifier
-                        crm = RandomForestClassifier(n_estimators=100, random_state=42)
-                        crm.fit(Xc[:splitc], yc[:splitc])
-                        self.crisis_model = crm
-                        
-                        # Crisis severity classifier (if we have severity data)
-                        if 'Crisis_Severity' in crisis_data.columns:
-                            severity_data = crisis_data[crisis_feats + ['Crisis_Severity']].dropna()
-                            if len(severity_data) > 20:
-                                Xs = severity_data[crisis_feats].values
-                                ys = severity_data['Crisis_Severity'].values
-                                splits = int(len(Xs) * 0.8)
-                                
-                                if splits > 10:
-                                    severity_model = RandomForestClassifier(n_estimators=100, random_state=42)
-                                    severity_model.fit(Xs[:splits], ys[:splits])
-                                    self.crisis_severity_model = severity_model
-                                    
-        except Exception as e:
-            print("Enhanced crisis training failed:", e)
-            self.crisis_model = None
-            self.crisis_severity_model = None
-
-    def build_crisis_history(self, data):
-        """Build historical crisis timeline"""
-        try:
-            self.crisis_history = []
-            
-            if 'Date' not in data.columns:
-                return
-                
-            crisis_data = detect_crises_enhanced(data)
-            
-            for idx, row in crisis_data.iterrows():
-                if row['Crisis'] == 1:
-                    crisis_info = {
-                        'date': row['Date'],
-                        'crisis_score': float(row.get('Crisis_Score', 0)),
-                        'severity': row.get('Crisis_Severity', 'MEDIUM'),
-                        'price_drop': float(row.get('Return', 0)) * 100,
-                        'volume_ratio': float(row.get('Volume_Ratio', 1)),
-                        'volatility': float(row.get('Volatility_Rolling', 0)),
-                        'historical_context': get_historical_crisis_context(row['Date'])
-                    }
-                    self.crisis_history.append(crisis_info)
-                    
-            # Sort by date
-            self.crisis_history.sort(key=lambda x: x['date'])
-            
-        except Exception as e:
-            print(f"Crisis history build error: {e}")
 
     def predict_next_day_prices(self, data):
         if not self.is_fitted:
@@ -831,7 +614,7 @@ class AdvancedMultiTargetPredictor:
                     predictions_actual[t] = predictions_scaled[t]
             
             confidence_data = self.calculate_confidence_bands_multi(X_pred)
-            crisis_probs = self.predict_crisis_probability_enhanced(data_scaled)
+            crisis_probs = self.predict_crisis_probability(data_scaled)
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
             
@@ -839,42 +622,6 @@ class AdvancedMultiTargetPredictor:
         except Exception as e:
             print("Predict error:", e)
             return None, None, None, None, str(e)
-
-    def predict_crisis_probability_enhanced(self, data_scaled):
-        """Enhanced crisis probability prediction"""
-        try:
-            if self.crisis_model is None or len(self.crisis_features)==0:
-                return {"probability": 0.1, "severity": "LOW", "confidence": 0.5}
-            
-            feats = [f for f in self.crisis_features if f in data_scaled.columns]
-            if not feats:
-                return {"probability": 0.1, "severity": "LOW", "confidence": 0.5}
-                
-            latest = data_scaled[feats].iloc[-1:].values
-            
-            # Crisis probability
-            crisis_probs = self.crisis_model.predict_proba(latest)
-            crisis_prob = crisis_probs[0, 1] if crisis_probs.shape[1] > 1 else crisis_probs[0, 0]
-            
-            # Crisis severity
-            severity = "LOW"
-            if self.crisis_severity_model is not None:
-                severity_pred = self.crisis_severity_model.predict(latest)
-                severity = severity_pred[0] if len(severity_pred) > 0 else "LOW"
-            
-            # Confidence based on feature availability and model performance
-            confidence = min(0.8, len(feats) / len(self.crisis_features))
-            
-            return {
-                "probability": float(crisis_prob),
-                "severity": str(severity),
-                "confidence": float(confidence),
-                "features_used": len(feats),
-                "total_features": len(self.crisis_features)
-            }
-        except Exception as e:
-            print(f"Enhanced crisis prediction error: {e}")
-            return {"probability": 0.1, "severity": "LOW", "confidence": 0.3}
 
     def calculate_confidence_bands_multi(self, X, confidence=0.95):
         """Enhanced confidence bands with prediction intervals"""
@@ -893,11 +640,28 @@ class AdvancedMultiTargetPredictor:
                 }
         return confidence_data
 
-    def get_risk_alerts_enhanced(self, predictions, current_price, crisis_data):
-        """Enhanced risk alerts with crisis awareness"""
+    def predict_crisis_probability(self, data_scaled):
+        try:
+            if self.crisis_model is None or len(self.crisis_features)==0:
+                return [0.1]
+            feats = [f for f in self.crisis_features if f in data_scaled.columns]
+            if not feats:
+                return [0.1]
+            latest = data_scaled[feats].iloc[-1:].values
+            try:
+                probs = self.crisis_model.predict_proba(latest)
+                if probs.shape[1]>1:
+                    return probs[:,1].tolist()
+                else:
+                    return [probs[0,0]]
+            except Exception:
+                return [0.1]
+        except Exception:
+            return [0.1]
+
+    def get_risk_alerts(self, predictions, current_price, crisis_probs):
         alerts = []
         try:
-            # Price movement alerts
             changes = []
             for t in ['Open','High','Low','Close']:
                 if t in predictions and len(predictions[t])>0:
@@ -911,58 +675,33 @@ class AdvancedMultiTargetPredictor:
                         changes.append(((float(pv)-float(current_val))/float(current_val))*100)
                     except Exception:
                         continue
-                        
             if changes:
-                avg_change = np.mean(changes)
-                max_change = np.max(np.abs(changes))
+                avg = np.mean(changes)
+                if abs(avg)>15:
+                    alerts.append({'level':'🔴 CRITICAL','type':'Extreme Movement','message':f'Expected {avg:+.1f}% move'})
+                elif abs(avg)>8:
+                    alerts.append({'level':'🟡 HIGH','type':'Large Movement','message':f'Expected {avg:+.1f}% move'})
+            
+            # Enhanced crisis alerts based on market regime
+            if crisis_probs:
+                avgc = float(np.mean(crisis_probs))
+                if self.market_regime == "HIGH_VOLATILITY":
+                    alerts.append({'level':'🔴 CRITICAL','type':'High Volatility Regime','message':'Market in high volatility regime'})
+                elif self.market_regime == "ELEVATED_RISK":
+                    alerts.append({'level':'🟡 HIGH','type':'Elevated Risk Regime','message':'Market in elevated risk regime'})
                 
-                if max_change > 20:
-                    alerts.append({'level':'🔴 CRITICAL','type':'Extreme Movement','message':f'Expected {avg_change:+.1f}% move'})
-                elif max_change > 10:
-                    alerts.append({'level':'🟡 HIGH','type':'Large Movement','message':f'Expected {avg_change:+.1f}% move'})
-                elif max_change > 5:
-                    alerts.append({'level':'🟠 MEDIUM','type':'Moderate Movement','message':f'Expected {avg_change:+.1f}% move'})
-
-            # Crisis-based alerts
-            if crisis_data and 'probability' in crisis_data:
-                crisis_prob = crisis_data['probability']
-                severity = crisis_data.get('severity', 'LOW')
-                
-                if crisis_prob > 0.7:
-                    alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Probability',
-                                 'message':f'Crisis probability: {crisis_prob:.1%} ({severity} severity)'})
-                elif crisis_prob > 0.5:
-                    alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis Risk',
-                                 'message':f'Crisis probability: {crisis_prob:.1%} ({severity} severity)'})
-                elif crisis_prob > 0.3:
-                    alerts.append({'level':'🟠 MEDIUM','type':'Moderate Crisis Risk',
-                                 'message':f'Crisis probability: {crisis_prob:.1%}'})
-
-            # Market regime alerts
-            if self.market_regime == "CRISIS":
-                alerts.append({'level':'🔴 CRITICAL','type':'Crisis Regime','message':'Market in crisis regime'})
-            elif self.market_regime == "HIGH_VOLATILITY":
-                alerts.append({'level':'🟡 HIGH','type':'High Volatility','message':'Market in high volatility regime'})
-            elif self.market_regime == "ELEVATED_RISK":
-                alerts.append({'level':'🟠 MEDIUM','type':'Elevated Risk','message':'Market in elevated risk regime'})
-
-            # Confidence-based alerts
+                if avgc>0.7:
+                    alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Prob','message':f'Crisis probability: {avgc:.1%}'})
+                elif avgc>0.4:
+                    alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis','message':f'Crisis probability: {avgc:.1%}'})
+            
+            # Add confidence-based alerts
             avg_confidence = np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0
-            if avg_confidence < 40:
-                alerts.append({'level':'🔴 CRITICAL','type':'Very Low Prediction Confidence','message':f'Model confidence: {avg_confidence:.1f}%'})
-            elif avg_confidence < 60:
+            if avg_confidence < 50:
                 alerts.append({'level':'🟡 HIGH','type':'Low Prediction Confidence','message':f'Model confidence: {avg_confidence:.1f}%'})
                 
-            # Historical crisis context alerts
-            if len(self.crisis_history) > 5:
-                recent_crises = [c for c in self.crisis_history if c['crisis_score'] > 0.6]
-                if len(recent_crises) > 2:
-                    alerts.append({'level':'🟡 HIGH','type':'Frequent Historical Crises',
-                                 'message':f'{len(recent_crises)} significant crises in history'})
-                    
         except Exception as e:
             alerts.append({'level':'🟡 HIGH','type':'System','message':'Risk assessment unavailable'})
-            
         return alerts
 
     def generate_multi_scenarios(self, predictions, current_price):
@@ -978,15 +717,13 @@ class AdvancedMultiTargetPredictor:
                 except Exception:
                     base_change = 0
             
-            # Adjust scenarios based on market regime and crisis probability
+            # Adjust scenarios based on market regime
             regime_multipliers = {
-                "CRISIS": 2.0,
                 "HIGH_VOLATILITY": 1.5,
                 "ELEVATED_RISK": 1.3,
                 "EXTREME_SENTIMENT": 1.2,
                 "STRONG_TREND": 1.1,
                 "HIGH_VOLUME": 1.1,
-                "LOW_VOLUME": 0.9,
                 "NORMAL": 1.0
             }
             
@@ -1003,14 +740,12 @@ class AdvancedMultiTargetPredictor:
 
     def get_scenario_description(self, change):
         try:
-            if change>15: return "EXTREME BULLISH"
-            if change>8: return "STRONG BULLISH"
-            if change>3: return "BULLISH"
-            if change>1: return "SLIGHTLY BULLISH"
-            if change<-15: return "CRASH BEARISH"
-            if change<-8: return "STRONG BEARISH"
-            if change<-3: return "BEARISH"
-            if change<-1: return "SLIGHTLY BEARISH"
+            if change>10: return "STRONG BULLISH"
+            if change>5: return "BULLISH"
+            if change>2: return "SLIGHTLY BULLISH"
+            if change<-10: return "STRONG BEARISH"
+            if change<-5: return "BEARISH"
+            if change<-2: return "SLIGHTLY BEARISH"
             return "STABLE SIDEWAYS"
         except:
             return "NORMAL"
@@ -1043,55 +778,23 @@ def get_market_status():
     if current_time > market_close: return "after_hours","After-hours trading"
     return "open","Market is open"
 
-def get_risk_level_enhanced(change_percent, crisis_data):
-    """Enhanced risk level calculation"""
-    try:
-        crisis_prob = crisis_data.get('probability', 0.1) if crisis_data else 0.1
-        severity_weight = {'LOW': 0.3, 'MEDIUM': 0.6, 'HIGH': 0.9}.get(crisis_data.get('severity', 'LOW'), 0.3)
-        
-        # Combined risk score
-        price_risk = min(1.0, abs(change_percent) / 20)
-        crisis_risk = crisis_prob * severity_weight
-        volatility_risk = min(1.0, crisis_prob * 2)  # Higher weight for crisis
-        
-        risk_score = (price_risk * 0.4) + (crisis_risk * 0.4) + (volatility_risk * 0.2)
-        
-        if risk_score > 0.7: return "🔴 EXTREME RISK"
-        if risk_score > 0.5: return "🟡 HIGH RISK"
-        if risk_score > 0.3: return "🟠 MEDIUM RISK"
-        return "🟢 LOW RISK"
-    except:
-        return "🟢 LOW RISK"
+def get_risk_level(change_percent, crisis_prob):
+    risk_score = (abs(change_percent)/20*0.6) + (crisis_prob*0.4)
+    if risk_score>0.7: return "🔴 EXTREME RISK"
+    if risk_score>0.5: return "🟡 HIGH RISK"
+    if risk_score>0.3: return "🟠 MEDIUM RISK"
+    return "🟢 LOW RISK"
 
-def get_trading_recommendation_enhanced(change_percent, risk_level, crisis_data):
-    """Enhanced trading recommendation with crisis awareness"""
-    crisis_prob = crisis_data.get('probability', 0.1) if crisis_data else 0.1
-    severity = crisis_data.get('severity', 'LOW') if crisis_data else 'LOW'
-    
-    if risk_level == "🔴 EXTREME RISK":
-        return "🚨 EXTREME CAUTION - AVOID TRADING"
-    elif risk_level == "🟡 HIGH RISK":
-        if crisis_prob > 0.6:
-            return "📉 STRONG SELL - CRISIS IMMINENT"
-        else:
-            return "📈 CAUTIOUS - REDUCE EXPOSURE"
-    elif risk_level == "🟠 MEDIUM RISK":
-        if change_percent > 3: 
-            return "✅ MODERATE BUY"
-        elif change_percent < -2:
-            return "💼 CAUTIOUS SELL"
-        else:
-            return "🔄 HOLD / WAIT"
-    elif change_percent > 5: 
-        return "✅ STRONG BUY"
-    elif change_percent > 2: 
-        return "✅ MODERATE BUY"
-    elif change_percent < -3: 
-        return "📉 CONSIDER SELL"
-    elif change_percent < -1: 
-        return "💼 CAUTIOUS SELL"
-    else:
-        return "🔄 HOLD"
+def get_trading_recommendation(change_percent, risk_level, crisis_prob):
+    if risk_level=="🔴 EXTREME RISK":
+        return "🚨 EXTREME CAUTION"
+    if risk_level=="🟡 HIGH RISK":
+        return "📈 CAUTIOUS"
+    if risk_level=="🟠 MEDIUM RISK":
+        return "🔄 HOLD / CONSIDER"
+    if change_percent>2: return "✅ STRONG BUY"
+    if change_percent < -1: return "💼 CAUTIOUS SELL"
+    return "🔄 HOLD"
 
 # ---------------- NAVIGATION MAP ----------------
 NAVIGATION_MAP = {
@@ -1199,11 +902,10 @@ def predict_stock():
 
         predicted_close = float(predictions['Close'][0]) if 'Close' in predictions else float(current_price)
         change_percent = ((predicted_close - float(current_price)) / float(current_price)) * 100 if float(current_price) != 0 else 0.0
-        
-        # Enhanced risk and recommendation calculation
-        risk_level = get_risk_level_enhanced(change_percent, crisis_probs)
-        recommendation = get_trading_recommendation_enhanced(change_percent, risk_level, crisis_probs)
-        risk_alerts = predictor.get_risk_alerts_enhanced(predictions, current_price, crisis_probs)
+        avg_crisis_prob = float(np.mean(crisis_probs)) if crisis_probs is not None else 0.1
+        risk_level = get_risk_level(change_percent, avg_crisis_prob)
+        recommendation = get_trading_recommendation(change_percent, risk_level, avg_crisis_prob)
+        risk_alerts = predictor.get_risk_alerts(predictions, current_price, crisis_probs)
 
         response = {
             "symbol": symbol,
@@ -1219,7 +921,7 @@ def predict_stock():
             "change_percent": round(change_percent,2),
             "risk_level": risk_level,
             "recommendation": recommendation,
-            "crisis_data": crisis_probs,
+            "crisis_probability": round(avg_crisis_prob,3),
             "confidence_data": confidence_data,
             "scenarios": scenarios,
             "risk_alerts": risk_alerts,
@@ -1227,15 +929,13 @@ def predict_stock():
             "historical_performance": predictor.historical_performance,
             "prediction_confidence": predictor.prediction_confidence,
             "market_regime": predictor.market_regime,
-            "crisis_history": predictor.crisis_history[-10:],  # Last 10 crises
             "market_status": get_market_status()[1],
             "data_analysis": {
                 "total_data_points": len(historical_data),
                 "features_used": len(predictor.feature_columns),
-                "targets_predicted": len(predictor.targets) if hasattr(predictor,'targets') else 4,
-                "crisis_features_used": len(predictor.crisis_features)
+                "targets_predicted": len(predictor.targets) if hasattr(predictor,'targets') else 4
             },
-            "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}. Market regime: {predictor.market_regime}."
+            "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}"
         }
         return jsonify(response)
     except Exception as e:
@@ -1256,16 +956,6 @@ def provide_fallback_prediction(symbol, current_price, historical_data):
         change_percent = (random.random()-0.5)*8
         predicted_price = current_price * (1 + change_percent/100)
         confidence = 75 if has_large_history else 65
-        
-        # Fallback crisis data
-        crisis_data = {
-            "probability": random.uniform(0.1, 0.3),
-            "severity": random.choice(["LOW", "MEDIUM"]),
-            "confidence": 0.5,
-            "features_used": 0,
-            "total_features": 0
-        }
-        
         return jsonify({
             "symbol": symbol,
             "current_price": round(float(current_price),2),
@@ -1279,9 +969,8 @@ def provide_fallback_prediction(symbol, current_price, historical_data):
             "change_percent": round(change_percent,2),
             "confidence": {"Open":confidence-5,"High":confidence-8,"Low":confidence-6,"Close":confidence},
             "confidence_level": confidence,
-            "risk_level": get_risk_level_enhanced(change_percent, crisis_data),
-            "recommendation": get_trading_recommendation_enhanced(change_percent, get_risk_level_enhanced(change_percent, crisis_data), crisis_data),
-            "crisis_data": crisis_data,
+            "risk_level": get_risk_level(change_percent,0.1),
+            "recommendation": get_trading_recommendation(change_percent, get_risk_level(change_percent,0.1), 0.1),
             "market_status": get_market_status()[1],
             "fallback": True,
             "message": "Using fallback prediction engine"
@@ -1303,7 +992,7 @@ def internal_error(error): return jsonify({"error":"Internal server error"}), 50
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    print("Starting Flask app with enhanced crash prediction...")
+    print("Starting Flask app with model persistence...")
     os.makedirs('templates', exist_ok=True); os.makedirs('static', exist_ok=True)
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
