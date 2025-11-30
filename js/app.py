@@ -30,39 +30,6 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 server = Flask(__name__, template_folder='templates', static_folder='static')
 
-# ---------------- Simple TTL in-memory cache for live fetches ----------
-# Note: per-process (per gunicorn worker) cache. Keep TTL moderate.
-_FETCH_CACHE = {}
-_FETCH_CACHE_LOCK = threading.Lock()
-CACHE_TTL_SECONDS = 60 * 6  # 6 minutes
-
-def cache_get(key):
-    with _FETCH_CACHE_LOCK:
-        rec = _FETCH_CACHE.get(key)
-        if not rec:
-            return None
-        ts, value = rec
-        if (time.time() - ts) > CACHE_TTL_SECONDS:
-            try:
-                del _FETCH_CACHE[key]
-            except KeyError:
-                pass
-            return None
-        return value
-
-def cache_set(key, value):
-    with _FETCH_CACHE_LOCK:
-        _FETCH_CACHE[key] = (time.time(), value)
-
-# ---------------- CORS (simple) ----------------
-@server.after_request
-def add_cors_headers(response):
-    # allow same-origin and simple cross-origin calls from frontend
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    return response
-
 # ---------------- Rate limiter ----------------
 class RateLimiter:
     def __init__(self, max_per_minute=30):
@@ -215,82 +182,33 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
     df = pd.DataFrame({'Date':dates.strftime('%Y-%m-%d'),'Open':opens,'High':highs,'Low':lows,'Close':prices,'Volume':volumes})
     return df, prices[-1], None
 
-# ---------------- Live data fetching (uses cache) ----------------
+# ---------------- Live data fetching ----------------
 @rate_limiter
 def get_live_stock_data_enhanced(ticker):
-    ticker = (ticker or '').strip().upper()
-    cache_key = f"yf:{ticker}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        # cached is a dict: {"data":[{...},...], "current_price":float}
-        try:
-            cached_data = cached.get("data", [])
-            hist = pd.DataFrame(cached_data)
-            # ensure Date column exists
-            if 'Date' in hist.columns:
-                hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
-            current_price = cached.get("current_price", hist['Close'].iloc[-1] if 'Close' in hist.columns and len(hist)>0 else None)
-            return hist, current_price, None
-        except Exception:
-            # fall through to live fetch
-            pass
-
     try:
         strategies = [
             {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name":"2y"},
             {"func": lambda: yf.Ticker(ticker).history(period="2y", interval="1d"), "name":"ticker.history"},
             {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name":"1y"},
         ]
-        last_exception = None
         for strategy in strategies:
             try:
                 hist = strategy['func']()
-                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 10:
+                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist)>50:
                     hist = hist.reset_index()
                     if 'Date' in hist.columns:
-                        try:
-                            hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
-                        except Exception:
-                            hist['Date'] = hist['Date'].astype(str)
+                        hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
                     elif 'Datetime' in hist.columns:
                         hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
-                        hist = hist.drop(columns=['Datetime'], errors='ignore')
-                    # ensure Close numeric
-                    if 'Close' in hist.columns:
-                        try:
-                            current_price = float(pd.to_numeric(hist['Close'], errors='coerce').iloc[-1])
-                        except Exception:
-                            current_price = None
-                    else:
-                        current_price = None
-                    # build simple serializable structure
-                    try:
-                        keep_cols = [c for c in ['Date','Open','High','Low','Close','Volume'] if c in hist.columns]
-                        serial = hist[keep_cols].tail(300).to_dict(orient='records')
-                        cache_set(cache_key, {"data": serial, "current_price": current_price})
-                    except Exception:
-                        pass
+                        hist = hist.drop(columns=['Datetime'])
+                    current_price = hist['Close'].iloc[-1]
                     return hist, current_price, None
             except Exception as e:
-                last_exception = e
                 if "429" in str(e): time.sleep(10)
                 continue
-
-        # all strategies failed -> fallback
-        fallback_df, last_price, _ = generate_fallback_data(ticker)
-        try:
-            cache_set(cache_key, {"data": fallback_df.to_dict(orient='records'), "current_price": float(last_price)})
-        except:
-            pass
-        return fallback_df, last_price, None
+        return generate_fallback_data(ticker)
     except Exception as e:
-        # ultimate fallback
-        fallback_df, last_price, _ = generate_fallback_data(ticker)
-        try:
-            cache_set(cache_key, {"data": fallback_df.to_dict(orient='records'), "current_price": float(last_price)})
-        except:
-            pass
-        return fallback_df, last_price, None
+        return generate_fallback_data(ticker)
 
 # ---------------- Predictor with persistence ----------------
 class AdvancedMultiTargetPredictor:
@@ -666,7 +584,7 @@ def get_trading_recommendation(change_percent, risk_level, crisis_prob):
 # ---------------- NAVIGATION MAP ----------------
 NAVIGATION_MAP = {
     'index':'/','jeet':'/jeet','portfolio':'/portfolio','mystock':'/mystock','deposit':'/deposit',
-    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/superstars',
+    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/Superstars',
     'alerts':'/alerts','help':'/help','profile':'/profile'
 }
 
@@ -741,43 +659,6 @@ def get_stocks_list():
 def health_check():
     return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"2.1.0"})
 
-# -------------- New: history endpoint for charts ---------------
-@server.route('/api/history')
-@rate_limiter
-def api_history():
-    """
-    GET params:
-      - ticker (required)
-      - days (optional, default 365)
-    """
-    ticker = (request.args.get('ticker') or '').strip().upper()
-    days = int(request.args.get('days') or 365)
-    if not ticker:
-        return jsonify({"error": "ticker parameter required"}), 400
-    try:
-        hist, price, err = get_live_stock_data_enhanced(ticker)
-        if err:
-            return jsonify({"error": str(err)}), 500
-
-        # normalize
-        if 'Date' not in hist.columns:
-            try:
-                hist = hist.reset_index()
-            except:
-                pass
-
-        if 'Date' in hist.columns:
-            hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
-        # limit rows to requested days
-        if len(hist) > days:
-            hist = hist.tail(days)
-        keep_cols = [c for c in ['Date','Open','High','Low','Close','Volume'] if c in hist.columns]
-        data_records = hist[keep_cols].to_dict(orient='records')
-        return jsonify({"ticker": ticker, "rows": len(data_records), "data": data_records, "current_price": price})
-    except Exception as e:
-        print("History endpoint error:", e)
-        return jsonify({"error": str(e)}), 500
-
 @server.route('/api/predict', methods=['POST'])
 @rate_limiter
 def predict_stock():
@@ -811,30 +692,6 @@ def predict_stock():
         recommendation = get_trading_recommendation(change_percent, risk_level, avg_crisis_prob)
         risk_alerts = predictor.get_risk_alerts(predictions, current_price, crisis_probs)
 
-        # historical snippet for frontend charts (last 90 rows)
-        hist_snip = []
-        try:
-            if isinstance(historical_data, pd.DataFrame):
-                cols = [c for c in ['Date','Open','High','Low','Close','Volume'] if c in historical_data.columns]
-                hist_snip = historical_data[cols].tail(90).to_dict(orient='records')
-        except Exception:
-            hist_snip = []
-
-        # Ensure confidence_data exists (frontend expects numbers)
-        if not confidence_data:
-            confidence_data = {}
-            for k in ["Open","High","Low","Close"]:
-                predicted_val = None
-                if k in predictions:
-                    v = predictions[k]
-                    try:
-                        predicted_val = float(v[0]) if hasattr(v, '__len__') else float(v)
-                    except Exception:
-                        predicted_val = None
-                if predicted_val is None:
-                    predicted_val = float(current_price) if current_price else 100.0
-                confidence_data[k] = {"mean":[predicted_val], "lower":[predicted_val * 0.98], "upper":[predicted_val * 1.02], "std":[predicted_val * 0.01]}
-
         response = {
             "symbol": symbol,
             "current_price": round(float(current_price),2),
@@ -860,7 +717,6 @@ def predict_stock():
                 "features_used": len(predictor.feature_columns),
                 "targets_predicted": len(predictor.targets) if hasattr(predictor,'targets') else 4
             },
-            "historical": hist_snip,
             "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}"
         }
         return jsonify(response)
