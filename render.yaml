@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: stock-market-prediction
+    env: python
+    region: oregon
+    plan: free
+    rootDirectory: js  # THIS IS CRITICAL - tells Render to use js folder
+    buildCommand: |
+      pip install --upgrade pip setuptools wheel
+      pip install numpy==1.26.4
+      pip install -r requirements.txt
+    startCommand: gunicorn app:server
