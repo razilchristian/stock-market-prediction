@@ -187,8 +187,8 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
 def get_live_stock_data_enhanced(ticker):
     try:
         strategies = [
-            {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name":"2y"},
-            {"func": lambda: yf.Ticker(ticker).history(period="2y", interval="1d"), "name":"ticker.history"},
+            {"func": lambda: yf.download(ticker, period="10y", interval="1d", progress=False, timeout=30), "name":"10y"},
+            {"func": lambda: yf.Ticker(ticker).history(period="5y", interval="1d"), "name":"ticker.history"},
             {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name":"1y"},
         ]
         for strategy in strategies:
