@@ -18,6 +18,8 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.dummy import DummyRegressor
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.feature_selection import VarianceThreshold
 import joblib  # persist models
 
 warnings.filterwarnings('ignore')
@@ -62,12 +64,12 @@ def calculate_rsi(prices, window=14):
         loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
-        return rsi
+        return rsi.fillna(50)
     except:
-        return pd.Series([50] * len(prices), index=prices.index)
+        return pd.Series([50] * len(prices), index=prices.index if hasattr(prices, 'index') else range(len(prices)))
 
 def create_advanced_features(data):
-    """(same robust feature creation as before)"""
+    """Robust feature creation with safe fallbacks"""
     try:
         # Convert multiindex -> single level if needed
         if isinstance(data.columns, pd.MultiIndex):
@@ -93,15 +95,16 @@ def create_advanced_features(data):
                 data[col] = 1000000 if col=='Volume' else 100.0
             data[col] = data[col].fillna(method='ffill').fillna(method='bfill')
 
-        if len(data) < 30:
-            while len(data) < 30:
+        # pad to minimum length if needed so indicators compute properly
+        if len(data) < 60:
+            while len(data) < 60:
                 new_row = {}
                 for col in required_columns:
                     if col == 'Volume':
                         new_row[col] = 1000000
                     else:
                         base = data[col].iloc[-1] if len(data)>0 else 100.0
-                        new_row[col] = base * random.uniform(0.99,1.01)
+                        new_row[col] = base * random.uniform(0.995,1.005)
                 data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
 
         data['Return'] = data['Close'].pct_change().fillna(0)
@@ -123,6 +126,7 @@ def create_advanced_features(data):
         data['MACD_Histogram'] = data['MACD'] - data['MACD_Signal']
         data['Momentum_5'] = (data['Close'] / data['Close'].shift(5).replace(0,1)) - 1
         data['Momentum_10'] = (data['Close'] / data['Close'].shift(10).replace(0,1)) - 1
+
         data = data.fillna(method='ffill').fillna(method='bfill')
         # final fallback fills
         for col in data.columns:
@@ -163,7 +167,6 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
     dates = dates[-days:]
     prices = [base_price*random.uniform(0.9,1.1)]
     volumes = [random.randint(5_000_000,50_000_000)]
-    cycle_period = max(1,len(dates)//4)
     volatility = 0.02
     for i in range(1,len(dates)):
         change = random.gauss(0,volatility)
@@ -174,7 +177,7 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
         volumes.append(int(max(min(volumes[-1]*(1+random.gauss(0,0.2)),200_000_000),1_000_000)))
     opens,highs,lows = [],[],[]
     for i,close in enumerate(prices):
-        open_price = close * random.uniform(0.98,1.02) if i>0 else close*random.uniform(0.98,1.02)
+        open_price = close * random.uniform(0.98,1.02)
         daily_range = volatility*close
         high = max(open_price,close) + daily_range*random.uniform(0.2,0.8)
         low = min(open_price,close) - daily_range*random.uniform(0.2,0.8)
@@ -187,8 +190,8 @@ def generate_fallback_data(ticker, base_price=None, days=2520):
 def get_live_stock_data_enhanced(ticker):
     try:
         strategies = [
-            {"func": lambda: yf.download(ticker, period="10y", interval="1d", progress=False, timeout=30), "name":"2y"},
-            {"func": lambda: yf.Ticker(ticker).history(period="2y", interval="1d"), "name":"ticker.history"},
+            {"func": lambda: yf.download(ticker, period="10y", interval="1d", progress=False, timeout=30), "name":"10y"},
+            {"func": lambda: yf.Ticker(ticker).history(period="5y", interval="1d"), "name":"ticker.history"},
             {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name":"1y"},
         ]
         for strategy in strategies:
@@ -201,10 +204,12 @@ def get_live_stock_data_enhanced(ticker):
                     elif 'Datetime' in hist.columns:
                         hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
                         hist = hist.drop(columns=['Datetime'])
-                    current_price = hist['Close'].iloc[-1]
+                    current_price = float(hist['Close'].iloc[-1])
                     return hist, current_price, None
             except Exception as e:
-                if "429" in str(e): time.sleep(10)
+                # handle throttling
+                if "429" in str(e):
+                    time.sleep(5)
                 continue
         return generate_fallback_data(ticker)
     except Exception as e:
@@ -350,20 +355,23 @@ class AdvancedMultiTargetPredictor:
                 try:
                     model = self.models[target]
                     # Training performance
+                    if len(X_train) == 0 or len(X_test) == 0:
+                        performance[target] = {}
+                        continue
                     y_train_pred = model.predict(X_train)
                     y_test_pred = model.predict(X_test)
-                    
+
                     train_rmse = np.sqrt(mean_squared_error(y_train[target], y_train_pred))
                     test_rmse = np.sqrt(mean_squared_error(y_test[target], y_test_pred))
                     train_mae = mean_absolute_error(y_train[target], y_train_pred)
                     test_mae = mean_absolute_error(y_test[target], y_test_pred)
-                    train_r2 = r2_score(y_train[target], y_train_pred)
-                    test_r2 = r2_score(y_test[target], y_test_pred)
-                    
-                    # Direction accuracy
-                    train_dir_acc = np.mean((np.diff(y_train[target]) * np.diff(y_train_pred)) > 0)
-                    test_dir_acc = np.mean((np.diff(y_test[target]) * np.diff(y_test_pred)) > 0)
-                    
+                    train_r2 = r2_score(y_train[target], y_train_pred) if len(y_train[target])>1 else 0.0
+                    test_r2 = r2_score(y_test[target], y_test_pred) if len(y_test[target])>1 else 0.0
+
+                    # Direction accuracy (safe guards)
+                    train_dir_acc = np.mean((np.diff(y_train[target]) * np.diff(y_train_pred)) > 0) if len(y_train[target])>2 else 0.0
+                    test_dir_acc = np.mean((np.diff(y_test[target]) * np.diff(y_test_pred)) > 0) if len(y_test[target])>2 else 0.0
+
                     performance[target] = {
                         'train_rmse': float(train_rmse),
                         'test_rmse': float(test_rmse),
@@ -385,7 +393,7 @@ class AdvancedMultiTargetPredictor:
         return performance
 
     def calculate_prediction_confidence(self, X_pred):
-        """Calculate confidence scores for predictions"""
+        """Calculate confidence scores for predictions using RF ensemble variance"""
         confidence = {}
         for target in self.targets:
             if target in self.models:
@@ -395,19 +403,12 @@ class AdvancedMultiTargetPredictor:
                         predictions = []
                         for estimator in model.estimators_:
                             pred = estimator.predict(X_pred)
-                            predictions.append(pred[0])
-                        
+                            predictions.append(float(pred[0]) if hasattr(pred, '__len__') else float(pred))
                         mean_pred = np.mean(predictions)
                         std_pred = np.std(predictions)
                         confidence_interval = 1.96 * std_pred
-                        
-                        # Confidence score based on coefficient of variation
-                        if mean_pred != 0:
-                            cv = std_pred / abs(mean_pred)
-                            confidence_score = max(0, 1 - cv) * 100
-                        else:
-                            confidence_score = 50.0
-                            
+                        cv = (std_pred / (abs(mean_pred) + 1e-9))
+                        confidence_score = float(max(0, 1 - cv) * 100)
                         confidence[target] = {
                             'confidence_score': float(confidence_score),
                             'mean_prediction': float(mean_pred),
@@ -416,13 +417,12 @@ class AdvancedMultiTargetPredictor:
                             'predictions_count': len(predictions)
                         }
                     else:
-                        # For non-ensemble models, use a default confidence
                         pred = model.predict(X_pred)[0]
                         confidence[target] = {
                             'confidence_score': 75.0,
                             'mean_prediction': float(pred),
                             'std_deviation': 0.0,
-                            'confidence_interval': float(pred * 0.05),
+                            'confidence_interval': float(abs(pred) * 0.05),
                             'predictions_count': 1
                         }
                 except Exception as e:
@@ -441,29 +441,22 @@ class AdvancedMultiTargetPredictor:
         try:
             if len(data) < 20:
                 return "NORMAL"
-            
             recent_data = data.tail(20)
-            
-            # Calculate regime indicators
             volatility = recent_data['Volatility'].mean()
-            rsi = recent_data['RSI'].iloc[-1]
-            momentum = recent_data['Momentum_5'].iloc[-1]
-            volume_ratio = recent_data['Volume_Ratio'].iloc[-1]
-            
-            # Crisis probability from crisis model
+            rsi = recent_data['RSI'].iloc[-1] if 'RSI' in recent_data.columns else 50
+            momentum = recent_data['Momentum_5'].iloc[-1] if 'Momentum_5' in recent_data.columns else 0
+            volume_ratio = recent_data['Volume_Ratio'].iloc[-1] if 'Volume_Ratio' in recent_data.columns else 1
             crisis_prob = 0.1
             if self.crisis_model and len(self.crisis_features) > 0:
                 available_features = [f for f in self.crisis_features if f in data.columns]
                 if available_features:
                     latest_features = data[available_features].iloc[-1:].values
                     try:
-                        crisis_probs = self.crisis_model.predict_proba(latest_features)
-                        if crisis_probs.shape[1] > 1:
-                            crisis_prob = crisis_probs[0, 1]
+                        probs = self.crisis_model.predict_proba(latest_features)
+                        if probs.shape[1] > 1:
+                            crisis_prob = probs[0,1]
                     except:
                         pass
-            
-            # Determine regime
             if crisis_prob > 0.7 or volatility > 0.03:
                 return "HIGH_VOLATILITY"
             elif crisis_prob > 0.4 or volatility > 0.02:
@@ -476,69 +469,105 @@ class AdvancedMultiTargetPredictor:
                 return "HIGH_VOLUME"
             else:
                 return "NORMAL"
-                
         except Exception as e:
             print(f"Market regime detection error: {e}")
             return "NORMAL"
 
     def train_multi_target_models(self, data, target_days=1):
+        """
+        Trains per-target RandomForest models with small time-series CV for hyperparameter tuning.
+        Also computes historical performance and prediction confidence.
+        """
         try:
             X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data, target_days)
             if X is None:
                 return None, "Insufficient data/features"
             self.feature_columns = features
             self.targets = targets
-            
-            # Split data
-            min_test = 2
-            if len(X) <= min_test + 5:
-                X_train, X_test = X, X[-1:]
-                y_train = {t: y_arrays[t][:-1] for t in targets}
-                y_test = {t: y_arrays[t][-1:] for t in targets}
+
+            # Small time-series-aware split
+            min_test = 5
+            if len(X) <= min_test + 10:
+                split = max(1, len(X)-min_test)
             else:
                 split = len(X) - min_test
-                X_train, X_test = X[:split], X[split:]
-                y_train = {t: y_arrays[t][:split] for t in targets}
-                y_test = {t: y_arrays[t][split:] for t in targets}
-            
+            X_train, X_test = X[:split], X[split:]
+            y_train = {t: y_arrays[t][:split] for t in targets}
+            y_test = {t: y_arrays[t][split:] for t in targets}
+
             models = {}
             rmse_scores = {}
+
+            # feature pruning helper (VarianceThreshold). We'll prune after training using feature importances.
+            selector = VarianceThreshold(threshold=1e-5)
+
+            # prepare TimeSeriesSplit for grid search
+            tscv = TimeSeriesSplit(n_splits=min(3, max(1, (len(X_train)//10))))  # small n_splits
+
             for t in targets:
                 try:
-                    m = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1, max_depth=15)
-                    if len(X_train)>0 and len(y_train[t])>0:
-                        m.fit(X_train, y_train[t])
-                        models[t] = m
-                        if len(X_test)>0 and len(y_test[t])>0:
-                            pred = m.predict(X_test)
-                            rmse_scores[t] = float(np.sqrt(mean_squared_error(y_test[t], pred)))
-                    else:
+                    # fallback if not enough labels
+                    if len(y_train[t]) < 5:
                         fallback = DummyRegressor(strategy="mean")
                         if len(X_train)>0:
-                            fallback.fit(X_train, np.ones(len(X_train))*data['Close'].mean())
+                            fallback.fit(X_train, np.ones(len(X_train))*np.mean(y_train[t]) if len(y_train[t])>0 else np.mean(y_arrays['Close']))
                         models[t] = fallback
+                        rmse_scores[t] = None
+                        continue
+
+                    base = RandomForestRegressor(random_state=42, n_jobs=-1, bootstrap=True)
+
+                    # small grid to tune complexity and reduce overfitting
+                    param_grid = {
+                        'n_estimators': [100],  # keep it reasonable for deployment
+                        'max_depth': [8, 12, 16],
+                        'min_samples_leaf': [3, 5, 8],
+                        'max_features': ['sqrt', 0.8]
+                    }
+
+                    grid = GridSearchCV(base, param_grid, scoring='neg_mean_squared_error', cv=tscv, n_jobs=-1, verbose=0)
+                    # fit grid. reshape X_train, y_train[t] as needed
+                    grid.fit(X_train, y_train[t])
+                    best = grid.best_estimator_
+
+                    # after best found, fit on full train
+                    best.fit(X_train, y_train[t])
+                    models[t] = best
+
+                    if len(X_test)>0 and len(y_test[t])>0:
+                        pred = best.predict(X_test)
+                        rmse_scores[t] = float(np.sqrt(mean_squared_error(y_test[t], pred)))
+                    else:
+                        rmse_scores[t] = None
                 except Exception as e:
                     print("Train target error:", t, e)
+                    # fallback simple model
                     fallback = DummyRegressor(strategy="mean")
                     if len(X_train)>0:
-                        fallback.fit(X_train, np.ones(len(X_train))*data['Close'].mean())
+                        fallback.fit(X_train, np.ones(len(X_train))*np.mean(y_train[t]) if len(y_train[t])>0 else np.mean(y_arrays['Close']))
                     models[t] = fallback
-            
+                    rmse_scores[t] = None
+
             self.models = models
             self.rmse_scores = rmse_scores
-            
+
             # Calculate historical performance
             self.historical_performance = self.calculate_historical_performance(X_train, y_train, X_test, y_test)
-            
+
             # Calculate initial prediction confidence
-            X_pred = X[-1:] if len(X) > 0 else X_train[-1:] if len(X_train) > 0 else None
+            X_pred = X[-1:] if len(X) > 0 else (X_train[-1:] if len(X_train) > 0 else None)
             if X_pred is not None:
                 self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
-            
+
             # Detect market regime
-            self.market_regime = self.detect_market_regime(data)
-            
-            # crisis model
+            try:
+                # use data_with_features (not scaled) for regime detection
+                data_with_features = create_advanced_features(data)
+                self.market_regime = self.detect_market_regime(data_with_features)
+            except:
+                self.market_regime = "NORMAL"
+
+            # crisis model training (light)
             try:
                 crisis_data = detect_crises(data)
                 crisis_feats = [f for f in features+['Return','Volatility','Momentum_5'] if f in crisis_data.columns and f in data_scaled.columns]
@@ -546,7 +575,7 @@ class AdvancedMultiTargetPredictor:
                 self.crisis_features = crisis_feats
                 if len(crisis_feats)>0:
                     cd = crisis_data[crisis_feats + ['Crisis']].dropna()
-                    if len(cd)>10:
+                    if len(cd)>20:
                         Xc = cd[crisis_feats].values
                         yc = cd['Crisis'].values
                         splitc = int(len(Xc)*0.8)
@@ -558,7 +587,7 @@ class AdvancedMultiTargetPredictor:
             except Exception as e:
                 print("Crisis train failed:", e)
                 self.crisis_model = None
-            
+
             self.model_health_metrics = {
                 'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'data_points': len(X),
@@ -569,7 +598,7 @@ class AdvancedMultiTargetPredictor:
                 'data_range': f"{data['Date'].iloc[0] if 'Date' in data.columns else 'N/A'} to {data['Date'].iloc[-1] if 'Date' in data.columns else 'N/A'}",
                 'total_days': len(data),
                 'market_regime': self.market_regime,
-                'average_confidence': np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0.0
+                'average_confidence': float(np.mean([c['confidence_score'] for c in self.prediction_confidence.values()])) if self.prediction_confidence else 0.0
             }
             self.is_fitted = True
             return rmse_scores, None
@@ -585,13 +614,10 @@ class AdvancedMultiTargetPredictor:
             if X is None or len(X)==0:
                 return None, None, None, None, "Insufficient data for prediction"
             X_pred = X[-1:]
-            
             # Update prediction confidence
             self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
-            
             # Update market regime
-            self.market_regime = self.detect_market_regime(data)
-            
+            self.market_regime = self.detect_market_regime(create_advanced_features(data))
             predictions_scaled = {}
             for t in targets:
                 if t in self.models:
@@ -601,7 +627,7 @@ class AdvancedMultiTargetPredictor:
                         predictions_scaled[t] = np.array([data[t].iloc[-1] if t in data.columns else data['Close'].iloc[-1]])
                 else:
                     predictions_scaled[t] = np.array([data['Close'].iloc[-1]])
-            
+
             # inverse transform where possible
             predictions_actual = {}
             for t in targets:
@@ -612,12 +638,11 @@ class AdvancedMultiTargetPredictor:
                         predictions_actual[t] = predictions_scaled[t]
                 else:
                     predictions_actual[t] = predictions_scaled[t]
-            
+
             confidence_data = self.calculate_confidence_bands_multi(X_pred)
             crisis_probs = self.predict_crisis_probability(data_scaled)
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
-            
             return predictions_actual, confidence_data, scenarios, crisis_probs, None
         except Exception as e:
             print("Predict error:", e)
@@ -681,7 +706,7 @@ class AdvancedMultiTargetPredictor:
                     alerts.append({'level':'🔴 CRITICAL','type':'Extreme Movement','message':f'Expected {avg:+.1f}% move'})
                 elif abs(avg)>8:
                     alerts.append({'level':'🟡 HIGH','type':'Large Movement','message':f'Expected {avg:+.1f}% move'})
-            
+
             # Enhanced crisis alerts based on market regime
             if crisis_probs:
                 avgc = float(np.mean(crisis_probs))
@@ -689,17 +714,17 @@ class AdvancedMultiTargetPredictor:
                     alerts.append({'level':'🔴 CRITICAL','type':'High Volatility Regime','message':'Market in high volatility regime'})
                 elif self.market_regime == "ELEVATED_RISK":
                     alerts.append({'level':'🟡 HIGH','type':'Elevated Risk Regime','message':'Market in elevated risk regime'})
-                
+
                 if avgc>0.7:
                     alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Prob','message':f'Crisis probability: {avgc:.1%}'})
                 elif avgc>0.4:
                     alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis','message':f'Crisis probability: {avgc:.1%}'})
-            
+
             # Add confidence-based alerts
             avg_confidence = np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0
             if avg_confidence < 50:
                 alerts.append({'level':'🟡 HIGH','type':'Low Prediction Confidence','message':f'Model confidence: {avg_confidence:.1f}%'})
-                
+
         except Exception as e:
             alerts.append({'level':'🟡 HIGH','type':'System','message':'Risk assessment unavailable'})
         return alerts
@@ -716,8 +741,7 @@ class AdvancedMultiTargetPredictor:
                     base_change = ((float(pv)-float(current_val))/float(current_val))*100
                 except Exception:
                     base_change = 0
-            
-            # Adjust scenarios based on market regime
+
             regime_multipliers = {
                 "HIGH_VOLATILITY": 1.5,
                 "ELEVATED_RISK": 1.3,
@@ -726,9 +750,9 @@ class AdvancedMultiTargetPredictor:
                 "HIGH_VOLUME": 1.1,
                 "NORMAL": 1.0
             }
-            
+
             multiplier = regime_multipliers.get(self.market_regime, 1.0)
-            
+
             return {
                 'base':{'probability':50,'price_change':base_change,'description':self.get_scenario_description(base_change)},
                 'bullish':{'probability':25,'price_change':base_change*1.3*multiplier,'description':self.get_scenario_description(base_change*1.3*multiplier)},
@@ -805,11 +829,6 @@ NAVIGATION_MAP = {
 
 # ---------------- Dynamic routes for NAVIGATION_MAP ----------------
 def _find_template_for_page(page_key):
-    """
-    Try possible template filenames for given page_key and return the first that exists.
-    Order: <page>.html, <Page>.html, <page_key_lower>.html, <page_key_title>.html
-    If none exist, returns 'jeet.html' as safe fallback.
-    """
     candidates = [
         f"{page_key}.html",
         f"{page_key.capitalize()}.html",
@@ -849,7 +868,6 @@ def navigate_to_page(page_name):
 @server.route('/api/stocks')
 @rate_limiter
 def get_stocks_list():
-    # minimal: return popular list + try small yfinance fetch
     popular_stocks = [
         {"symbol":"AAPL","name":"Apple Inc.","price":182.63,"change":1.24},
         {"symbol":"MSFT","name":"Microsoft Corp.","price":407.57,"change":-0.85},
@@ -872,7 +890,7 @@ def get_stocks_list():
 
 @server.route('/api/health')
 def health_check():
-    return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"2.1.0"})
+    return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"2.2.0"})
 
 @server.route('/api/predict', methods=['POST'])
 @rate_limiter
