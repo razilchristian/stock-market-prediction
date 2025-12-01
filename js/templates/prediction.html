@@ -1,4 +1,3 @@
-<!-- templates/prediction.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -227,7 +226,7 @@ body {
 .chart-actions select { padding:8px 12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:14px; font-weight:500; }
 .chart-container { height:250px; background:var(--bg-dark); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
 
-/* New Sections for Historical Performance & Confidence */
+/* Performance & Confidence */
 .performance-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
 @media (max-width:900px){ .performance-section{ grid-template-columns:1fr; } }
 
@@ -246,6 +245,36 @@ body {
 .confidence-track { flex:1; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; }
 .confidence-fill { height:100%; border-radius:4px; transition:width 0.5s ease; }
 .confidence-value { width:50px; text-align:right; font-size:13px; font-weight:600; }
+
+/* NEW: Algorithm Breakdown Section */
+.algorithm-section { display:none; margin-bottom:32px; }
+.algorithm-section.active { display:block; }
+
+.algorithm-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.algorithm-tab { padding:10px 16px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.3s; }
+.algorithm-tab:hover { border-color:var(--active-color); }
+.algorithm-tab.active { background:var(--active-color); color:var(--bg-dark); border-color:var(--active-color); box-shadow:var(--shadow-glow); }
+
+.algorithm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; }
+.algorithm-card { background:var(--bg-card); border-radius:16px; padding:20px; border:1px solid var(--border-color); }
+.algorithm-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.algorithm-name { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
+.algorithm-confidence { font-size:14px; font-weight:600; padding:4px 12px; border-radius:20px; }
+.algorithm-confidence.high { background:rgba(0, 255, 157, 0.2); color:var(--up-color); }
+.algorithm-confidence.medium { background:rgba(255, 165, 0, 0.2); color:#ffa500; }
+.algorithm-confidence.low { background:rgba(255, 77, 124, 0.2); color:var(--down-color); }
+
+.algorithm-predictions { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+.algorithm-prediction-item { background:var(--bg-dark); padding:12px; border-radius:8px; border:1px solid var(--border-color); }
+.algorithm-prediction-label { font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
+.algorithm-prediction-value { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
+.algorithm-prediction-change { font-size:12px; font-weight:600; }
+
+.algorithm-performance { margin-top:16px; padding-top:16px; border-top:1px solid var(--border-color); }
+.algorithm-performance-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.algorithm-performance-item { text-align:center; }
+.algorithm-performance-label { font-size:10px; color:var(--text-muted); margin-bottom:2px; }
+.algorithm-performance-value { font-size:12px; font-weight:700; }
 
 /* Crisis & Market Regime */
 .crisis-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
@@ -313,6 +342,8 @@ body {
   .search-container { width:100%; }
   .performance-grid { grid-template-columns:1fr; }
   .regime-indicators { grid-template-columns:1fr; }
+  .algorithm-grid { grid-template-columns:1fr; }
+  .algorithm-predictions { grid-template-columns:1fr; }
 }
 @media (max-width:480px){
   .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
@@ -476,6 +507,7 @@ body {
           <div class="prediction-actions">
             <button class="btn btn-secondary" id="refreshBtn"><i class="fas fa-sync-alt"></i>Refresh</button>
             <button class="btn btn-primary" id="predictBtn"><i class="fas fa-chart-line"></i>Predict</button>
+            <button class="btn btn-secondary" id="trainBtn"><i class="fas fa-brain"></i>Train</button>
           </div>
         </div>
 
@@ -500,6 +532,24 @@ body {
             <div class="prediction-label">Time Horizon</div>
             <div class="prediction-value" id="timeHorizon">Next Day</div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW: Algorithm Breakdown Section -->
+    <div class="algorithm-section" id="algorithmSection">
+      <div class="performance-card">
+        <h3><i class="fas fa-microchip"></i> Algorithm Predictions Breakdown</h3>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+          See how each algorithm predicts OCHL (Open, Close, High, Low) values
+        </p>
+        
+        <div class="algorithm-tabs" id="algorithmTabs">
+          <!-- Tabs will be generated by JavaScript -->
+        </div>
+        
+        <div class="algorithm-grid" id="algorithmGrid">
+          <!-- Algorithm cards will be generated by JavaScript -->
         </div>
       </div>
     </div>
@@ -613,7 +663,7 @@ body {
 
 <script>
 /* =============== ENHANCED PREDICTION UI SCRIPT =============== */
-/* Connects to Flask backend for multi-algorithm OCHL prediction */
+/* Shows which algorithm gives what prediction for OCHL values */
 
 const CONFIG = {
   API_BASE_URL: window.location.origin,
@@ -628,7 +678,8 @@ const AppState = {
   isGenerating: false,
   currentPredictions: null,
   lastFetchTime: null,
-  marketStatus: "unknown"
+  marketStatus: "unknown",
+  activeAlgorithmTab: 'all'
 };
 
 /* Mobile menu handler */
@@ -919,6 +970,7 @@ class PredictionDisplay {
     // Hide sections
     this.hideNextDayPredictions();
     this.hideRiskAlerts();
+    this.hideAlgorithmSection();
     this.resetPerformance();
     this.resetCrisisDetection();
     this.resetMetrics();
@@ -963,6 +1015,9 @@ class PredictionDisplay {
     
     // Update next day predictions
     this.updateNextDayPredictions(predictions, currentPrices);
+    
+    // Update algorithm breakdown
+    this.updateAlgorithmBreakdown(data);
     
     // Update performance metrics
     this.updatePerformance(data.historical_performance || {});
@@ -1114,10 +1169,203 @@ class PredictionDisplay {
     sectionEl.style.display = 'block';
   }
 
+  static updateAlgorithmBreakdown(data) {
+    const algorithmSection = document.getElementById('algorithmSection');
+    const algorithmTabs = document.getElementById('algorithmTabs');
+    const algorithmGrid = document.getElementById('algorithmGrid');
+    
+    if (!algorithmSection || !algorithmTabs || !algorithmGrid) return;
+    
+    const algorithmDetails = data.algorithm_details || {};
+    const predictions = data.predictions || {};
+    const currentPrices = data.current_prices || {};
+    
+    // If no algorithm details, hide the section
+    if (Object.keys(algorithmDetails).length === 0) {
+      algorithmSection.style.display = 'none';
+      return;
+    }
+    
+    // Show the section
+    algorithmSection.classList.add('active');
+    algorithmSection.style.display = 'block';
+    
+    // Clear existing content
+    algorithmTabs.innerHTML = '';
+    algorithmGrid.innerHTML = '';
+    
+    // Create "All" tab
+    const allTab = document.createElement('div');
+    allTab.className = 'algorithm-tab active';
+    allTab.textContent = 'All Algorithms';
+    allTab.dataset.target = 'all';
+    allTab.addEventListener('click', () => {
+      this.switchAlgorithmTab('all');
+    });
+    algorithmTabs.appendChild(allTab);
+    
+    // Create tabs for each algorithm
+    const algorithms = ['linear_regression', 'svr', 'random_forest', 'arima'];
+    const algorithmNames = {
+      'linear_regression': 'Linear Regression',
+      'svr': 'Support Vector Regression',
+      'random_forest': 'Random Forest',
+      'arima': 'ARIMA'
+    };
+    
+    algorithms.forEach(algo => {
+      const tab = document.createElement('div');
+      tab.className = 'algorithm-tab';
+      tab.textContent = algorithmNames[algo] || algo;
+      tab.dataset.target = algo;
+      tab.addEventListener('click', () => {
+        this.switchAlgorithmTab(algo);
+      });
+      algorithmTabs.appendChild(tab);
+    });
+    
+    // Create algorithm cards
+    algorithms.forEach(algo => {
+      const algoData = algorithmDetails[algo] || {};
+      
+      // Skip if no data for this algorithm
+      if (Object.keys(algoData).length === 0) return;
+      
+      const algorithmCard = this.createAlgorithmCard(algo, algoData, currentPrices);
+      algorithmGrid.appendChild(algorithmCard);
+    });
+    
+    // Show all algorithms by default
+    this.switchAlgorithmTab('all');
+  }
+
+  static createAlgorithmCard(algorithm, algoData, currentPrices) {
+    const card = document.createElement('div');
+    card.className = 'algorithm-card';
+    card.dataset.algorithm = algorithm;
+    
+    // Get algorithm display name
+    const algorithmNames = {
+      'linear_regression': 'Linear Regression',
+      'svr': 'Support Vector Regression',
+      'random_forest': 'Random Forest',
+      'arima': 'ARIMA'
+    };
+    
+    const algoName = algorithmNames[algorithm] || algorithm;
+    
+    // Calculate average confidence
+    let totalConfidence = 0;
+    let confidenceCount = 0;
+    
+    ['Open', 'High', 'Low', 'Close'].forEach(target => {
+      if (algoData[target] && algoData[target].confidence) {
+        totalConfidence += algoData[target].confidence;
+        confidenceCount++;
+      }
+    });
+    
+    const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 50;
+    
+    // Determine confidence class
+    let confidenceClass = 'low';
+    if (avgConfidence >= 80) confidenceClass = 'high';
+    else if (avgConfidence >= 60) confidenceClass = 'medium';
+    
+    card.innerHTML = `
+      <div class="algorithm-card-header">
+        <div class="algorithm-name">${algoName}</div>
+        <div class="algorithm-confidence ${confidenceClass}">${Math.round(avgConfidence)}%</div>
+      </div>
+      
+      <div class="algorithm-predictions">
+    `;
+    
+    // Add prediction items for each target
+    ['Open', 'High', 'Low', 'Close'].forEach(target => {
+      const targetData = algoData[target] || {};
+      const predictedValue = targetData.predicted || targetData.predicted_price || 0;
+      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || predictedValue;
+      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
+      const confidence = targetData.confidence || 0;
+      
+      const predictionItem = document.createElement('div');
+      predictionItem.className = 'algorithm-prediction-item';
+      predictionItem.innerHTML = `
+        <div class="algorithm-prediction-label">${target}</div>
+        <div class="algorithm-prediction-value">$${predictedValue.toFixed(2)}</div>
+        <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}" style="font-size: 11px;">
+          ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+        </div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+          Confidence: ${Math.round(confidence)}%
+        </div>
+      `;
+      
+      card.querySelector('.algorithm-predictions').appendChild(predictionItem);
+    });
+    
+    // Add performance metrics if available
+    const performance = AppState.currentPredictions?.historical_performance?.Close?.[algorithm];
+    if (performance) {
+      card.innerHTML += `
+        <div class="algorithm-performance">
+          <div class="algorithm-performance-grid">
+            <div class="algorithm-performance-item">
+              <div class="algorithm-performance-label">R²</div>
+              <div class="algorithm-performance-value">${performance.r2 ? performance.r2.toFixed(3) : '—'}</div>
+            </div>
+            <div class="algorithm-performance-item">
+              <div class="algorithm-performance-label">RMSE</div>
+              <div class="algorithm-performance-value">${performance.rmse ? performance.rmse.toFixed(4) : '—'}</div>
+            </div>
+            <div class="algorithm-performance-item">
+              <div class="algorithm-performance-label">Accuracy</div>
+              <div class="algorithm-performance-value">${performance.direction_accuracy ? performance.direction_accuracy.toFixed(1) + '%' : '—'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    card.innerHTML += `</div>`;
+    return card;
+  }
+
+  static switchAlgorithmTab(algorithm) {
+    AppState.activeAlgorithmTab = algorithm;
+    
+    // Update active tab
+    document.querySelectorAll('.algorithm-tab').forEach(tab => {
+      if (tab.dataset.target === algorithm) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+    
+    // Show/hide algorithm cards
+    document.querySelectorAll('.algorithm-card').forEach(card => {
+      if (algorithm === 'all' || card.dataset.algorithm === algorithm) {
+        card.style.display = 'block';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
   static hideNextDayPredictions() {
     const sectionEl = document.getElementById('nextDayPredictions');
     if (sectionEl) {
       sectionEl.style.display = 'none';
+    }
+  }
+
+  static hideAlgorithmSection() {
+    const sectionEl = document.getElementById('algorithmSection');
+    if (sectionEl) {
+      sectionEl.style.display = 'none';
+      sectionEl.classList.remove('active');
     }
   }
 
@@ -1530,7 +1778,7 @@ class PredictionManager {
       'predictBtn': '<i class="fas fa-chart-line"></i> Predict',
       'refreshBtn': '<i class="fas fa-sync-alt"></i> Refresh',
       'generateAllBtn': '<i class="fas fa-bolt"></i> Generate All',
-      'trainBtn': '<i class="fas fa-brain"></i> Train Models'
+      'trainBtn': '<i class="fas fa-brain"></i> Train'
     };
     
     Object.keys(buttons).forEach(id => {
@@ -1541,6 +1789,8 @@ class PredictionManager {
           btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
         } else if (isLoading && id === 'generateAllBtn') {
           btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        } else if (isLoading && id === 'trainBtn') {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training...';
         } else {
           btn.innerHTML = buttons[id];
         }
@@ -1592,17 +1842,10 @@ function setupEventListeners() {
   document.getElementById('predictBtn').addEventListener('click', () => PredictionManager.generate());
   document.getElementById('refreshBtn').addEventListener('click', () => PredictionManager.refresh());
   document.getElementById('generateAllBtn').addEventListener('click', () => PredictionManager.generateAll());
+  document.getElementById('trainBtn').addEventListener('click', () => PredictionManager.trainModels());
   
   // Theme toggle
   document.getElementById('themeBtn').addEventListener('click', () => ThemeManager.toggle());
-  
-  // Train models button (optional - add if you want this feature)
-  const trainBtn = document.createElement('button');
-  trainBtn.id = 'trainBtn';
-  trainBtn.className = 'btn btn-secondary';
-  trainBtn.innerHTML = '<i class="fas fa-brain"></i> Train Models';
-  trainBtn.addEventListener('click', () => PredictionManager.trainModels());
-  document.querySelector('.prediction-actions').appendChild(trainBtn);
   
   // Global search
   const globalSearch = document.getElementById('globalSearch');
