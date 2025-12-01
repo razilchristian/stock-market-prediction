@@ -14,14 +14,18 @@ import requests
 import yfinance as yf
 from flask import Flask, send_from_directory, render_template, jsonify, request, redirect
 
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.dummy import DummyRegressor
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+from sklearn.metrics import accuracy_score
 import joblib  # persist models
-
+import pmdarima as pm  # For ARIMA
+from statsmodels.tsa.arima.model import ARIMA as StatsmodelsARIMA
+import warnings
 warnings.filterwarnings('ignore')
 
 # ---------------- Config ----------------
@@ -215,567 +219,437 @@ def get_live_stock_data_enhanced(ticker):
     except Exception as e:
         return generate_fallback_data(ticker)
 
-# ---------------- Predictor with persistence ----------------
-class AdvancedMultiTargetPredictor:
+# ---------------- MULTI-ALGORITHM PREDICTOR CLASS ----------------
+class MultiAlgorithmPredictor:
     def __init__(self):
-        self.models = {}
-        self.crisis_model = None
+        self.models = {}  # Will store models for each algorithm
         self.scaler_features = StandardScaler()
-        self.scaler_targets = {}
+        self.scaler_target = StandardScaler()
         self.is_fitted = False
         self.feature_columns = []
-        self.crisis_features = []
-        self.model_health_metrics = {}
-        self.targets = ['Open','High','Low','Close']
         self.historical_performance = {}
-        self.prediction_confidence = {}
-        self.market_regime = "NORMAL"
-
-    def model_file(self, symbol):
+        self.prediction_history = {}
+        self.algorithm_weights = {}  # Weights based on past performance
+        self.target = 'Close'  # Main target for prediction
+        
+    def model_file(self, symbol, algorithm):
         safe = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
-        return os.path.join(MODELS_DIR, f"{safe}_predictor.joblib")
-
-    def save_to_disk(self, symbol):
-        try:
-            payload = {
-                'models': self.models,
-                'crisis_model': self.crisis_model,
-                'scaler_features': self.scaler_features,
-                'scaler_targets': self.scaler_targets,
-                'is_fitted': self.is_fitted,
-                'feature_columns': self.feature_columns,
-                'crisis_features': self.crisis_features,
-                'model_health_metrics': self.model_health_metrics,
-                'targets': self.targets,
-                'historical_performance': self.historical_performance,
-                'prediction_confidence': self.prediction_confidence,
-                'market_regime': self.market_regime
-            }
-            joblib.dump(payload, self.model_file(symbol))
-            print(f"✅ Saved model to {self.model_file(symbol)}")
-            return True
-        except Exception as e:
-            print("Save failure:", e)
-            return False
-
-    def load_from_disk(self, symbol):
-        try:
-            path = self.model_file(symbol)
-            if not os.path.exists(path):
-                return False
-            payload = joblib.load(path)
-            # restore
-            self.models = payload.get('models', {})
-            self.crisis_model = payload.get('crisis_model', None)
-            self.scaler_features = payload.get('scaler_features', StandardScaler())
-            self.scaler_targets = payload.get('scaler_targets', {})
-            self.is_fitted = payload.get('is_fitted', False)
-            self.feature_columns = payload.get('feature_columns', [])
-            self.crisis_features = payload.get('crisis_features', [])
-            self.model_health_metrics = payload.get('model_health_metrics', {})
-            self.targets = payload.get('targets', ['Open','High','Low','Close'])
-            self.historical_performance = payload.get('historical_performance', {})
-            self.prediction_confidence = payload.get('prediction_confidence', {})
-            self.market_regime = payload.get('market_regime', "NORMAL")
-            print(f"✅ Loaded model from {path}")
-            return True
-        except Exception as e:
-            print("Load failure:", e)
-            return False
-
-    def prepare_multi_target_data(self, data, target_days=1):
-        try:
-            data_with_features = create_advanced_features(data)
-            base_features = ['Open','High','Low','Volume']
-            technical_features = ['Return','Volatility','MA_5','MA_20','MA_50',
-                                  'Close_Ratio_5','Close_Ratio_20','Close_Ratio_50',
-                                  'Volume_MA','Volume_Ratio','Price_Range','HL_Ratio','OC_Ratio',
-                                  'RSI','MACD','MACD_Signal','MACD_Histogram','Momentum_5','Momentum_10']
-            available_columns = data_with_features.columns.tolist()
-            features = [f for f in (base_features+technical_features) if f in available_columns]
-            if len(features) < 4:
-                features = [f for f in base_features if f in available_columns]
-                if len(features) == 0:
-                    return None, None, None, None, None
-            targets = self.targets
-            data_scaled = data_with_features.copy()
+        return os.path.join(MODELS_DIR, f"{safe}_{algorithm}_model.joblib")
+    
+    def save_models(self, symbol):
+        """Save all trained models for a symbol"""
+        for algo in self.models.keys():
             try:
-                data_scaled[features] = self.scaler_features.fit_transform(data_with_features[features])
-            except Exception:
-                data_scaled[features] = data_with_features[features]
-            self.scaler_targets = {}
-            for target in targets:
-                try:
-                    self.scaler_targets[target] = StandardScaler()
-                    if target in data_with_features.columns:
-                        td = data_with_features[[target]].values.reshape(-1,1)
-                        data_scaled[target] = self.scaler_targets[target].fit_transform(td).flatten()
-                    else:
-                        data_scaled[target] = data_scaled['Close']
-                except Exception:
-                    data_scaled[target] = data_scaled['Close']
-            X,y_arrays = self.create_sequences_multi_target(data_scaled, features, targets, window_size=30)
-            if X is None or len(X)==0:
-                return None, None, None, None, None
-            return X, y_arrays, features, targets, data_scaled
-        except Exception as e:
-            print("Prep error:", e)
-            return None, None, None, None, None
-
-    def create_sequences_multi_target(self, data, features, targets, window_size=30):
-        try:
-            if len(data) <= window_size:
-                return None, None
-            X, y_dict = [], {t:[] for t in targets}
-            for i in range(window_size, len(data)):
-                try:
-                    seq = data[features].iloc[i-window_size:i].values.flatten()
-                    X.append(seq)
-                    for t in targets:
-                        if t in data.columns:
-                            y_dict[t].append(data[t].iloc[i])
-                        else:
-                            y_dict[t].append(data['Close'].iloc[i])
-                except Exception:
-                    continue
-            if len(X)==0:
-                return None, None
-            X = np.array(X)
-            y_arrays = {t: np.array(y_dict[t]) for t in targets}
-            return X, y_arrays
-        except Exception as e:
-            print("Seq error:", e)
-            return None, None
-
-    def calculate_historical_performance(self, X_train, y_train, X_test, y_test):
-        """Calculate comprehensive historical performance metrics"""
-        performance = {}
-        for target in self.targets:
-            if target in self.models and target in y_train and target in y_test:
-                try:
-                    model = self.models[target]
-                    # Training performance
-                    if len(X_train) == 0 or len(X_test) == 0:
-                        performance[target] = {}
-                        continue
-                    y_train_pred = model.predict(X_train)
-                    y_test_pred = model.predict(X_test)
-
-                    train_rmse = np.sqrt(mean_squared_error(y_train[target], y_train_pred))
-                    test_rmse = np.sqrt(mean_squared_error(y_test[target], y_test_pred))
-                    train_mae = mean_absolute_error(y_train[target], y_train_pred)
-                    test_mae = mean_absolute_error(y_test[target], y_test_pred)
-                    train_r2 = r2_score(y_train[target], y_train_pred) if len(y_train[target])>1 else 0.0
-                    test_r2 = r2_score(y_test[target], y_test_pred) if len(y_test[target])>1 else 0.0
-
-                    # Direction accuracy (safe guards)
-                    train_dir_acc = np.mean((np.diff(y_train[target]) * np.diff(y_train_pred)) > 0) if len(y_train[target])>2 else 0.0
-                    test_dir_acc = np.mean((np.diff(y_test[target]) * np.diff(y_test_pred)) > 0) if len(y_test[target])>2 else 0.0
-
-                    performance[target] = {
-                        'train_rmse': float(train_rmse),
-                        'test_rmse': float(test_rmse),
-                        'train_mae': float(train_mae),
-                        'test_mae': float(test_mae),
-                        'train_r2': float(train_r2),
-                        'test_r2': float(test_r2),
-                        'train_direction_accuracy': float(train_dir_acc),
-                        'test_direction_accuracy': float(test_dir_acc),
-                        'overfitting_ratio': float(test_rmse / train_rmse) if train_rmse > 0 else 1.0
-                    }
-                except Exception as e:
-                    print(f"Performance calculation error for {target}: {e}")
-                    performance[target] = {
-                        'train_rmse': 0.0, 'test_rmse': 0.0, 'train_mae': 0.0, 'test_mae': 0.0,
-                        'train_r2': 0.0, 'test_r2': 0.0, 'train_direction_accuracy': 0.0,
-                        'test_direction_accuracy': 0.0, 'overfitting_ratio': 1.0
-                    }
-        return performance
-
-    def calculate_prediction_confidence(self, X_pred):
-        """Calculate confidence scores for predictions using RF ensemble variance"""
-        confidence = {}
-        for target in self.targets:
-            if target in self.models:
-                try:
-                    model = self.models[target]
-                    if hasattr(model, 'estimators_'):  # Random Forest
-                        predictions = []
-                        for estimator in model.estimators_:
-                            pred = estimator.predict(X_pred)
-                            predictions.append(float(pred[0]) if hasattr(pred, '__len__') else float(pred))
-                        mean_pred = np.mean(predictions)
-                        std_pred = np.std(predictions)
-                        confidence_interval = 1.96 * std_pred
-                        cv = (std_pred / (abs(mean_pred) + 1e-9))
-                        confidence_score = float(max(0, 1 - cv) * 100)
-                        confidence[target] = {
-                            'confidence_score': float(confidence_score),
-                            'mean_prediction': float(mean_pred),
-                            'std_deviation': float(std_pred),
-                            'confidence_interval': float(confidence_interval),
-                            'predictions_count': len(predictions)
-                        }
-                    else:
-                        pred = model.predict(X_pred)[0]
-                        confidence[target] = {
-                            'confidence_score': 75.0,
-                            'mean_prediction': float(pred),
-                            'std_deviation': 0.0,
-                            'confidence_interval': float(abs(pred) * 0.05),
-                            'predictions_count': 1
-                        }
-                except Exception as e:
-                    print(f"Confidence calculation error for {target}: {e}")
-                    confidence[target] = {
-                        'confidence_score': 50.0,
-                        'mean_prediction': 0.0,
-                        'std_deviation': 0.0,
-                        'confidence_interval': 0.0,
-                        'predictions_count': 0
-                    }
-        return confidence
-
-    def detect_market_regime(self, data):
-        """Detect current market regime based on technical indicators"""
-        try:
-            if len(data) < 20:
-                return "NORMAL"
-            recent_data = data.tail(20)
-            volatility = recent_data['Volatility'].mean()
-            rsi = recent_data['RSI'].iloc[-1] if 'RSI' in recent_data.columns else 50
-            momentum = recent_data['Momentum_5'].iloc[-1] if 'Momentum_5' in recent_data.columns else 0
-            volume_ratio = recent_data['Volume_Ratio'].iloc[-1] if 'Volume_Ratio' in recent_data.columns else 1
-            crisis_prob = 0.1
-            if self.crisis_model and len(self.crisis_features) > 0:
-                available_features = [f for f in self.crisis_features if f in data.columns]
-                if available_features:
-                    latest_features = data[available_features].iloc[-1:].values
-                    try:
-                        probs = self.crisis_model.predict_proba(latest_features)
-                        if probs.shape[1] > 1:
-                            crisis_prob = probs[0,1]
-                    except:
-                        pass
-            if crisis_prob > 0.7 or volatility > 0.03:
-                return "HIGH_VOLATILITY"
-            elif crisis_prob > 0.4 or volatility > 0.02:
-                return "ELEVATED_RISK"
-            elif rsi > 70 or rsi < 30:
-                return "EXTREME_SENTIMENT"
-            elif abs(momentum) > 0.05:
-                return "STRONG_TREND"
-            elif volume_ratio > 1.5:
-                return "HIGH_VOLUME"
-            else:
-                return "NORMAL"
-        except Exception as e:
-            print(f"Market regime detection error: {e}")
-            return "NORMAL"
-
-    def train_multi_target_models(self, data, target_days=1):
-        """
-        Trains per-target RandomForest models with small time-series CV for hyperparameter tuning.
-        Also computes historical performance and prediction confidence.
-        """
-        try:
-            X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data, target_days)
-            if X is None:
-                return None, "Insufficient data/features"
-            self.feature_columns = features
-            self.targets = targets
-
-            # Small time-series-aware split
-            min_test = 5
-            if len(X) <= min_test + 10:
-                split = max(1, len(X)-min_test)
-            else:
-                split = len(X) - min_test
-            X_train, X_test = X[:split], X[split:]
-            y_train = {t: y_arrays[t][:split] for t in targets}
-            y_test = {t: y_arrays[t][split:] for t in targets}
-
-            models = {}
-            rmse_scores = {}
-
-            # feature pruning helper (VarianceThreshold). We'll prune after training using feature importances.
-            selector = VarianceThreshold(threshold=1e-5)
-
-            # prepare TimeSeriesSplit for grid search
-            tscv = TimeSeriesSplit(n_splits=min(3, max(1, (len(X_train)//10))))  # small n_splits
-
-            for t in targets:
-                try:
-                    # fallback if not enough labels
-                    if len(y_train[t]) < 5:
-                        fallback = DummyRegressor(strategy="mean")
-                        if len(X_train)>0:
-                            fallback.fit(X_train, np.ones(len(X_train))*np.mean(y_train[t]) if len(y_train[t])>0 else np.mean(y_arrays['Close']))
-                        models[t] = fallback
-                        rmse_scores[t] = None
-                        continue
-
-                    base = RandomForestRegressor(random_state=42, n_jobs=-1, bootstrap=True)
-
-                    # small grid to tune complexity and reduce overfitting
-                    param_grid = {
-                        'n_estimators': [100],  # keep it reasonable for deployment
-                        'max_depth': [8, 12, 16],
-                        'min_samples_leaf': [3, 5, 8],
-                        'max_features': ['sqrt', 0.8]
-                    }
-
-                    grid = GridSearchCV(base, param_grid, scoring='neg_mean_squared_error', cv=tscv, n_jobs=-1, verbose=0)
-                    # fit grid. reshape X_train, y_train[t] as needed
-                    grid.fit(X_train, y_train[t])
-                    best = grid.best_estimator_
-
-                    # after best found, fit on full train
-                    best.fit(X_train, y_train[t])
-                    models[t] = best
-
-                    if len(X_test)>0 and len(y_test[t])>0:
-                        pred = best.predict(X_test)
-                        rmse_scores[t] = float(np.sqrt(mean_squared_error(y_test[t], pred)))
-                    else:
-                        rmse_scores[t] = None
-                except Exception as e:
-                    print("Train target error:", t, e)
-                    # fallback simple model
-                    fallback = DummyRegressor(strategy="mean")
-                    if len(X_train)>0:
-                        fallback.fit(X_train, np.ones(len(X_train))*np.mean(y_train[t]) if len(y_train[t])>0 else np.mean(y_arrays['Close']))
-                    models[t] = fallback
-                    rmse_scores[t] = None
-
-            self.models = models
-            self.rmse_scores = rmse_scores
-
-            # Calculate historical performance
-            self.historical_performance = self.calculate_historical_performance(X_train, y_train, X_test, y_test)
-
-            # Calculate initial prediction confidence
-            X_pred = X[-1:] if len(X) > 0 else (X_train[-1:] if len(X_train) > 0 else None)
-            if X_pred is not None:
-                self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
-
-            # Detect market regime
-            try:
-                # use data_with_features (not scaled) for regime detection
-                data_with_features = create_advanced_features(data)
-                self.market_regime = self.detect_market_regime(data_with_features)
-            except:
-                self.market_regime = "NORMAL"
-
-            # crisis model training (light)
-            try:
-                crisis_data = detect_crises(data)
-                crisis_feats = [f for f in features+['Return','Volatility','Momentum_5'] if f in crisis_data.columns and f in data_scaled.columns]
-                crisis_feats = list(dict.fromkeys(crisis_feats))
-                self.crisis_features = crisis_feats
-                if len(crisis_feats)>0:
-                    cd = crisis_data[crisis_feats + ['Crisis']].dropna()
-                    if len(cd)>20:
-                        Xc = cd[crisis_feats].values
-                        yc = cd['Crisis'].values
-                        splitc = int(len(Xc)*0.8)
-                        if splitc>5:
-                            Xc_train = Xc[:splitc]; yc_train = yc[:splitc]
-                            crm = RandomForestClassifier(n_estimators=50, random_state=42)
-                            crm.fit(Xc_train, yc_train)
-                            self.crisis_model = crm
+                model_data = {
+                    'model': self.models[algo],
+                    'feature_columns': self.feature_columns,
+                    'scaler_features': self.scaler_features,
+                    'scaler_target': self.scaler_target
+                }
+                joblib.dump(model_data, self.model_file(symbol, algo))
             except Exception as e:
-                print("Crisis train failed:", e)
-                self.crisis_model = None
-
-            self.model_health_metrics = {
-                'training_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'data_points': len(X),
-                'targets_trained': len([t for t in targets if t in self.models]),
-                'crisis_detection_trained': self.crisis_model is not None,
-                'feature_count': len(features),
-                'crisis_feature_count': len(self.crisis_features),
-                'data_range': f"{data['Date'].iloc[0] if 'Date' in data.columns else 'N/A'} to {data['Date'].iloc[-1] if 'Date' in data.columns else 'N/A'}",
-                'total_days': len(data),
-                'market_regime': self.market_regime,
-                'average_confidence': float(np.mean([c['confidence_score'] for c in self.prediction_confidence.values()])) if self.prediction_confidence else 0.0
-            }
-            self.is_fitted = True
-            return rmse_scores, None
+                print(f"Error saving {algo} model: {e}")
+    
+    def load_models(self, symbol):
+        """Load all trained models for a symbol"""
+        loaded_models = {}
+        algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
+        
+        for algo in algorithms:
+            try:
+                path = self.model_file(symbol, algo)
+                if os.path.exists(path):
+                    model_data = joblib.load(path)
+                    loaded_models[algo] = model_data['model']
+                    if algo == 'linear_regression':  # Load scalers from first model
+                        self.feature_columns = model_data.get('feature_columns', [])
+                        self.scaler_features = model_data.get('scaler_features', StandardScaler())
+                        self.scaler_target = model_data.get('scaler_target', StandardScaler())
+                else:
+                    loaded_models[algo] = None
+            except Exception as e:
+                print(f"Error loading {algo} model: {e}")
+                loaded_models[algo] = None
+        
+        return loaded_models
+    
+    def prepare_data(self, data, forecast_days=1):
+        """Prepare data for training and prediction"""
+        try:
+            # Create features
+            data_with_features = create_advanced_features(data)
+            
+            # Feature selection
+            base_features = ['Open', 'High', 'Low', 'Volume']
+            technical_features = [
+                'Return', 'Volatility', 'MA_5', 'MA_20', 'MA_50',
+                'Close_Ratio_5', 'Close_Ratio_20', 'Close_Ratio_50',
+                'Volume_MA', 'Volume_Ratio', 'Price_Range', 'HL_Ratio', 'OC_Ratio',
+                'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram', 
+                'Momentum_5', 'Momentum_10'
+            ]
+            
+            all_features = base_features + technical_features
+            available_features = [f for f in all_features if f in data_with_features.columns]
+            
+            if len(available_features) < 5:
+                available_features = [f for f in base_features if f in data_with_features.columns]
+            
+            self.feature_columns = available_features
+            
+            # Prepare features and target
+            X = data_with_features[available_features].values
+            y = data_with_features[self.target].values
+            
+            # Scale features and target
+            X_scaled = self.scaler_features.fit_transform(X) if len(X) > 0 else X
+            y_scaled = self.scaler_target.fit_transform(y.reshape(-1, 1)).flatten() if len(y) > 0 else y
+            
+            return X_scaled, y_scaled, data_with_features
         except Exception as e:
-            print("Train error:", e)
+            print(f"Error preparing data: {e}")
+            return None, None, None
+    
+    def train_linear_regression(self, X, y):
+        """Train Linear Regression model"""
+        try:
+            model = LinearRegression()
+            model.fit(X, y)
+            return model
+        except Exception as e:
+            print(f"Linear Regression training error: {e}")
+            return None
+    
+    def train_svr(self, X, y):
+        """Train Support Vector Regression model"""
+        try:
+            # Use smaller dataset for SVR due to computational complexity
+            if len(X) > 1000:
+                X_sample = X[:1000]
+                y_sample = y[:1000]
+            else:
+                X_sample, y_sample = X, y
+            
+            model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
+            model.fit(X_sample, y_sample)
+            return model
+        except Exception as e:
+            print(f"SVR training error: {e}")
+            return None
+    
+    def train_random_forest(self, X, y):
+        """Train Random Forest model"""
+        try:
+            model = RandomForestRegressor(
+                n_estimators=100,
+                max_depth=10,
+                min_samples_split=5,
+                min_samples_leaf=2,
+                random_state=42,
+                n_jobs=-1
+            )
+            model.fit(X, y)
+            return model
+        except Exception as e:
+            print(f"Random Forest training error: {e}")
+            return None
+    
+    def train_arima(self, y):
+        """Train ARIMA model using auto_arima for parameter selection"""
+        try:
+            # Use pmdarima's auto_arima to find best parameters
+            model = pm.auto_arima(
+                y,
+                start_p=1, start_q=1,
+                max_p=3, max_q=3, m=1,
+                start_P=0, seasonal=False,
+                d=1, D=0, trace=False,
+                error_action='ignore',
+                suppress_warnings=True,
+                stepwise=True
+            )
+            return model
+        except Exception as e:
+            print(f"ARIMA training error: {e}")
+            # Fallback to simple ARIMA
+            try:
+                model = StatsmodelsARIMA(y, order=(1,1,1))
+                model_fit = model.fit()
+                return model_fit
+            except:
+                return None
+    
+    def train_all_models(self, data, symbol):
+        """Train all four algorithms"""
+        try:
+            X, y, data_with_features = self.prepare_data(data)
+            
+            if X is None or y is None:
+                return False, "Insufficient data for training"
+            
+            print(f"Training models for {symbol} with {len(X)} samples...")
+            
+            # Train Linear Regression
+            lr_model = self.train_linear_regression(X, y)
+            
+            # Train SVR
+            svr_model = self.train_svr(X, y)
+            
+            # Train Random Forest
+            rf_model = self.train_random_forest(X, y)
+            
+            # Train ARIMA (uses only target values)
+            arima_model = self.train_arima(y)
+            
+            # Store all models
+            self.models = {
+                'linear_regression': lr_model,
+                'svr': svr_model,
+                'random_forest': rf_model,
+                'arima': arima_model
+            }
+            
+            # Calculate initial performance metrics
+            self.calculate_model_performance(X, y, data_with_features)
+            
+            # Set initial weights based on performance
+            self.update_algorithm_weights()
+            
+            self.is_fitted = True
+            
+            # Save models
+            self.save_models(symbol)
+            
+            return True, "All models trained successfully"
+        except Exception as e:
+            print(f"Error training all models: {e}")
+            return False, str(e)
+    
+    def calculate_model_performance(self, X, y, data_with_features):
+        """Calculate performance metrics for all trained models"""
+        try:
+            # Split data for validation (80% train, 20% test)
+            split_idx = int(len(X) * 0.8)
+            X_train, X_test = X[:split_idx], X[split_idx:]
+            y_train, y_test = y[:split_idx], y[split_idx:]
+            
+            performance = {}
+            
+            for algo, model in self.models.items():
+                if model is None:
+                    performance[algo] = {
+                        'rmse': 9999,
+                        'mae': 9999,
+                        'r2': -1,
+                        'mape': 100,
+                        'direction_accuracy': 0
+                    }
+                    continue
+                
+                try:
+                    if algo == 'arima':
+                        # ARIMA specific prediction
+                        predictions = model.predict_in_sample()
+                        if len(predictions) > len(y_test):
+                            predictions = predictions[-len(y_test):]
+                        elif len(predictions) < len(y_test):
+                            predictions = np.pad(predictions, (0, len(y_test) - len(predictions)), 'edge')
+                    else:
+                        # For other models
+                        if len(X_test) > 0:
+                            predictions = model.predict(X_test)
+                        else:
+                            predictions = model.predict(X_train[-len(y_test):]) if len(X_train) >= len(y_test) else model.predict(X_train)
+                    
+                    # Ensure predictions and y_test have same length
+                    min_len = min(len(predictions), len(y_test))
+                    predictions = predictions[:min_len]
+                    y_test_eval = y_test[:min_len]
+                    
+                    if min_len > 0:
+                        # Calculate metrics
+                        rmse = np.sqrt(mean_squared_error(y_test_eval, predictions))
+                        mae = mean_absolute_error(y_test_eval, predictions)
+                        r2 = r2_score(y_test_eval, predictions) if len(y_test_eval) > 1 else 0
+                        
+                        # Calculate MAPE
+                        mape = np.mean(np.abs((y_test_eval - predictions) / (y_test_eval + 1e-10))) * 100
+                        
+                        # Calculate direction accuracy
+                        actual_direction = np.diff(y_test_eval) > 0
+                        predicted_direction = np.diff(predictions) > 0
+                        if len(actual_direction) > 0 and len(predicted_direction) > 0:
+                            min_dir_len = min(len(actual_direction), len(predicted_direction))
+                            direction_accuracy = accuracy_score(
+                                actual_direction[:min_dir_len], 
+                                predicted_direction[:min_dir_len]
+                            ) * 100
+                        else:
+                            direction_accuracy = 0
+                        
+                        performance[algo] = {
+                            'rmse': float(rmse),
+                            'mae': float(mae),
+                            'r2': float(r2),
+                            'mape': float(mape),
+                            'direction_accuracy': float(direction_accuracy)
+                        }
+                    else:
+                        performance[algo] = {
+                            'rmse': 9999,
+                            'mae': 9999,
+                            'r2': -1,
+                            'mape': 100,
+                            'direction_accuracy': 0
+                        }
+                        
+                except Exception as e:
+                    print(f"Error calculating performance for {algo}: {e}")
+                    performance[algo] = {
+                        'rmse': 9999,
+                        'mae': 9999,
+                        'r2': -1,
+                        'mape': 100,
+                        'direction_accuracy': 0
+                    }
+            
+            self.historical_performance = performance
+            return performance
+            
+        except Exception as e:
+            print(f"Error in calculate_model_performance: {e}")
+            return {}
+    
+    def update_algorithm_weights(self):
+        """Update weights for ensemble prediction based on performance"""
+        try:
+            if not self.historical_performance:
+                # Default equal weights
+                self.algorithm_weights = {
+                    'linear_regression': 0.25,
+                    'svr': 0.25,
+                    'random_forest': 0.25,
+                    'arima': 0.25
+                }
+                return
+            
+            # Calculate weights based on R² score (higher is better)
+            weights = {}
+            total_score = 0
+            
+            for algo, metrics in self.historical_performance.items():
+                # Use direction accuracy as weight factor
+                score = max(metrics.get('direction_accuracy', 0), 50)  # Minimum 50% weight
+                weights[algo] = score
+                total_score += score
+            
+            # Normalize weights
+            if total_score > 0:
+                for algo in weights:
+                    weights[algo] = weights[algo] / total_score
+            else:
+                # Equal weights if no valid scores
+                weights = {algo: 0.25 for algo in self.historical_performance.keys()}
+            
+            self.algorithm_weights = weights
+            
+        except Exception as e:
+            print(f"Error updating algorithm weights: {e}")
+            self.algorithm_weights = {
+                'linear_regression': 0.25,
+                'svr': 0.25,
+                'random_forest': 0.25,
+                'arima': 0.25
+            }
+    
+    def predict_with_all_models(self, data, symbol):
+        """Get predictions from all four algorithms"""
+        try:
+            # Prepare data
+            X, y, data_with_features = self.prepare_data(data)
+            
+            if X is None or y is None:
+                return None, "Insufficient data for prediction"
+            
+            # Get latest features for prediction
+            latest_features = X[-1:].reshape(1, -1) if len(X) > 0 else None
+            
+            predictions = {}
+            confidence_scores = {}
+            
+            # Get prediction from each model
+            for algo, model in self.models.items():
+                if model is None:
+                    predictions[algo] = float(y[-1]) if len(y) > 0 else 100.0
+                    confidence_scores[algo] = 50
+                    continue
+                
+                try:
+                    if algo == 'arima':
+                        # ARIMA prediction
+                        forecast = model.predict(n_periods=1)
+                        pred_scaled = float(forecast[0])
+                    else:
+                        # Other models
+                        if latest_features is not None:
+                            pred_scaled = float(model.predict(latest_features)[0])
+                        else:
+                            pred_scaled = float(y[-1]) if len(y) > 0 else 100.0
+                    
+                    # Inverse transform to get actual price
+                    pred_actual = self.scaler_target.inverse_transform(
+                        np.array([[pred_scaled]])
+                    )[0][0]
+                    
+                    predictions[algo] = pred_actual
+                    
+                    # Calculate confidence score based on historical performance
+                    if algo in self.historical_performance:
+                        perf = self.historical_performance[algo]
+                        confidence = (perf.get('direction_accuracy', 0) * 0.6 + 
+                                    (100 - min(perf.get('mape', 100), 100)) * 0.4)
+                        confidence_scores[algo] = min(max(confidence, 0), 100)
+                    else:
+                        confidence_scores[algo] = 70  # Default confidence
+                        
+                except Exception as e:
+                    print(f"Error predicting with {algo}: {e}")
+                    predictions[algo] = float(y[-1]) if len(y) > 0 else 100.0
+                    confidence_scores[algo] = 50
+            
+            # Calculate weighted ensemble prediction
+            ensemble_prediction = 0
+            total_weight = 0
+            
+            for algo, pred in predictions.items():
+                weight = self.algorithm_weights.get(algo, 0.25)
+                ensemble_prediction += pred * weight
+                total_weight += weight
+            
+            if total_weight > 0:
+                ensemble_prediction /= total_weight
+            
+            # Calculate ensemble confidence
+            ensemble_confidence = np.mean(list(confidence_scores.values()))
+            
+            result = {
+                'predictions': predictions,
+                'confidence_scores': confidence_scores,
+                'ensemble_prediction': ensemble_prediction,
+                'ensemble_confidence': ensemble_confidence,
+                'weights': self.algorithm_weights,
+                'performance': self.historical_performance,
+                'current_price': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 100.0
+            }
+            
+            return result, None
+            
+        except Exception as e:
+            print(f"Error in predict_with_all_models: {e}")
             return None, str(e)
 
-    def predict_next_day_prices(self, data):
-        if not self.is_fitted:
-            return None, None, None, None, "Model not fitted"
-        try:
-            X, y_arrays, features, targets, data_scaled = self.prepare_multi_target_data(data)
-            if X is None or len(X)==0:
-                return None, None, None, None, "Insufficient data for prediction"
-            X_pred = X[-1:]
-            # Update prediction confidence
-            self.prediction_confidence = self.calculate_prediction_confidence(X_pred)
-            # Update market regime
-            self.market_regime = self.detect_market_regime(create_advanced_features(data))
-            predictions_scaled = {}
-            for t in targets:
-                if t in self.models:
-                    try:
-                        predictions_scaled[t] = self.models[t].predict(X_pred)
-                    except Exception:
-                        predictions_scaled[t] = np.array([data[t].iloc[-1] if t in data.columns else data['Close'].iloc[-1]])
-                else:
-                    predictions_scaled[t] = np.array([data['Close'].iloc[-1]])
-
-            # inverse transform where possible
-            predictions_actual = {}
-            for t in targets:
-                if t in predictions_scaled and t in self.scaler_targets:
-                    try:
-                        predictions_actual[t] = self.scaler_targets[t].inverse_transform(predictions_scaled[t].reshape(-1,1)).flatten()
-                    except Exception:
-                        predictions_actual[t] = predictions_scaled[t]
-                else:
-                    predictions_actual[t] = predictions_scaled[t]
-
-            confidence_data = self.calculate_confidence_bands_multi(X_pred)
-            crisis_probs = self.predict_crisis_probability(data_scaled)
-            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
-            scenarios = self.generate_multi_scenarios(predictions_actual, current_close)
-            return predictions_actual, confidence_data, scenarios, crisis_probs, None
-        except Exception as e:
-            print("Predict error:", e)
-            return None, None, None, None, str(e)
-
-    def calculate_confidence_bands_multi(self, X, confidence=0.95):
-        """Enhanced confidence bands with prediction intervals"""
-        confidence_data = {}
-        for target in self.targets:
-            if target in self.models and target in self.prediction_confidence:
-                conf = self.prediction_confidence[target]
-                confidence_data[target] = {
-                    'mean': conf['mean_prediction'],
-                    'lower': conf['mean_prediction'] - conf['confidence_interval'],
-                    'upper': conf['mean_prediction'] + conf['confidence_interval'],
-                    'std': conf['std_deviation'],
-                    'confidence_score': conf['confidence_score'],
-                    'prediction_interval': f"±{conf['confidence_interval']:.4f}",
-                    'quality': "HIGH" if conf['confidence_score'] > 80 else "MEDIUM" if conf['confidence_score'] > 60 else "LOW"
-                }
-        return confidence_data
-
-    def predict_crisis_probability(self, data_scaled):
-        try:
-            if self.crisis_model is None or len(self.crisis_features)==0:
-                return [0.1]
-            feats = [f for f in self.crisis_features if f in data_scaled.columns]
-            if not feats:
-                return [0.1]
-            latest = data_scaled[feats].iloc[-1:].values
-            try:
-                probs = self.crisis_model.predict_proba(latest)
-                if probs.shape[1]>1:
-                    return probs[:,1].tolist()
-                else:
-                    return [probs[0,0]]
-            except Exception:
-                return [0.1]
-        except Exception:
-            return [0.1]
-
-    def get_risk_alerts(self, predictions, current_price, crisis_probs):
-        alerts = []
-        try:
-            changes = []
-            for t in ['Open','High','Low','Close']:
-                if t in predictions and len(predictions[t])>0:
-                    pv = predictions[t]
-                    if hasattr(pv,'item'):
-                        pv = pv.item() if pv.size==1 else pv[0]
-                    elif hasattr(pv,'iloc'):
-                        pv = pv.iloc[0]
-                    current_val = current_price
-                    try:
-                        changes.append(((float(pv)-float(current_val))/float(current_val))*100)
-                    except Exception:
-                        continue
-            if changes:
-                avg = np.mean(changes)
-                if abs(avg)>15:
-                    alerts.append({'level':'🔴 CRITICAL','type':'Extreme Movement','message':f'Expected {avg:+.1f}% move'})
-                elif abs(avg)>8:
-                    alerts.append({'level':'🟡 HIGH','type':'Large Movement','message':f'Expected {avg:+.1f}% move'})
-
-            # Enhanced crisis alerts based on market regime
-            if crisis_probs:
-                avgc = float(np.mean(crisis_probs))
-                if self.market_regime == "HIGH_VOLATILITY":
-                    alerts.append({'level':'🔴 CRITICAL','type':'High Volatility Regime','message':'Market in high volatility regime'})
-                elif self.market_regime == "ELEVATED_RISK":
-                    alerts.append({'level':'🟡 HIGH','type':'Elevated Risk Regime','message':'Market in elevated risk regime'})
-
-                if avgc>0.7:
-                    alerts.append({'level':'🔴 CRITICAL','type':'High Crisis Prob','message':f'Crisis probability: {avgc:.1%}'})
-                elif avgc>0.4:
-                    alerts.append({'level':'🟡 HIGH','type':'Elevated Crisis','message':f'Crisis probability: {avgc:.1%}'})
-
-            # Add confidence-based alerts
-            avg_confidence = np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0
-            if avg_confidence < 50:
-                alerts.append({'level':'🟡 HIGH','type':'Low Prediction Confidence','message':f'Model confidence: {avg_confidence:.1f}%'})
-
-        except Exception as e:
-            alerts.append({'level':'🟡 HIGH','type':'System','message':'Risk assessment unavailable'})
-        return alerts
-
-    def generate_multi_scenarios(self, predictions, current_price):
-        try:
-            base_change = 0
-            if 'Close' in predictions and len(predictions['Close'])>0:
-                pv = predictions['Close']
-                if hasattr(pv,'item'):
-                    pv = pv.item() if pv.size==1 else pv[0]
-                current_val = current_price
-                try:
-                    base_change = ((float(pv)-float(current_val))/float(current_val))*100
-                except Exception:
-                    base_change = 0
-
-            regime_multipliers = {
-                "HIGH_VOLATILITY": 1.5,
-                "ELEVATED_RISK": 1.3,
-                "EXTREME_SENTIMENT": 1.2,
-                "STRONG_TREND": 1.1,
-                "HIGH_VOLUME": 1.1,
-                "NORMAL": 1.0
-            }
-
-            multiplier = regime_multipliers.get(self.market_regime, 1.0)
-
-            return {
-                'base':{'probability':50,'price_change':base_change,'description':self.get_scenario_description(base_change)},
-                'bullish':{'probability':25,'price_change':base_change*1.3*multiplier,'description':self.get_scenario_description(base_change*1.3*multiplier)},
-                'bearish':{'probability':15,'price_change':base_change*0.7*multiplier,'description':self.get_scenario_description(base_change*0.7*multiplier)},
-                'sideways':{'probability':10,'price_change':base_change*0.3,'description':self.get_scenario_description(base_change*0.3)}
-            }
-        except Exception:
-            return {'base':{'probability':100,'price_change':0,'description':'Unavailable'}}
-
-    def get_scenario_description(self, change):
-        try:
-            if change>10: return "STRONG BULLISH"
-            if change>5: return "BULLISH"
-            if change>2: return "SLIGHTLY BULLISH"
-            if change<-10: return "STRONG BEARISH"
-            if change<-5: return "BEARISH"
-            if change<-2: return "SLIGHTLY BEARISH"
-            return "STABLE SIDEWAYS"
-        except:
-            return "NORMAL"
-
-# global predictor instance — we will load per-symbol into it when needed
-predictor = AdvancedMultiTargetPredictor()
+# Global predictor instance
+predictor = MultiAlgorithmPredictor()
 
 # ---------------- Small helpers ----------------
 def get_next_trading_day():
@@ -802,23 +676,34 @@ def get_market_status():
     if current_time > market_close: return "after_hours","After-hours trading"
     return "open","Market is open"
 
-def get_risk_level(change_percent, crisis_prob):
-    risk_score = (abs(change_percent)/20*0.6) + (crisis_prob*0.4)
+def get_risk_level(change_percent, confidence):
+    risk_score = (abs(change_percent)/20*0.6) + ((100-confidence)/100*0.4)
     if risk_score>0.7: return "🔴 EXTREME RISK"
     if risk_score>0.5: return "🟡 HIGH RISK"
     if risk_score>0.3: return "🟠 MEDIUM RISK"
     return "🟢 LOW RISK"
 
-def get_trading_recommendation(change_percent, risk_level, crisis_prob):
-    if risk_level=="🔴 EXTREME RISK":
-        return "🚨 EXTREME CAUTION"
-    if risk_level=="🟡 HIGH RISK":
-        return "📈 CAUTIOUS"
-    if risk_level=="🟠 MEDIUM RISK":
-        return "🔄 HOLD / CONSIDER"
-    if change_percent>2: return "✅ STRONG BUY"
-    if change_percent < -1: return "💼 CAUTIOUS SELL"
+def get_trading_recommendation(change_percent, confidence):
+    if confidence < 50:
+        return "🚨 LOW CONFIDENCE - WAIT"
+    if change_percent > 5:
+        return "✅ STRONG BUY"
+    if change_percent > 2:
+        return "📈 BUY"
+    if change_percent < -5:
+        return "💼 STRONG SELL"
+    if change_percent < -2:
+        return "📉 SELL"
     return "🔄 HOLD"
+
+def get_algorithm_description(algorithm):
+    descriptions = {
+        'linear_regression': 'Simple linear relationship model between features and target',
+        'svr': 'Support Vector Regression - good for non-linear patterns',
+        'random_forest': 'Ensemble of decision trees, robust to overfitting',
+        'arima': 'Time series model using autocorrelation'
+    }
+    return descriptions.get(algorithm, 'Machine learning algorithm')
 
 # ---------------- NAVIGATION MAP ----------------
 NAVIGATION_MAP = {
@@ -890,7 +775,7 @@ def get_stocks_list():
 
 @server.route('/api/health')
 def health_check():
-    return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"2.2.0"})
+    return jsonify({"status":"healthy","timestamp":datetime.now().isoformat(),"version":"3.0.0"})
 
 @server.route('/api/predict', methods=['POST'])
 @rate_limiter
@@ -898,97 +783,269 @@ def predict_stock():
     try:
         data = request.get_json() or {}
         symbol = (data.get('symbol') or 'SPY').upper().strip()
-        # try to load existing saved model first
-        loaded = predictor.load_from_disk(symbol)
+        
+        # Get historical data
         historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
-            return jsonify({"error":str(error)}), 400
-
-        # If model loaded and fitted, use it. Otherwise train and save.
-        if not (loaded and predictor.is_fitted):
-            rmse, train_err = predictor.train_multi_target_models(historical_data)
-            if train_err:
-                # fallback response
+            return jsonify({"error": str(error)}), 400
+        
+        # Try to load existing models
+        loaded_models = predictor.load_models(symbol)
+        predictor.models = loaded_models
+        
+        # Check if we have at least one model loaded
+        has_models = any(model is not None for model in loaded_models.values())
+        
+        if not has_models:
+            # Train all models if none are loaded
+            success, train_msg = predictor.train_all_models(historical_data, symbol)
+            if not success:
                 return provide_fallback_prediction(symbol, current_price, historical_data)
-            # save
-            predictor.save_to_disk(symbol)
-
-        # Predict
-        predictions, confidence_data, scenarios, crisis_probs, pred_err = predictor.predict_next_day_prices(historical_data)
-        if pred_err:
+        else:
+            # Update performance metrics with loaded models
+            X, y, data_with_features = predictor.prepare_data(historical_data)
+            if X is not None and y is not None:
+                predictor.calculate_model_performance(X, y, data_with_features)
+                predictor.update_algorithm_weights()
+                predictor.is_fitted = True
+        
+        # Get predictions from all models
+        prediction_result, pred_error = predictor.predict_with_all_models(historical_data, symbol)
+        
+        if pred_error:
             return provide_fallback_prediction(symbol, current_price, historical_data)
-
-        predicted_close = float(predictions['Close'][0]) if 'Close' in predictions else float(current_price)
-        change_percent = ((predicted_close - float(current_price)) / float(current_price)) * 100 if float(current_price) != 0 else 0.0
-        avg_crisis_prob = float(np.mean(crisis_probs)) if crisis_probs is not None else 0.1
-        risk_level = get_risk_level(change_percent, avg_crisis_prob)
-        recommendation = get_trading_recommendation(change_percent, risk_level, avg_crisis_prob)
-        risk_alerts = predictor.get_risk_alerts(predictions, current_price, crisis_probs)
-
+        
+        # Prepare response
+        current_price_val = float(current_price)
+        ensemble_pred = prediction_result['ensemble_prediction']
+        change_percent = ((ensemble_pred - current_price_val) / current_price_val) * 100
+        
         response = {
             "symbol": symbol,
-            "current_price": round(float(current_price),2),
+            "current_price": round(current_price_val, 2),
             "prediction_date": get_next_trading_day(),
             "last_trading_day": get_last_market_date(),
-            "predicted_prices": {
-                "open": round(float(predictions['Open'][0]),2) if 'Open' in predictions else round(float(current_price),2),
-                "high": round(float(predictions['High'][0]),2) if 'High' in predictions else round(float(current_price)*1.02,2),
-                "low": round(float(predictions['Low'][0]),2) if 'Low' in predictions else round(float(current_price)*0.98,2),
-                "close": round(predicted_close,2)
+            
+            # Individual algorithm predictions
+            "algorithm_predictions": {
+                algo: {
+                    "predicted_price": round(pred, 2),
+                    "confidence": round(prediction_result['confidence_scores'][algo], 1),
+                    "change_percent": round(((pred - current_price_val) / current_price_val) * 100, 2),
+                    "description": get_algorithm_description(algo)
+                }
+                for algo, pred in prediction_result['predictions'].items()
             },
-            "change_percent": round(change_percent,2),
-            "risk_level": risk_level,
-            "recommendation": recommendation,
-            "crisis_probability": round(avg_crisis_prob,3),
-            "confidence_data": confidence_data,
-            "scenarios": scenarios,
-            "risk_alerts": risk_alerts,
-            "model_health": predictor.model_health_metrics,
-            "historical_performance": predictor.historical_performance,
-            "prediction_confidence": predictor.prediction_confidence,
-            "market_regime": predictor.market_regime,
+            
+            # Ensemble prediction (main prediction)
+            "ensemble_prediction": {
+                "predicted_price": round(ensemble_pred, 2),
+                "confidence": round(prediction_result['ensemble_confidence'], 1),
+                "change_percent": round(change_percent, 2),
+                "weights_used": prediction_result['weights']
+            },
+            
+            # Model performance metrics
+            "model_performance": {
+                algo: {
+                    "rmse": round(metrics.get('rmse', 0), 4),
+                    "r2": round(metrics.get('r2', 0), 3),
+                    "mape": round(metrics.get('mape', 0), 2),
+                    "direction_accuracy": round(metrics.get('direction_accuracy', 0), 1)
+                }
+                for algo, metrics in prediction_result['performance'].items()
+            },
+            
+            # Trading recommendations
+            "change_percent": round(change_percent, 2),
+            "risk_level": get_risk_level(change_percent, prediction_result['ensemble_confidence']),
+            "recommendation": get_trading_recommendation(change_percent, prediction_result['ensemble_confidence']),
+            
+            # Additional info
             "market_status": get_market_status()[1],
+            "best_algorithm": max(
+                prediction_result['performance'].items(),
+                key=lambda x: x[1].get('direction_accuracy', 0)
+            )[0] if prediction_result['performance'] else "ensemble",
+            
             "data_analysis": {
                 "total_data_points": len(historical_data),
                 "features_used": len(predictor.feature_columns),
-                "targets_predicted": len(predictor.targets) if hasattr(predictor,'targets') else 4
+                "algorithms_used": len([m for m in predictor.models.values() if m is not None])
             },
-            "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}"
+            
+            "insight": f"AI ensemble predicts {change_percent:+.2f}% movement for {symbol}. Best performing algorithm: {max(prediction_result['performance'].items(), key=lambda x: x[1].get('direction_accuracy', 0))[0] if prediction_result['performance'] else 'ensemble'}."
         }
+        
         return jsonify(response)
+        
     except Exception as e:
         print("Predict endpoint error:", e)
-        return provide_fallback_prediction((request.get_json() or {}).get('symbol','SPY').upper(), 100.0, None)
+        return provide_fallback_prediction((request.get_json() or {}).get('symbol', 'SPY').upper(), 100.0, None)
+
+@server.route('/api/train', methods=['POST'])
+@rate_limiter
+def train_models():
+    """API endpoint to explicitly train models for a symbol"""
+    try:
+        data = request.get_json() or {}
+        symbol = (data.get('symbol') or 'SPY').upper().strip()
+        
+        # Get historical data
+        historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
+        if error:
+            return jsonify({"error": str(error)}), 400
+        
+        # Train all models
+        success, train_msg = predictor.train_all_models(historical_data, symbol)
+        
+        if success:
+            return jsonify({
+                "status": "success",
+                "message": train_msg,
+                "symbol": symbol,
+                "models_trained": list(predictor.models.keys()),
+                "performance": predictor.historical_performance
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": train_msg,
+                "symbol": symbol
+            }), 400
+            
+    except Exception as e:
+        print("Train endpoint error:", e)
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "symbol": symbol if 'symbol' in locals() else 'UNKNOWN'
+        }), 500
+
+@server.route('/api/compare_models', methods=['POST'])
+@rate_limiter
+def compare_models():
+    """API endpoint to compare performance of all models"""
+    try:
+        data = request.get_json() or {}
+        symbol = (data.get('symbol') or 'SPY').upper().strip()
+        
+        # Get historical data
+        historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
+        if error:
+            return jsonify({"error": str(error)}), 400
+        
+        # Prepare data for performance comparison
+        X, y, data_with_features = predictor.prepare_data(historical_data)
+        
+        if X is None or y is None:
+            return jsonify({"error": "Insufficient data for comparison"}), 400
+        
+        # Train temporary models for comparison
+        comparison_results = {}
+        algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
+        
+        for algo in algorithms:
+            try:
+                if algo == 'linear_regression':
+                    model = predictor.train_linear_regression(X, y)
+                elif algo == 'svr':
+                    model = predictor.train_svr(X, y)
+                elif algo == 'random_forest':
+                    model = predictor.train_random_forest(X, y)
+                elif algo == 'arima':
+                    model = predictor.train_arima(y)
+                
+                # Calculate performance
+                split_idx = int(len(X) * 0.8)
+                X_test = X[split_idx:]
+                y_test = y[split_idx:]
+                
+                if algo == 'arima':
+                    predictions = model.predict_in_sample()[-len(y_test):]
+                else:
+                    predictions = model.predict(X_test)
+                
+                # Calculate metrics
+                rmse = np.sqrt(mean_squared_error(y_test, predictions))
+                mae = mean_absolute_error(y_test, predictions)
+                r2 = r2_score(y_test, predictions)
+                mape = np.mean(np.abs((y_test - predictions) / (y_test + 1e-10))) * 100
+                
+                comparison_results[algo] = {
+                    "rmse": round(float(rmse), 4),
+                    "mae": round(float(mae), 4),
+                    "r2": round(float(r2), 3),
+                    "mape": round(float(mape), 2),
+                    "description": get_algorithm_description(algo),
+                    "status": "success"
+                }
+                
+            except Exception as e:
+                comparison_results[algo] = {
+                    "status": "error",
+                    "message": str(e),
+                    "description": get_algorithm_description(algo)
+                }
+        
+        return jsonify({
+            "symbol": symbol,
+            "comparison": comparison_results,
+            "best_model": min(
+                [(algo, metrics.get('rmse', 9999)) for algo, metrics in comparison_results.items() 
+                 if metrics.get('status') == 'success'],
+                key=lambda x: x[1]
+            )[0] if any(m.get('status') == 'success' for m in comparison_results.values()) else "none"
+        })
+        
+    except Exception as e:
+        print("Compare models error:", e)
+        return jsonify({"error": str(e)}), 500
 
 def provide_fallback_prediction(symbol, current_price, historical_data):
+    """Provide fallback prediction when models fail"""
     try:
         if current_price is None:
             base_prices = {'AAPL':182,'MSFT':407,'GOOGL':172,'AMZN':178,'TSLA':175,'SPY':445}
             current_price = base_prices.get(symbol, 100.0)
-        has_large_history = False
-        try:
-            if historical_data is not None and hasattr(historical_data,'__len__'):
-                has_large_history = len(historical_data) > 100
-        except:
-            has_large_history = False
+        
         change_percent = (random.random()-0.5)*8
         predicted_price = current_price * (1 + change_percent/100)
-        confidence = 75 if has_large_history else 65
+        
+        # Simulate different algorithm predictions
+        algorithms = {
+            'linear_regression': predicted_price * random.uniform(0.98, 1.02),
+            'svr': predicted_price * random.uniform(0.97, 1.03),
+            'random_forest': predicted_price * random.uniform(0.99, 1.01),
+            'arima': predicted_price * random.uniform(0.96, 1.04)
+        }
+        
+        algorithm_predictions = {}
+        for algo, pred in algorithms.items():
+            algorithm_predictions[algo] = {
+                "predicted_price": round(pred, 2),
+                "confidence": random.randint(60, 80),
+                "change_percent": round(((pred - current_price) / current_price) * 100, 2),
+                "description": get_algorithm_description(algo)
+            }
+        
         return jsonify({
             "symbol": symbol,
-            "current_price": round(float(current_price),2),
+            "current_price": round(float(current_price), 2),
             "prediction_date": get_next_trading_day(),
-            "predicted_prices":{
-                "open": round(current_price*(1+(random.random()-0.5)*0.01),2),
-                "high": round(current_price*(1+random.random()*0.03),2),
-                "low": round(current_price*(1-random.random()*0.02),2),
-                "close": round(predicted_price,2)
+            
+            "algorithm_predictions": algorithm_predictions,
+            
+            "ensemble_prediction": {
+                "predicted_price": round(predicted_price, 2),
+                "confidence": 65,
+                "change_percent": round(change_percent, 2),
+                "weights_used": {"linear_regression":0.25,"svr":0.25,"random_forest":0.25,"arima":0.25}
             },
-            "change_percent": round(change_percent,2),
-            "confidence": {"Open":confidence-5,"High":confidence-8,"Low":confidence-6,"Close":confidence},
-            "confidence_level": confidence,
-            "risk_level": get_risk_level(change_percent,0.1),
-            "recommendation": get_trading_recommendation(change_percent, get_risk_level(change_percent,0.1), 0.1),
+            
+            "change_percent": round(change_percent, 2),
+            "risk_level": get_risk_level(change_percent, 65),
+            "recommendation": get_trading_recommendation(change_percent, 65),
             "market_status": get_market_status()[1],
             "fallback": True,
             "message": "Using fallback prediction engine"
@@ -1004,13 +1061,21 @@ def serve_static(path):
 
 # ---------------- Error handlers ----------------
 @server.errorhandler(404)
-def not_found(error): return jsonify({"error":"Page not found"}), 404
+def not_found(error): 
+    return jsonify({"error":"Page not found"}), 404
+
 @server.errorhandler(500)
-def internal_error(error): return jsonify({"error":"Internal server error"}), 500
+def internal_error(error): 
+    return jsonify({"error":"Internal server error"}), 500
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    print("Starting Flask app with model persistence...")
-    os.makedirs('templates', exist_ok=True); os.makedirs('static', exist_ok=True)
+    print("Starting Flask app with multi-algorithm prediction system...")
+    print("Algorithms available: Linear Regression, SVR, Random Forest, ARIMA")
+    
+    os.makedirs('templates', exist_ok=True)
+    os.makedirs('static', exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
