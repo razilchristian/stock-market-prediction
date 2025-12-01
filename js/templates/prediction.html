@@ -612,22 +612,26 @@ body {
 </div>
 
 <script>
-/* ---------- FULL UI JS (updated with new features) ---------- */
+/* =============== ENHANCED PREDICTION UI SCRIPT =============== */
+/* Connects to Flask backend for multi-algorithm OCHL prediction */
 
 const CONFIG = {
   API_BASE_URL: window.location.origin,
   DEBOUNCE_DELAY: 300,
-  NOTIFICATION_DURATION: 4500
+  NOTIFICATION_DURATION: 4500,
+  STOCK_REFRESH_INTERVAL: 300000 // 5 minutes
 };
 
 const AppState = {
   allStocks: [],
   selectedStock: null,
   isGenerating: false,
-  currentPredictions: null
+  currentPredictions: null,
+  lastFetchTime: null,
+  marketStatus: "unknown"
 };
 
-/* Mobile menu */
+/* Mobile menu handler */
 class MobileMenu {
   constructor() {
     this.menuToggle = document.querySelector('.menu-toggle');
@@ -635,327 +639,601 @@ class MobileMenu {
     this.isOpen = false;
     this.init();
   }
-  init(){
-    if(this.menuToggle && this.navItems){
+  
+  init() {
+    if (this.menuToggle && this.navItems) {
       this.menuToggle.addEventListener('click', (e) => {
         e.stopPropagation();
         this.toggle();
       });
+      
       document.addEventListener('click', (event) => {
-        if(this.isOpen && !event.target.closest('.navbar')){
+        if (this.isOpen && !event.target.closest('.navbar')) {
           this.close();
         }
       });
     }
   }
-  toggle(){ this.isOpen = !this.isOpen; this.navItems.classList.toggle('show'); const spans = this.menuToggle.querySelectorAll('span'); spans.forEach(s=>s.classList.toggle('active')); }
-  close(){ this.isOpen = false; this.navItems.classList.remove('show'); const spans = this.menuToggle.querySelectorAll('span'); spans.forEach(s=>s.classList.remove('active')); }
+  
+  toggle() { 
+    this.isOpen = !this.isOpen; 
+    this.navItems.classList.toggle('show'); 
+    const spans = this.menuToggle.querySelectorAll('span'); 
+    spans.forEach(s => s.classList.toggle('active')); 
+  }
+  
+  close() { 
+    this.isOpen = false; 
+    this.navItems.classList.remove('show'); 
+    const spans = this.menuToggle.querySelectorAll('span'); 
+    spans.forEach(s => s.classList.remove('active')); 
+  }
 }
 
-/* Notifications */
+/* Notification system */
 class NotificationManager {
-  static show(message, type='success') {
+  static show(message, type = 'success') {
     const n = document.getElementById('notification');
     const msg = document.getElementById('notificationMessage');
-    if(!n || !msg){ console.log(`${type.toUpperCase()}: ${message}`); return; }
+    
+    if (!n || !msg) { 
+      console.log(`${type.toUpperCase()}: ${message}`); 
+      return; 
+    }
+    
     msg.textContent = message;
     n.className = `notification ${type}`;
     n.classList.add('show');
+    
     const icon = n.querySelector('.notification-icon');
-    icon.className = type === 'success' ? 'fas fa-check-circle notification-icon' : 'fas fa-exclamation-circle notification-icon';
-    setTimeout(()=> n.classList.remove('show'), CONFIG.NOTIFICATION_DURATION);
+    if (type === 'success') {
+      icon.className = 'fas fa-check-circle notification-icon';
+    } else {
+      icon.className = 'fas fa-exclamation-circle notification-icon';
+    }
+    
+    setTimeout(() => n.classList.remove('show'), CONFIG.NOTIFICATION_DURATION);
   }
 }
 
-/* API service */
+/* API Service for Flask backend */
 class StockAPIService {
-  static async fetchStocks(){
+  static async fetchStocks() {
     try {
       const res = await fetch(`${CONFIG.API_BASE_URL}/api/stocks`);
-      if(!res.ok) throw new Error('Failed to fetch stocks');
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       return await res.json();
-    } catch(err){
-      console.error('fetchStocks error', err);
-      NotificationManager.show('Using fallback stock list', 'error');
-      return [
-        { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
-        { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
-        { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
-        { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
-        { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
-        { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
-        { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
-        { symbol: "SPY", name: "SPDR S&P 500 ETF", price: 445.20, change: 0.45 },
-        { symbol: "QQQ", name: "Invesco QQQ Trust", price: 378.90, change: 0.67 },
-        { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 }
-      ];
+    } catch (err) {
+      console.error('Fetch stocks error:', err);
+      NotificationManager.show('Using cached stock list', 'error');
+      return this.getFallbackStocks();
     }
   }
 
-  static async predict(symbol){
+  static async predict(symbol) {
     try {
       const res = await fetch(`${CONFIG.API_BASE_URL}/api/predict`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol })
       });
-      if(!res.ok){
-        const txt = await res.text();
-        throw new Error(`Server: ${res.status} ${txt}`);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Prediction failed: ${res.status} ${errorText}`);
       }
+      
       return await res.json();
-    } catch(err){
-      console.error('predict error', err);
+    } catch (err) {
+      console.error('Prediction error:', err);
       throw err;
     }
+  }
+
+  static async trainModels(symbol) {
+    try {
+      const res = await fetch(`${CONFIG.API_BASE_URL}/api/train`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol })
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Training failed: ${res.status} ${errorText}`);
+      }
+      
+      return await res.json();
+    } catch (err) {
+      console.error('Training error:', err);
+      throw err;
+    }
+  }
+
+  static async getPredictionHistory(symbol) {
+    try {
+      const res = await fetch(`${CONFIG.API_BASE_URL}/api/history/${symbol}`);
+      if (!res.ok) throw new Error(`History error: ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('History error:', err);
+      return null;
+    }
+  }
+
+  static getFallbackStocks() {
+    return [
+      { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
+      { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
+      { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
+      { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
+      { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
+      { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
+      { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
+      { symbol: "SPY", name: "SPDR S&P 500 ETF", price: 445.20, change: 0.45 },
+      { symbol: "QQQ", name: "Invesco QQQ Trust", price: 378.90, change: 0.67 },
+      { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 }
+    ];
   }
 }
 
 /* Stock List Manager */
 class StockListManager {
-  constructor(){
+  constructor() {
     this.stockListEl = document.getElementById('stockList');
     this.searchEl = document.getElementById('stockSearch');
     this.debounced = this.debounce(this.filterList.bind(this), CONFIG.DEBOUNCE_DELAY);
     this.init();
   }
-  init(){
-    if(this.searchEl) this.searchEl.addEventListener('input', this.debounced);
+
+  init() {
+    if (this.searchEl) {
+      this.searchEl.addEventListener('input', this.debounced);
+    }
   }
-  async populate(){
-    if(!this.stockListEl) return;
-    this.stockListEl.innerHTML = `<div class="stat" style="text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading stocks...</div>`;
+
+  async populate() {
+    if (!this.stockListEl) return;
+    
+    this.stockListEl.innerHTML = `
+      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
+      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
+      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
+    `;
+    
     AppState.allStocks = await StockAPIService.fetchStocks();
     this.render();
-    if(AppState.allStocks.length>0) this.select(AppState.allStocks[0]);
+    
+    if (AppState.allStocks.length > 0) {
+      this.select(AppState.allStocks[0]);
+    }
   }
-  render(){
+
+  render() {
     this.stockListEl.innerHTML = '';
-    AppState.allStocks.forEach(s => this.stockListEl.appendChild(this.createItem(s)));
+    AppState.allStocks.forEach(stock => {
+      this.stockListEl.appendChild(this.createStockItem(stock));
+    });
   }
-  createItem(stock){
+
+  createStockItem(stock) {
     const item = document.createElement('div');
     item.className = 'stock-item';
+    
+    const change = stock.change || 0;
+    const price = stock.price || 0;
+    
     item.innerHTML = `
       <div class="stock-info">
         <div class="stock-symbol">${stock.symbol}</div>
         <div class="stock-name">${stock.name}</div>
       </div>
-      <div class="stock-price ${stock.change>=0? 'price-up':'price-down'}">$${(stock.price||0).toFixed(2)} <span>${stock.change>=0? '+':''}${(stock.change||0).toFixed(2)}%</span></div>
+      <div class="stock-price ${change >= 0 ? 'price-up' : 'price-down'}">
+        $${price.toFixed(2)} 
+        <span>${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span>
+      </div>
     `;
+    
     item.addEventListener('click', () => this.select(stock));
     return item;
   }
-  select(stock){
-    document.querySelectorAll('.stock-item').forEach(i=>i.classList.remove('active'));
-    const found = Array.from(document.querySelectorAll('.stock-item')).find(i=> i.querySelector('.stock-symbol')?.textContent === stock.symbol);
-    if(found) found.classList.add('active');
+
+  select(stock) {
+    // Remove active class from all items
+    document.querySelectorAll('.stock-item').forEach(i => i.classList.remove('active'));
+    
+    // Find and activate selected item
+    const items = Array.from(document.querySelectorAll('.stock-item'));
+    const foundItem = items.find(i => {
+      const symbolEl = i.querySelector('.stock-symbol');
+      return symbolEl && symbolEl.textContent === stock.symbol;
+    });
+    
+    if (foundItem) {
+      foundItem.classList.add('active');
+    }
+    
     AppState.selectedStock = stock;
     document.getElementById('selectedStock').textContent = `${stock.symbol} - ${stock.name}`;
-    document.getElementById('currentPrice').textContent = `$${(stock.price||0).toFixed(2)}`;
+    
+    // Update current price display
+    const currentPriceEl = document.getElementById('currentPrice');
+    if (currentPriceEl) {
+      currentPriceEl.textContent = `$${(stock.price || 0).toFixed(2)}`;
+    }
+    
+    // Reset prediction display
     PredictionDisplay.reset();
   }
-  filterList(e){
-    const q = (e.target.value||'').toLowerCase().trim();
-    document.querySelectorAll('.stock-item').forEach(item=>{
-      const symbol = item.querySelector('.stock-symbol').textContent.toLowerCase();
-      const name = item.querySelector('.stock-name').textContent.toLowerCase();
-      item.style.display = (symbol.includes(q) || name.includes(q)) ? 'flex' : 'none';
+
+  filterList(e) {
+    const query = (e.target.value || '').toLowerCase().trim();
+    
+    document.querySelectorAll('.stock-item').forEach(item => {
+      const symbol = item.querySelector('.stock-symbol')?.textContent?.toLowerCase() || '';
+      const name = item.querySelector('.stock-name')?.textContent?.toLowerCase() || '';
+      
+      if (symbol.includes(query) || name.includes(query)) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
     });
   }
-  debounce(fn, wait){
-    let t;
-    return function(...args){
-      clearTimeout(t);
-      t = setTimeout(()=>fn.apply(this, args), wait);
-    }
+
+  debounce(fn, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
   }
 }
 
-/* Prediction Display */
+/* Comprehensive Prediction Display */
 class PredictionDisplay {
-  static reset(){
-    document.getElementById('predictedPrice').textContent = '—';
-    document.getElementById('confidenceLevel').textContent = '—';
-    document.getElementById('predictionChart').innerHTML = '<div>Select a stock and click Predict to generate AI-powered forecasts</div>';
-    this.hideNextDay();
+  static reset() {
+    // Reset main prediction display
+    const elements = {
+      'predictedPrice': '—',
+      'confidenceLevel': '—',
+      'currentPrice': '—'
+    };
+    
+    Object.keys(elements).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = elements[id];
+    });
+    
+    // Reset chart
+    const chartEl = document.getElementById('predictionChart');
+    if (chartEl) {
+      chartEl.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+          <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+          <div>Select a stock and click "Predict" to generate AI-powered forecasts</div>
+        </div>
+      `;
+    }
+    
+    // Hide sections
+    this.hideNextDayPredictions();
     this.hideRiskAlerts();
     this.resetPerformance();
-    this.resetCrisis();
+    this.resetCrisisDetection();
+    this.resetMetrics();
+    
+    // Reset confidence bars
+    document.querySelectorAll('.confidence-fill').forEach(el => {
+      el.style.width = '0%';
+    });
+    
+    document.querySelectorAll('.confidence-value').forEach(el => {
+      el.textContent = '—';
+    });
   }
 
-  static update(data){
-    if(!data) return;
-    const cp = data.current_price ?? data.current?.price ?? 0;
-    const close = (data.predicted_prices && data.predicted_prices.close) ? data.predicted_prices.close : (data.predictions?.Close?.predicted || cp);
-    const change = cp !== 0 ? ((close - cp) / cp) * 100 : 0;
-    document.getElementById('currentPrice').textContent = `$${cp.toFixed(2)}`;
-    document.getElementById('predictedPrice').innerHTML = `$${(close).toFixed(2)} <span style="color:${change>=0? 'var(--up-color)':'var(--down-color)'}">(${change>=0? '+':''}${change.toFixed(2)}%)</span>`;
-    const conf = data.confidence?.Close ?? data.confidence_level ?? (data.confidence_data?.Close?.mean ? 88 : 75);
-    this.updateConfidence(conf);
-    this.updateChart(data);
-    this.updateInsight(data);
-    if(data.predictions || data.predicted_prices) this.showNextDayPredictions(data.predictions || data.predicted_prices, cp);
+  static update(data) {
+    if (!data) return;
     
-    // Update new features
-    this.updatePerformance(data.historical_performance);
-    this.updateConfidenceBars(data.prediction_confidence);
-    this.updateCrisisDetection(data);
-    this.updateRiskAlerts(data.risk_alerts);
+    console.log('Prediction data received:', data);
     
+    // Store current predictions
     AppState.currentPredictions = data;
+    AppState.lastFetchTime = new Date();
+    
+    // Update current prices
+    const currentPrices = data.current_prices || {};
+    document.getElementById('currentPrice').textContent = 
+      `$${(currentPrices.close || data.current_prices?.close || 0).toFixed(2)}`;
+    
+    // Update predictions
+    const predictions = data.predictions || {};
+    this.updatePredictions(predictions, currentPrices.close || 0);
+    
+    // Update confidence
+    const confidence = data.confidence_metrics || {};
+    this.updateConfidence(confidence);
+    
+    // Update AI insight
+    this.updateInsight(data.insight || data.message || 'AI analysis completed.');
+    
+    // Update charts
+    this.updateChart(data);
+    
+    // Update next day predictions
+    this.updateNextDayPredictions(predictions, currentPrices);
+    
+    // Update performance metrics
+    this.updatePerformance(data.historical_performance || {});
+    
+    // Update confidence bars
+    this.updateConfidenceBars(predictions);
+    
+    // Update crisis detection
+    this.updateCrisisDetection(data);
+    
+    // Update risk alerts
+    this.updateRiskAlerts(data.risk_alerts || []);
+    
+    // Update metrics
+    this.updateMetrics(data);
+    
+    // Update risk level and recommendation
+    this.updateRiskAndRecommendation(data);
   }
 
-  static updateConfidence(conf){
-    const el = document.getElementById('confidenceLevel');
-    let txt = `Low (${Math.round(conf)}%)`, cls='confidence-low';
-    if(conf >= 85){ txt = `High (${Math.round(conf)}%)`; cls='confidence-high'; }
-    else if(conf >= 75){ txt = `Medium (${Math.round(conf)}%)`; cls='confidence-medium'; }
-    el.textContent = txt;
-    el.className = `prediction-value ${cls}`;
+  static updatePredictions(predictions, currentClose) {
+    if (!predictions.Close) return;
+    
+    const predictedClose = predictions.Close.predicted_price || predictions.Close.predicted || 0;
+    const expectedChange = predictions.Close.expected_change || 0;
+    
+    const predictedPriceEl = document.getElementById('predictedPrice');
+    if (predictedPriceEl) {
+      predictedPriceEl.innerHTML = `
+        $${predictedClose.toFixed(2)} 
+        <span style="color: ${expectedChange >= 0 ? 'var(--up-color)' : 'var(--down-color)'}; font-size: 14px;">
+          (${expectedChange >= 0 ? '+' : ''}${expectedChange.toFixed(2)}%)
+        </span>
+      `;
+    }
   }
 
-  static updateChart(data){
-    const el = document.getElementById('predictionChart');
-    if(!el) return;
-    const symbol = AppState.selectedStock?.symbol || (data.symbol || 'N/A');
-    const cp = data.current_price ?? 0;
-    const predicted = (data.predicted_prices && data.predicted_prices.close) ? data.predicted_prices.close : (data.predictions?.Close?.predicted || cp);
-    const change = cp ? ((predicted - cp)/cp)*100 : 0;
-    el.innerHTML = `
-      <div style="padding:20px;text-align:center">
-        <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px">AI Prediction Analysis</div>
-        <div style="font-size:16px;font-weight:bold;color:var(--active-color)">${symbol} Next Day Forecast</div>
-        <div style="margin-top:20px;font-size:13px;color:var(--text-muted)">Based on historical data and technical indicators</div>
-        <div style="margin-top:16px;padding:14px;background:var(--bg-dark);border-radius:8px">
-          <div style="display:flex;justify-content:space-between;font-size:12px">
-            <span>Current: $${cp.toFixed(2)}</span>
-            <span>Predicted: $${predicted.toFixed(2)}</span>
+  static updateConfidence(confidence) {
+    const overallConfidence = confidence.overall_confidence || 70;
+    const confidenceLevel = confidence.confidence_level || "MEDIUM";
+    
+    const confidenceEl = document.getElementById('confidenceLevel');
+    if (confidenceEl) {
+      let colorClass = 'confidence-low';
+      if (overallConfidence >= 80) colorClass = 'confidence-high';
+      else if (overallConfidence >= 60) colorClass = 'confidence-medium';
+      
+      confidenceEl.textContent = `${confidenceLevel} (${Math.round(overallConfidence)}%)`;
+      confidenceEl.className = `prediction-value ${colorClass}`;
+    }
+  }
+
+  static updateChart(data) {
+    const chartEl = document.getElementById('predictionChart');
+    if (!chartEl) return;
+    
+    const symbol = AppState.selectedStock?.symbol || data.symbol || 'N/A';
+    const currentPrice = data.current_prices?.close || 0;
+    const predictedPrice = data.predictions?.Close?.predicted_price || currentPrice;
+    const change = currentPrice ? ((predictedPrice - currentPrice) / currentPrice) * 100 : 0;
+    
+    // Create a simple bar chart visualization
+    const maxVal = Math.max(currentPrice, predictedPrice) * 1.1;
+    const currentHeight = (currentPrice / maxVal) * 100;
+    const predictedHeight = (predictedPrice / maxVal) * 100;
+    
+    chartEl.innerHTML = `
+      <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+        <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">
+          ${symbol} Price Forecast
+        </div>
+        
+        <div style="display: flex; align-items: flex-end; height: 140px; gap: 30px; padding: 0 20px;">
+          <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Current</div>
+            <div style="background: linear-gradient(to top, var(--accent-blue), var(--accent-teal)); 
+                        width: 40px; height: ${currentHeight}%; border-radius: 6px 6px 0 0;">
+            </div>
+            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${currentPrice.toFixed(2)}</div>
           </div>
-          <div style="height:8px;background:var(--border-color);border-radius:4px;margin-top:8px;overflow:hidden">
-            <div style="height:100%;background:${predicted>=cp? 'var(--up-color)':'var(--down-color)'};width:${Math.min(100, Math.max(10, 50 + change))}%"></div>
+          
+          <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Predicted</div>
+            <div style="background: linear-gradient(to top, ${change >= 0 ? 'var(--up-color)' : 'var(--down-color)'}, 
+                        ${change >= 0 ? 'rgba(0, 255, 157, 0.7)' : 'rgba(255, 77, 124, 0.7)'}); 
+                        width: 40px; height: ${predictedHeight}%; border-radius: 6px 6px 0 0;">
+            </div>
+            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${predictedPrice.toFixed(2)}</div>
           </div>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-muted);">
+          Expected change: <span style="color: ${change >= 0 ? 'var(--up-color)' : 'var(--down-color)'}; font-weight: 600;">
+            ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+          </span>
         </div>
       </div>
     `;
   }
 
-  static updateInsight(data){
-    const el = document.getElementById('aiInsightText');
-    if(el) el.textContent = data.insight || data.summary || 'AI analysis completed. Interpret predictions with caution.';
+  static updateInsight(insight) {
+    const insightEl = document.getElementById('aiInsightText');
+    if (insightEl) {
+      insightEl.textContent = insight;
+    }
   }
 
-  static showNextDayPredictions(preds, currentPrice){
-    const grid = document.getElementById('predictionsGrid');
-    const section = document.getElementById('nextDayPredictions');
-    if(!grid || !section) return;
-    grid.innerHTML = '';
-    const types = [
-      { key:'Open', label:'Open Price', icon:'fa-door-open' },
-      { key:'High', label:'High Price', icon:'fa-arrow-up' },
-      { key:'Low', label:'Low Price', icon:'fa-arrow-down' },
-      { key:'Close', label:'Close Price', icon:'fa-door-closed' }
+  static updateNextDayPredictions(predictions, currentPrices) {
+    const gridEl = document.getElementById('predictionsGrid');
+    const sectionEl = document.getElementById('nextDayPredictions');
+    
+    if (!gridEl || !sectionEl) return;
+    
+    const predictionTypes = [
+      { key: 'Open', label: 'Open Price', icon: 'fa-door-open' },
+      { key: 'High', label: 'High Price', icon: 'fa-arrow-up' },
+      { key: 'Low', label: 'Low Price', icon: 'fa-arrow-down' },
+      { key: 'Close', label: 'Close Price', icon: 'fa-door-closed' }
     ];
-    types.forEach(t => {
-      const predVal = (preds[t.key] && (preds[t.key].predicted || preds[t.key])) ? (preds[t.key].predicted || preds[t.key]) : (preds[t.key.toLowerCase()] || null);
-      if(predVal == null) return;
-      const change = currentPrice ? ((predVal - currentPrice)/currentPrice)*100 : 0;
-      const el = document.createElement('div'); el.className = 'prediction-type';
-      el.innerHTML = `
-        <div class="prediction-type-label"><i class="fas ${t.icon}"></i> ${t.label}</div>
-        <div class="prediction-type-value">$${Number(predVal).toFixed(2)}</div>
-        <div class="prediction-type-change ${change>=0? 'price-up':'price-down'}">${change>=0? '+':''}${change.toFixed(2)}%</div>
+    
+    gridEl.innerHTML = '';
+    
+    predictionTypes.forEach(type => {
+      const predData = predictions[type.key];
+      if (!predData) return;
+      
+      const predictedValue = predData.predicted_price || predData.predicted || 0;
+      const currentValue = currentPrices[type.key.toLowerCase()] || currentPrices.close || predictedValue;
+      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
+      
+      const itemEl = document.createElement('div');
+      itemEl.className = 'prediction-type';
+      itemEl.innerHTML = `
+        <div class="prediction-type-label">
+          <i class="fas ${type.icon}"></i> ${type.label}
+        </div>
+        <div class="prediction-type-value">$${predictedValue.toFixed(2)}</div>
+        <div class="prediction-type-change ${change >= 0 ? 'price-up' : 'price-down'}">
+          ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+          Conf: ${predData.confidence ? Math.round(predData.confidence) : '—'}%
+        </div>
       `;
-      grid.appendChild(el);
+      
+      gridEl.appendChild(itemEl);
     });
-    section.style.display = 'block';
-  }
-
-  static hideNextDay(){ const s = document.getElementById('nextDayPredictions'); if(s) s.style.display='none'; }
-
-  static updatePerformance(performance){
-    if(!performance) return;
     
-    const closePerf = performance.Close || performance.close || {};
-    document.getElementById('r2Score').textContent = closePerf.test_r2 ? closePerf.test_r2.toFixed(3) : '—';
-    document.getElementById('directionAccuracy').textContent = closePerf.test_direction_accuracy ? `${(closePerf.test_direction_accuracy * 100).toFixed(1)}%` : '—';
-    document.getElementById('rmseScore').textContent = closePerf.test_rmse ? closePerf.test_rmse.toFixed(4) : '—';
-    document.getElementById('overfittingRatio').textContent = closePerf.overfitting_ratio ? closePerf.overfitting_ratio.toFixed(2) : '—';
+    sectionEl.style.display = 'block';
   }
 
-  static resetPerformance(){
-    document.getElementById('r2Score').textContent = '—';
-    document.getElementById('directionAccuracy').textContent = '—';
-    document.getElementById('rmseScore').textContent = '—';
-    document.getElementById('overfittingRatio').textContent = '—';
+  static hideNextDayPredictions() {
+    const sectionEl = document.getElementById('nextDayPredictions');
+    if (sectionEl) {
+      sectionEl.style.display = 'none';
+    }
   }
 
-  static updateConfidenceBars(confidence){
-    if(!confidence) return;
+  static updatePerformance(performance) {
+    if (!performance || !performance.Close) return;
     
+    const closePerf = performance.Close;
+    const algorithms = Object.keys(closePerf);
+    
+    if (algorithms.length > 0) {
+      // Take the first algorithm's performance (or average them)
+      const firstAlgo = closePerf[algorithms[0]];
+      
+      document.getElementById('r2Score').textContent = 
+        firstAlgo.r2 ? firstAlgo.r2.toFixed(3) : '—';
+      
+      document.getElementById('directionAccuracy').textContent = 
+        firstAlgo.direction_accuracy ? `${firstAlgo.direction_accuracy.toFixed(1)}%` : '—';
+      
+      document.getElementById('rmseScore').textContent = 
+        firstAlgo.rmse ? firstAlgo.rmse.toFixed(4) : '—';
+      
+      // Calculate simple overfitting ratio
+      if (firstAlgo.train_rmse && firstAlgo.test_rmse) {
+        const overfittingRatio = firstAlgo.test_rmse / firstAlgo.train_rmse;
+        document.getElementById('overfittingRatio').textContent = overfittingRatio.toFixed(2);
+      }
+    }
+  }
+
+  static resetPerformance() {
+    const ids = ['r2Score', 'directionAccuracy', 'rmseScore', 'overfittingRatio'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+  }
+
+  static updateConfidenceBars(predictions) {
     const targets = ['Open', 'High', 'Low', 'Close'];
-    targets.forEach(target => {
-      const confData = confidence[target];
-      if(confData) {
-        const bar = document.querySelector(`.confidence-bar:nth-child(${targets.indexOf(target) + 1}) .confidence-fill`);
-        const value = document.querySelector(`.confidence-bar:nth-child(${targets.indexOf(target) + 1}) .confidence-value`);
-        if(bar && value) {
-          const score = confData.confidence_score || 50;
-          bar.style.width = `${score}%`;
-          value.textContent = `${Math.round(score)}%`;
-        }
+    const colors = [
+      'var(--accent-blue)',
+      'var(--accent-teal)',
+      'var(--accent-purple)',
+      'var(--up-color)'
+    ];
+    
+    targets.forEach((target, index) => {
+      const predData = predictions[target];
+      if (!predData) return;
+      
+      const confidence = predData.confidence || 50;
+      const barEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-fill`);
+      const valueEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-value`);
+      
+      if (barEl && valueEl) {
+        barEl.style.width = `${confidence}%`;
+        barEl.style.background = colors[index];
+        valueEl.textContent = `${Math.round(confidence)}%`;
       }
     });
   }
 
-  static updateCrisisDetection(data){
-    const crisisProb = data.crisis_probability || 0.1;
-    const marketRegime = data.market_regime || 'NORMAL';
+  static updateCrisisDetection(data) {
+    const crisisProbability = data.risk_metrics?.volatility ? Math.min(data.risk_metrics.volatility / 50, 1) * 100 : 10;
+    const riskLevel = data.risk_level || "🟢 LOW RISK";
     
     // Update crisis card
     const crisisCard = document.getElementById('crisisCard');
-    const crisisProbability = document.getElementById('crisisProbability');
-    const crisisDescription = document.getElementById('crisisDescription');
+    const crisisProbabilityEl = document.getElementById('crisisProbability');
+    const crisisDescriptionEl = document.getElementById('crisisDescription');
     
-    let crisisLevel = 'normal';
+    let crisisClass = 'normal';
     let crisisIcon = 'fa-check-circle';
-    let crisisColor = 'var(--normal-green)';
+    let iconColor = 'var(--normal-green)';
     let description = 'Market conditions appear stable with normal volatility levels.';
     
-    if(crisisProb > 0.7) {
-      crisisLevel = 'critical';
+    if (crisisProbability > 70) {
+      crisisClass = 'critical';
       crisisIcon = 'fa-exclamation-triangle';
-      crisisColor = 'var(--crisis-red)';
-      description = 'High probability of market crisis detected. Exercise extreme caution.';
-    } else if(crisisProb > 0.4) {
-      crisisLevel = 'warning';
+      iconColor = 'var(--crisis-red)';
+      description = 'High probability of market stress detected. Exercise extreme caution.';
+    } else if (crisisProbability > 40) {
+      crisisClass = 'warning';
       crisisIcon = 'fa-exclamation-circle';
-      crisisColor = 'var(--warning-orange)';
+      iconColor = 'var(--warning-orange)';
       description = 'Elevated market risk detected. Monitor positions closely.';
     }
     
-    crisisCard.className = `crisis-card ${crisisLevel}`;
+    crisisCard.className = `crisis-card ${crisisClass}`;
     crisisCard.querySelector('.crisis-icon').className = `fas ${crisisIcon} crisis-icon`;
-    crisisCard.querySelector('.crisis-icon').style.color = crisisColor;
-    crisisCard.querySelector('.crisis-level').textContent = 
-      crisisLevel === 'critical' ? 'Critical Market Risk' : 
-      crisisLevel === 'warning' ? 'Elevated Market Risk' : 'Normal Market Conditions';
+    crisisCard.querySelector('.crisis-icon').style.color = iconColor;
     
-    crisisProbability.textContent = `${(crisisProb * 100).toFixed(1)}%`;
-    crisisDescription.textContent = description;
+    crisisProbabilityEl.textContent = `${crisisProbability.toFixed(1)}%`;
+    crisisDescriptionEl.textContent = description;
     
     // Update regime card
     const regimeCard = document.getElementById('regimeCard');
-    const regimeLevel = document.getElementById('regimeLevel');
+    const regimeLevelEl = document.getElementById('regimeLevel');
     
-    regimeLevel.textContent = marketRegime;
-    regimeCard.className = `crisis-card ${crisisLevel}`; // Use same styling as crisis for now
+    // Determine market regime from risk metrics
+    const volatility = data.risk_metrics?.volatility || 0;
+    const anomalyScore = data.risk_metrics?.anomaly_score || 0;
     
-    // Update regime indicators based on market regime
-    this.updateRegimeIndicators(marketRegime);
+    let regime = 'NORMAL';
+    if (volatility > 40) regime = 'HIGH_VOLATILITY';
+    else if (anomalyScore > 30) regime = 'ELEVATED_RISK';
+    
+    regimeLevelEl.textContent = regime;
+    regimeCard.className = `crisis-card ${crisisClass}`;
+    
+    // Update regime indicators
+    this.updateRegimeIndicators(regime, data.risk_metrics || {});
   }
 
-  static updateRegimeIndicators(regime){
+  static updateRegimeIndicators(regime, riskMetrics) {
     const indicators = {
       volatility: document.getElementById('volatilityIndicator'),
       momentum: document.getElementById('momentumIndicator'),
@@ -963,209 +1241,441 @@ class PredictionDisplay {
       sentiment: document.getElementById('sentimentIndicator')
     };
     
-    const regimeSettings = {
-      'HIGH_VOLATILITY': {
-        volatility: 'Volatility: Very High',
-        momentum: 'Momentum: Erratic',
-        volume: 'Volume: Elevated',
-        sentiment: 'Sentiment: Fearful'
-      },
-      'ELEVATED_RISK': {
-        volatility: 'Volatility: High',
-        momentum: 'Momentum: Mixed',
-        volume: 'Volume: Above Average',
-        sentiment: 'Sentiment: Cautious'
-      },
-      'EXTREME_SENTIMENT': {
-        volatility: 'Volatility: Elevated',
-        momentum: 'Momentum: Strong',
-        volume: 'Volume: High',
-        sentiment: 'Sentiment: Extreme'
-      },
-      'STRONG_TREND': {
-        volatility: 'Volatility: Moderate',
-        momentum: 'Momentum: Strong',
-        volume: 'Volume: Normal',
-        sentiment: 'Sentiment: Confident'
-      },
-      'HIGH_VOLUME': {
-        volatility: 'Volatility: Normal',
-        momentum: 'Momentum: Normal',
-        volume: 'Volume: Very High',
-        sentiment: 'Sentiment: Active'
-      },
-      'NORMAL': {
-        volatility: 'Volatility: Normal',
-        momentum: 'Momentum: Neutral',
-        volume: 'Volume: Average',
-        sentiment: 'Sentiment: Balanced'
-      }
-    };
+    const volatilityValue = riskMetrics.volatility || 0;
+    const skewness = riskMetrics.skewness || 0;
+    const positiveDays = riskMetrics.positive_days || 50;
     
-    const settings = regimeSettings[regime] || regimeSettings.NORMAL;
-    
-    Object.keys(indicators).forEach(key => {
-      if(indicators[key]) {
-        indicators[key].textContent = settings[key];
-      }
-    });
-  }
-
-  static updateRiskAlerts(alerts){
-    const alertList = document.getElementById('alertList');
-    const riskAlerts = document.getElementById('riskAlerts');
-    
-    if(!alerts || alerts.length === 0) {
-      riskAlerts.style.display = 'none';
-      return;
+    // Set indicator text based on metrics
+    if (indicators.volatility) {
+      let volText = 'Volatility: ';
+      if (volatilityValue > 40) volText += 'Very High';
+      else if (volatilityValue > 20) volText += 'High';
+      else if (volatilityValue > 10) volText += 'Moderate';
+      else volText += 'Low';
+      indicators.volatility.textContent = volText;
     }
     
-    alertList.innerHTML = '';
-    alerts.forEach(alert => {
-      const alertItem = document.createElement('div');
-      alertItem.className = 'alert-item';
-      
-      let alertType = 'info';
-      let icon = 'fa-info-circle';
-      
-      if(alert.level.includes('🔴')) {
-        alertType = 'critical';
-        icon = 'fa-exclamation-triangle';
-      } else if(alert.level.includes('🟡')) {
-        alertType = 'warning';
-        icon = 'fa-exclamation-circle';
-      }
-      
-      alertItem.classList.add(alertType);
-      alertItem.innerHTML = `
-        <i class="fas ${icon} alert-icon"></i>
-        <div class="alert-content">
-          <div class="alert-level">${alert.level} ${alert.type}</div>
-          <div class="alert-message">${alert.message}</div>
-          <div class="alert-action">${alert.action || 'Monitor closely'}</div>
-        </div>
-      `;
-      alertList.appendChild(alertItem);
-    });
+    if (indicators.momentum) {
+      let momText = 'Momentum: ';
+      if (skewness > 0.5) momText += 'Bullish';
+      else if (skewness < -0.5) momText += 'Bearish';
+      else momText += 'Neutral';
+      indicators.momentum.textContent = momText;
+    }
     
-    riskAlerts.style.display = 'block';
+    if (indicators.volume) {
+      indicators.volume.textContent = 'Volume: Standard';
+    }
+    
+    if (indicators.sentiment) {
+      let sentText = 'Sentiment: ';
+      if (positiveDays > 60) sentText += 'Bullish';
+      else if (positiveDays < 40) sentText += 'Bearish';
+      else sentText += 'Neutral';
+      indicators.sentiment.textContent = sentText;
+    }
   }
 
-  static hideRiskAlerts(){
-    const riskAlerts = document.getElementById('riskAlerts');
-    if(riskAlerts) riskAlerts.style.display = 'none';
-  }
-
-  static resetCrisis(){
+  static resetCrisisDetection() {
     const crisisCard = document.getElementById('crisisCard');
     const regimeCard = document.getElementById('regimeCard');
     
-    crisisCard.className = 'crisis-card normal';
-    regimeCard.className = 'crisis-card normal';
+    if (crisisCard) crisisCard.className = 'crisis-card normal';
+    if (regimeCard) regimeCard.className = 'crisis-card normal';
     
     document.getElementById('crisisProbability').textContent = '10%';
-    document.getElementById('crisisDescription').textContent = 'Market conditions appear stable with normal volatility levels.';
     document.getElementById('regimeLevel').textContent = 'NORMAL';
     
-    this.updateRegimeIndicators('NORMAL');
+    // Reset indicators
+    this.updateRegimeIndicators('NORMAL', {});
+  }
+
+  static updateRiskAlerts(alerts) {
+    const alertListEl = document.getElementById('alertList');
+    const riskAlertsSection = document.getElementById('riskAlerts');
+    
+    if (!alertListEl || !riskAlertsSection) return;
+    
+    if (!alerts || alerts.length === 0) {
+      riskAlertsSection.style.display = 'none';
+      return;
+    }
+    
+    alertListEl.innerHTML = '';
+    
+    alerts.forEach(alert => {
+      const alertItem = document.createElement('div');
+      
+      let alertClass = 'info';
+      let icon = 'fa-info-circle';
+      
+      if (alert.level.includes('🔴') || alert.level.includes('CRITICAL')) {
+        alertClass = 'critical';
+        icon = 'fa-exclamation-triangle';
+      } else if (alert.level.includes('🟡') || alert.level.includes('HIGH')) {
+        alertClass = 'warning';
+        icon = 'fa-exclamation-circle';
+      }
+      
+      alertItem.className = `alert-item ${alertClass}`;
+      alertItem.innerHTML = `
+        <i class="fas ${icon} alert-icon"></i>
+        <div class="alert-content">
+          <div class="alert-level">${alert.level || '⚠️ ALERT'} ${alert.type || 'Risk Alert'}</div>
+          <div class="alert-message">${alert.message || 'Risk condition detected'}</div>
+          <div class="alert-action">${alert.details || 'Monitor closely'}</div>
+        </div>
+      `;
+      
+      alertListEl.appendChild(alertItem);
+    });
+    
+    riskAlertsSection.style.display = 'block';
+  }
+
+  static hideRiskAlerts() {
+    const riskAlertsSection = document.getElementById('riskAlerts');
+    if (riskAlertsSection) {
+      riskAlertsSection.style.display = 'none';
+    }
+  }
+
+  static updateMetrics(data) {
+    // Update accuracy metric
+    const performance = data.historical_performance?.Close;
+    if (performance) {
+      const algorithms = Object.keys(performance);
+      let totalAccuracy = 0;
+      algorithms.forEach(algo => {
+        totalAccuracy += performance[algo].direction_accuracy || 0;
+      });
+      const avgAccuracy = algorithms.length > 0 ? totalAccuracy / algorithms.length : 0;
+      document.getElementById('metricAccuracy').textContent = `${avgAccuracy.toFixed(1)}%`;
+    }
+    
+    // Update profitable predictions
+    const positiveDays = data.risk_metrics?.positive_days || 50;
+    document.getElementById('metricProfit').textContent = `${positiveDays.toFixed(1)}%`;
+    
+    // Update latency
+    if (AppState.lastFetchTime) {
+      const now = new Date();
+      const latency = Math.round((now - AppState.lastFetchTime) / 1000);
+      document.getElementById('metricLatency').textContent = `${latency}s`;
+    }
+    
+    // Update history
+    const totalDays = data.data_info?.total_days || 0;
+    document.getElementById('metricHistory').textContent = `${totalDays} days`;
+  }
+
+  static resetMetrics() {
+    const metricIds = ['metricAccuracy', 'metricProfit', 'metricLatency', 'metricHistory'];
+    metricIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+  }
+
+  static updateRiskAndRecommendation(data) {
+    const riskLevel = data.risk_level || "🟢 LOW RISK";
+    const recommendation = data.trading_recommendation || "🔄 HOLD";
+    
+    // You can add DOM elements to display these if needed
+    console.log(`Risk Level: ${riskLevel}, Recommendation: ${recommendation}`);
   }
 }
 
 /* Prediction Manager */
 class PredictionManager {
-  static async generate(){
-    if(!AppState.selectedStock) { NotificationManager.show('Select a stock first','error'); return; }
-    if(AppState.isGenerating) return;
-    AppState.isGenerating = true;
-    PredictionManager.updateButtons(true);
-    PredictionDisplay.reset();
-    try {
-      const symbol = AppState.selectedStock.symbol;
-      const data = await StockAPIService.predict(symbol);
-      PredictionDisplay.update(data);
-      NotificationManager.show(`Predictions ready for ${symbol}`,'success');
-      // update metric placeholders
-      document.getElementById('metricAccuracy').textContent = data.model_health?.training_date ? '—' : '—';
-      document.getElementById('metricHistory').textContent = data.data_analysis?.total_data_points ? `${data.data_analysis.total_data_points}` : '—';
-      document.getElementById('metricLatency').textContent = '—';
-      document.getElementById('metricProfit').textContent = '—';
-    } catch(err){
-      console.error(err);
-      NotificationManager.show('Prediction failed — see console','error');
-      PredictionDisplay.showError = function(msg){
-        const ch = document.getElementById('predictionChart');
-        if(ch) ch.innerHTML = `<div style="color:var(--down-color)">${msg}</div>`;
-      };
-      PredictionDisplay.showError(String(err));
-    } finally {
-      AppState.isGenerating = false;
-      PredictionManager.updateButtons(false);
+  static async generate() {
+    if (!AppState.selectedStock) {
+      NotificationManager.show('Please select a stock first', 'error');
+      return;
     }
-  }
-  static updateButtons(isLoading){
-    const pb = document.getElementById('predictBtn');
-    const rb = document.getElementById('refreshBtn');
-    const ga = document.getElementById('generateAllBtn');
-    if(pb) { pb.disabled = isLoading; pb.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin"></i> Predicting...' : '<i class="fas fa-chart-line"></i> Predict'; }
-    if(rb) rb.disabled = isLoading;
-    if(ga) ga.disabled = isLoading;
-  }
-  static async refresh(){
-    if(!AppState.selectedStock || AppState.isGenerating) return;
-    await PredictionManager.generate();
-  }
-  static async generateAll(){
-    if(AppState.isGenerating) return;
+    
+    if (AppState.isGenerating) return;
+    
     AppState.isGenerating = true;
-    const ga = document.getElementById('generateAllBtn');
-    if(ga){ ga.disabled=true; ga.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...'; }
-    NotificationManager.show('Generating predictions for all visible stocks','success');
-    // naive sequential generation for UI (you can batch server-side)
+    this.updateButtons(true);
+    
+    const symbol = AppState.selectedStock.symbol;
+    
     try {
-      for(const s of AppState.allStocks.slice(0, 10)){
-        await new Promise(res=>setTimeout(res, 600)); // gentle delay
-        try {
-          const d = await StockAPIService.predict(s.symbol);
-          console.log('Batch prediction', s.symbol, d.predicted_prices?.close);
-        } catch(e){ console.warn('Batch error', s.symbol, e); }
+      NotificationManager.show(`Generating predictions for ${symbol}...`, 'success');
+      
+      // Show loading state
+      const chartEl = document.getElementById('predictionChart');
+      if (chartEl) {
+        chartEl.innerHTML = `
+          <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+            <i class="fas fa-spinner fa-spin" style="font-size: 36px; margin-bottom: 16px;"></i>
+            <div>AI is analyzing ${symbol} with 4 algorithms...</div>
+            <div style="font-size: 12px; margin-top: 8px;">This may take a few seconds</div>
+          </div>
+        `;
       }
-      NotificationManager.show('Batch generation complete','success');
+      
+      // Fetch prediction from Flask API
+      const data = await StockAPIService.predict(symbol);
+      
+      // Update display with prediction data
+      PredictionDisplay.update(data);
+      
+      NotificationManager.show(`Predictions ready for ${symbol}`, 'success');
+      
+    } catch (err) {
+      console.error('Prediction generation error:', err);
+      NotificationManager.show(`Prediction failed: ${err.message}`, 'error');
+      
+      // Show error in chart
+      const chartEl = document.getElementById('predictionChart');
+      if (chartEl) {
+        chartEl.innerHTML = `
+          <div style="padding: 40px; text-align: center; color: var(--down-color);">
+            <i class="fas fa-exclamation-triangle" style="font-size: 36px; margin-bottom: 16px;"></i>
+            <div>Prediction failed</div>
+            <div style="font-size: 12px; margin-top: 8px;">${err.message}</div>
+          </div>
+        `;
+      }
     } finally {
       AppState.isGenerating = false;
-      if(ga){ ga.disabled=false; ga.innerHTML = '<i class="fas fa-bolt"></i>Generate All'; }
+      this.updateButtons(false);
+    }
+  }
+
+  static async trainModels() {
+    if (!AppState.selectedStock) {
+      NotificationManager.show('Please select a stock first', 'error');
+      return;
+    }
+    
+    const symbol = AppState.selectedStock.symbol;
+    
+    try {
+      NotificationManager.show(`Training models for ${symbol}...`, 'success');
+      const result = await StockAPIService.trainModels(symbol);
+      
+      if (result.status === 'success') {
+        NotificationManager.show(`Models trained successfully for ${symbol}`, 'success');
+        
+        // Refresh predictions after training
+        setTimeout(() => this.generate(), 1000);
+      } else {
+        NotificationManager.show(`Training failed: ${result.message}`, 'error');
+      }
+    } catch (err) {
+      console.error('Training error:', err);
+      NotificationManager.show(`Training failed: ${err.message}`, 'error');
+    }
+  }
+
+  static async refresh() {
+    if (!AppState.selectedStock || AppState.isGenerating) return;
+    await this.generate();
+  }
+
+  static async generateAll() {
+    if (AppState.isGenerating) return;
+    
+    AppState.isGenerating = true;
+    this.updateButtons(true);
+    
+    const generateAllBtn = document.getElementById('generateAllBtn');
+    if (generateAllBtn) {
+      generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating All...';
+    }
+    
+    NotificationManager.show('Generating predictions for all stocks...', 'success');
+    
+    try {
+      // Limit to first 5 stocks to avoid overwhelming the server
+      const stocksToProcess = AppState.allStocks.slice(0, 5);
+      
+      for (const stock of stocksToProcess) {
+        try {
+          AppState.selectedStock = stock;
+          await StockAPIService.predict(stock.symbol);
+          console.log(`Generated prediction for ${stock.symbol}`);
+        } catch (err) {
+          console.warn(`Failed to generate for ${stock.symbol}:`, err);
+        }
+        
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Restore original selection
+      if (AppState.selectedStock) {
+        await StockAPIService.predict(AppState.selectedStock.symbol);
+      }
+      
+      NotificationManager.show('Batch generation complete', 'success');
+    } catch (err) {
+      console.error('Batch generation error:', err);
+      NotificationManager.show('Batch generation partially failed', 'error');
+    } finally {
+      AppState.isGenerating = false;
+      this.updateButtons(false);
+      
+      if (generateAllBtn) {
+        generateAllBtn.innerHTML = '<i class="fas fa-bolt"></i> Generate All';
+      }
+    }
+  }
+
+  static updateButtons(isLoading) {
+    const buttons = {
+      'predictBtn': '<i class="fas fa-chart-line"></i> Predict',
+      'refreshBtn': '<i class="fas fa-sync-alt"></i> Refresh',
+      'generateAllBtn': '<i class="fas fa-bolt"></i> Generate All',
+      'trainBtn': '<i class="fas fa-brain"></i> Train Models'
+    };
+    
+    Object.keys(buttons).forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = isLoading;
+        if (isLoading && id === 'predictBtn') {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
+        } else if (isLoading && id === 'generateAllBtn') {
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        } else {
+          btn.innerHTML = buttons[id];
+        }
+      }
+    });
+  }
+}
+
+/* Theme Manager */
+class ThemeManager {
+  static toggle() {
+    document.body.classList.toggle('light');
+    localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+  }
+
+  static load() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+      document.body.classList.add('light');
     }
   }
 }
 
-/* Theme manager */
-class ThemeManager {
-  static toggle(){ document.body.classList.toggle('light'); localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark'); }
-  static load(){ const s = localStorage.getItem('theme'); if(s==='light') document.body.classList.add('light'); }
-}
-
-/* Wiring up UI */
-let stockListMgr;
+/* Initialize Application */
+let stockListManager;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('Initializing Stock Prediction App...');
+  
+  // Initialize components
   ThemeManager.load();
   new MobileMenu();
-  stockListMgr = new StockListManager();
-  await stockListMgr.populate();
-  // setup buttons
-  document.getElementById('predictBtn').addEventListener('click', ()=>PredictionManager.generate());
-  document.getElementById('refreshBtn').addEventListener('click', ()=>PredictionManager.refresh());
-  document.getElementById('generateAllBtn').addEventListener('click', ()=>PredictionManager.generateAll());
-  document.getElementById('themeBtn').addEventListener('click', ()=>ThemeManager.toggle());
-  document.getElementById('globalSearch').addEventListener('input', (e)=> console.log('Search:', e.target.value));
-  // stock search enter key support
-  const stockSearch = document.getElementById('stockSearch');
-  if(stockSearch) stockSearch.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const q = e.target.value.trim().toLowerCase(); const found = AppState.allStocks.find(s=> s.symbol.toLowerCase()===q || s.name.toLowerCase().includes(q)); if(found) stockListMgr.select(found); }});
+  
+  // Initialize stock list manager
+  stockListManager = new StockListManager();
+  await stockListManager.populate();
+  
+  // Set up event listeners
+  this.setupEventListeners();
+  
+  // Auto-refresh stocks periodically
+  this.setupAutoRefresh();
+  
+  console.log('App initialized successfully');
 });
 
-/* Simple global error handler */
-window.addEventListener('error', (ev) => {
-  console.error('Global error', ev.error || ev.message);
-  NotificationManager.show('An unexpected error occurred','error');
+function setupEventListeners() {
+  // Prediction buttons
+  document.getElementById('predictBtn').addEventListener('click', () => PredictionManager.generate());
+  document.getElementById('refreshBtn').addEventListener('click', () => PredictionManager.refresh());
+  document.getElementById('generateAllBtn').addEventListener('click', () => PredictionManager.generateAll());
+  
+  // Theme toggle
+  document.getElementById('themeBtn').addEventListener('click', () => ThemeManager.toggle());
+  
+  // Train models button (optional - add if you want this feature)
+  const trainBtn = document.createElement('button');
+  trainBtn.id = 'trainBtn';
+  trainBtn.className = 'btn btn-secondary';
+  trainBtn.innerHTML = '<i class="fas fa-brain"></i> Train Models';
+  trainBtn.addEventListener('click', () => PredictionManager.trainModels());
+  document.querySelector('.prediction-actions').appendChild(trainBtn);
+  
+  // Global search
+  const globalSearch = document.getElementById('globalSearch');
+  if (globalSearch) {
+    globalSearch.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      console.log('Searching for:', query);
+    });
+  }
+  
+  // Stock search with Enter key
+  const stockSearch = document.getElementById('stockSearch');
+  if (stockSearch) {
+    stockSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = e.target.value.trim().toUpperCase();
+        const foundStock = AppState.allStocks.find(stock => 
+          stock.symbol.toUpperCase() === query || 
+          stock.name.toUpperCase().includes(query)
+        );
+        
+        if (foundStock) {
+          stockListManager.select(foundStock);
+          stockSearch.value = '';
+        } else {
+          NotificationManager.show(`Stock "${query}" not found`, 'error');
+        }
+      }
+    });
+  }
+  
+  // History range selector
+  const historyRange = document.getElementById('historyRange');
+  if (historyRange) {
+    historyRange.addEventListener('change', (e) => {
+      console.log('History range changed to:', e.target.value);
+    });
+  }
+  
+  // Confidence filter
+  const confidenceFilter = document.getElementById('confidenceFilter');
+  if (confidenceFilter) {
+    confidenceFilter.addEventListener('change', (e) => {
+      console.log('Confidence filter changed to:', e.target.value);
+    });
+  }
+}
+
+function setupAutoRefresh() {
+  // Refresh stock list every 5 minutes
+  setInterval(async () => {
+    if (!AppState.isGenerating) {
+      const previousCount = AppState.allStocks.length;
+      AppState.allStocks = await StockAPIService.fetchStocks();
+      stockListManager.render();
+      
+      if (AppState.allStocks.length !== previousCount) {
+        console.log(`Stock list refreshed: ${AppState.allStocks.length} stocks`);
+      }
+    }
+  }, CONFIG.STOCK_REFRESH_INTERVAL);
+}
+
+/* Global error handler */
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error || event.message);
+  NotificationManager.show('An unexpected error occurred', 'error');
+});
+
+/* Unhandled promise rejection handler */
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  NotificationManager.show('A background operation failed', 'error');
 });
 </script>
 </body>
