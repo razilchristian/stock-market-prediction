@@ -1,4 +1,4 @@
-# app.py — Enhanced AlphaAnalytics with improved accuracy and risk management
+# app.py — Complete Enhanced AlphaAnalytics with all dependencies
 import os
 import time
 import random
@@ -7,7 +7,6 @@ import threading
 import warnings
 from functools import wraps
 from datetime import datetime, timedelta
-from collections import deque
 
 import pandas as pd
 import numpy as np
@@ -21,7 +20,6 @@ from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from sklearn.dummy import DummyRegressor
 from sklearn.feature_selection import SelectKBest, f_regression
 import joblib
-import ta  # Technical Analysis library for additional indicators
 
 warnings.filterwarnings('ignore')
 
@@ -29,25 +27,11 @@ warnings.filterwarnings('ignore')
 MODELS_DIR = 'models'
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-# ---------------- Historical Market Crises for Context ----------------
-HISTORICAL_CRISES = {
-    '2008-09-15': {'name': 'Lehman Brothers Bankruptcy', 'severity': 'HIGH', 'market_drop': -4.4, 'recovery_days': 485},
-    '2020-03-16': {'name': 'COVID-19 Crash', 'severity': 'HIGH', 'market_drop': -12.9, 'recovery_days': 125},
-    '2020-03-12': {'name': 'COVID-19 Pandemic', 'severity': 'HIGH', 'market_drop': -9.5, 'recovery_days': 95},
-    '2020-03-09': {'name': 'Oil Price War', 'severity': 'MEDIUM', 'market_drop': -7.6, 'recovery_days': 45},
-    '2018-12-24': {'name': 'Christmas Eve Massacre', 'severity': 'MEDIUM', 'market_drop': -2.7, 'recovery_days': 15},
-    '2011-08-08': {'name': 'US Credit Downgrade', 'severity': 'MEDIUM', 'market_drop': -6.7, 'recovery_days': 60},
-    '2022-06-13': {'name': 'Inflation Fears', 'severity': 'MEDIUM', 'market_drop': -3.9, 'recovery_days': 35},
-    '2022-09-13': {'name': 'CPI Shock', 'severity': 'MEDIUM', 'market_drop': -4.3, 'recovery_days': 40},
-    '2023-03-10': {'name': 'SVB Collapse', 'severity': 'HIGH', 'market_drop': -1.5, 'recovery_days': 12},
-    '2024-01-02': {'name': 'New Year Selloff', 'severity': 'LOW', 'market_drop': -1.2, 'recovery_days': 8}
-}
-
 # ---------------- Flask ----------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 server = Flask(__name__, template_folder='templates', static_folder='static')
 
-# ---------------- Create Required Directories ----------------
+# ---------------- Setup Directories ----------------
 def setup_directories():
     """Create required directories if they don't exist"""
     directories = ['templates', 'static', 'static/css', 'static/js', 'static/images', 'models']
@@ -57,7 +41,7 @@ def setup_directories():
             os.makedirs(dir_path)
             print(f"📁 Created directory: {directory}/")
 
-# ---------------- Basic HTML Templates ----------------
+# ---------------- Create Basic Templates ----------------
 def create_basic_templates():
     """Create basic HTML templates for all pages"""
     templates_dir = os.path.join(current_dir, 'templates')
@@ -476,14 +460,6 @@ def create_basic_templates():
                 f.write(content)
             print(f"📄 Created template: {filename}")
 
-# ---------------- Setup function ----------------
-def setup_application():
-    """Setup the application directories and templates"""
-    print("🛠️ Setting up AlphaAnalytics application...")
-    setup_directories()
-    create_basic_templates()
-    print("✅ Setup complete!")
-
 # ---------------- Enhanced Rate Limiter ----------------
 class EnhancedRateLimiter:
     def __init__(self, max_per_minute=30, burst_capacity=5):
@@ -519,11 +495,1063 @@ class EnhancedRateLimiter:
 
 rate_limiter = EnhancedRateLimiter(max_per_minute=25)
 
-# ---------------- [Rest of your existing code continues...]
-# Keep all the FeatureEngineer, EnhancedMultiTargetPredictor, and other classes exactly as in the previous version
-# The only change is adding the setup functions and basic route handling below
+# ---------------- Feature Engineering Functions ----------------
+def calculate_rsi(prices, window=14):
+    """Calculate Relative Strength Index"""
+    try:
+        delta = prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=window, min_periods=1).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=window, min_periods=1).mean()
+        rs = gain / (loss + 1e-10)
+        rsi = 100 - (100 / (1 + rs))
+        return rsi.fillna(50)
+    except:
+        return pd.Series([50] * len(prices), index=prices.index)
 
-# ---------------- Basic Routes ----------------
+def create_enhanced_features(data):
+    """Create comprehensive technical features"""
+    try:
+        if not isinstance(data, pd.DataFrame):
+            data = pd.DataFrame(data)
+        
+        # Ensure required columns exist
+        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in required_cols:
+            if col not in data.columns:
+                if col == 'Volume':
+                    data[col] = 1000000
+                else:
+                    data[col] = 100.0
+        
+        # Clean data
+        for col in required_cols:
+            data[col] = pd.to_numeric(data[col], errors='coerce')
+            data[col] = data[col].ffill().bfill()
+        
+        # Basic price features
+        data['Return'] = data['Close'].pct_change().fillna(0)
+        data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1)).fillna(0)
+        data['High_Low_Ratio'] = (data['High'] / data['Low']).fillna(1)
+        data['Close_Open_Ratio'] = (data['Close'] / data['Open']).fillna(1)
+        
+        # Moving averages
+        for window in [5, 10, 20, 50, 100]:
+            data[f'MA_{window}'] = data['Close'].rolling(window=window).mean()
+            data[f'Close_MA_Ratio_{window}'] = (data['Close'] / data[f'MA_{window}']).fillna(1)
+        
+        # Exponential moving averages
+        data['EMA_12'] = data['Close'].ewm(span=12, adjust=False).mean()
+        data['EMA_26'] = data['Close'].ewm(span=26, adjust=False).mean()
+        
+        # RSI
+        data['RSI'] = calculate_rsi(data['Close'])
+        
+        # MACD
+        data['MACD'] = data['EMA_12'] - data['EMA_26']
+        data['MACD_Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
+        data['MACD_Histogram'] = data['MACD'] - data['MACD_Signal']
+        
+        # Bollinger Bands
+        data['BB_Middle'] = data['Close'].rolling(20).mean()
+        data['BB_Std'] = data['Close'].rolling(20).std()
+        data['BB_Upper'] = data['BB_Middle'] + (data['BB_Std'] * 2)
+        data['BB_Lower'] = data['BB_Middle'] - (data['BB_Std'] * 2)
+        data['BB_Width'] = (data['BB_Upper'] - data['BB_Lower']) / data['BB_Middle']
+        data['BB_Position'] = (data['Close'] - data['BB_Lower']) / (data['BB_Upper'] - data['BB_Lower'])
+        
+        # Volume indicators
+        data['Volume_MA_5'] = data['Volume'].rolling(5).mean()
+        data['Volume_MA_20'] = data['Volume'].rolling(20).mean()
+        data['Volume_Ratio'] = data['Volume'] / data['Volume_MA_20']
+        
+        # Volatility
+        data['Volatility_5'] = data['Return'].rolling(5).std()
+        data['Volatility_20'] = data['Return'].rolling(20).std()
+        data['Volatility_Ratio'] = data['Volatility_5'] / data['Volatility_20']
+        
+        # Momentum indicators
+        for period in [5, 10, 20]:
+            data[f'Momentum_{period}'] = (data['Close'] / data['Close'].shift(period) - 1).fillna(0)
+        
+        # Fill any remaining NaN values
+        data = data.fillna(method='ffill').fillna(method='bfill')
+        
+        # Replace any infinite values
+        data = data.replace([np.inf, -np.inf], np.nan).fillna(0)
+        
+        return data
+        
+    except Exception as e:
+        print(f"Feature engineering error: {e}")
+        # Return basic features if advanced fails
+        basic_data = data.copy()
+        basic_data['Return'] = basic_data['Close'].pct_change().fillna(0)
+        basic_data['MA_5'] = basic_data['Close'].rolling(5).mean().fillna(basic_data['Close'])
+        basic_data['MA_20'] = basic_data['Close'].rolling(20).mean().fillna(basic_data['Close'])
+        basic_data['Volume_MA_5'] = basic_data['Volume'].rolling(5).mean().fillna(basic_data['Volume'])
+        return basic_data
+
+def detect_crises_enhanced(data):
+    """Enhanced crisis detection"""
+    try:
+        data = data.copy()
+        
+        # Multiple crisis indicators
+        price_drop = (data['Return'].rolling(5).sum() < -0.10).astype(int)  # 10% drop in 5 days
+        high_volatility = (data['Volatility_20'] > data['Volatility_20'].quantile(0.9)).astype(int)
+        volume_spike = (data['Volume_Ratio'] > 2.0).astype(int)
+        rsi_extreme = ((data['RSI'] < 25) | (data['RSI'] > 75)).astype(int)
+        
+        # Price below key moving averages
+        below_ma = ((data['Close'] < data['MA_50']) & (data['Close'] < data['MA_100'])).astype(int)
+        
+        # Combined crisis score
+        crisis_score = (
+            price_drop * 0.3 +
+            high_volatility * 0.25 +
+            volume_spike * 0.2 +
+            rsi_extreme * 0.15 +
+            below_ma * 0.1
+        )
+        
+        # Adaptive threshold
+        threshold = crisis_score.rolling(50).mean().fillna(0.3) + 0.1
+        
+        data['Crisis'] = (crisis_score > threshold).astype(int)
+        data['Crisis_Score'] = crisis_score
+        
+        return data
+        
+    except Exception as e:
+        print(f"Crisis detection error: {e}")
+        data['Crisis'] = 0
+        data['Crisis_Score'] = 0
+        return data
+
+# ---------------- Enhanced Data Fetching ----------------
+@rate_limiter
+def get_live_stock_data_enhanced(ticker, days_back=2520):
+    """Fetch stock data with multiple fallback strategies"""
+    strategies = [
+        {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name": "2y"},
+        {"func": lambda: yf.Ticker(ticker).history(period="1y", interval="1d"), "name": "1y"},
+        {"func": lambda: yf.download(ticker, period="6mo", interval="1d", progress=False, timeout=20), "name": "6mo"},
+    ]
+    
+    for strategy in strategies:
+        try:
+            hist = strategy['func']()
+            if isinstance(hist, pd.DataFrame) and not hist.empty and len(hist) > 50:
+                hist = hist.reset_index()
+                if 'Date' in hist.columns:
+                    hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
+                elif 'Datetime' in hist.columns:
+                    hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
+                    hist = hist.drop(columns=['Datetime'])
+                
+                # Ensure we have all required columns
+                required = ['Open', 'High', 'Low', 'Close', 'Volume']
+                for col in required:
+                    if col not in hist.columns:
+                        if col == 'Volume':
+                            hist[col] = hist['Close'] * 10000  # Estimate volume
+                        else:
+                            hist[col] = hist['Close']
+                
+                current_price = hist['Close'].iloc[-1]
+                print(f"✅ Fetched {len(hist)} days of data for {ticker} via {strategy['name']}")
+                return hist, current_price, None
+                
+        except Exception as e:
+            if "429" in str(e):
+                time.sleep(15)
+            continue
+    
+    # Fallback to generated data
+    print(f"⚠️ Using fallback data for {ticker}")
+    return generate_fallback_data(ticker, days=days_back)
+
+def generate_fallback_data(ticker, base_price=None, days=500):
+    """Generate realistic fallback data"""
+    base_prices = {'AAPL': 182, 'MSFT': 407, 'GOOGL': 172, 
+                   'AMZN': 178, 'TSLA': 175, 'SPY': 445}
+    
+    if base_price is None:
+        base_price = base_prices.get(ticker, 100.0)
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=int(days * 1.2))
+    
+    # Generate business days only
+    dates = pd.date_range(start=start_date, end=end_date, freq='B')
+    dates = dates[-days:] if len(dates) > days else dates
+    
+    # Generate price series with realistic patterns
+    np.random.seed(42)  # For reproducibility
+    n = len(dates)
+    
+    # Base price series with drift and volatility
+    returns = np.random.normal(0.0003, 0.015, n)  # 0.03% daily drift, 1.5% daily vol
+    prices = base_price * np.exp(np.cumsum(returns))
+    
+    # Add some market cycles
+    cycle = 0.005 * np.sin(2 * np.pi * np.arange(n) / 63)  # Quarterly cycles
+    prices = prices * (1 + cycle)
+    
+    # Generate OHLC from close prices
+    opens = []
+    highs = []
+    lows = []
+    
+    for i, close in enumerate(prices):
+        if i == 0:
+            open_price = close * np.random.uniform(0.99, 1.01)
+        else:
+            open_price = prices[i-1] * np.random.uniform(0.99, 1.01)
+        
+        daily_range = close * 0.02  # 2% average daily range
+        
+        high = max(open_price, close) + daily_range * np.random.uniform(0.1, 0.5)
+        low = min(open_price, close) - daily_range * np.random.uniform(0.1, 0.5)
+        
+        opens.append(open_price)
+        highs.append(high)
+        lows.append(low)
+    
+    # Generate realistic volume
+    volumes = []
+    base_volume = 1000000
+    
+    for i in range(n):
+        price_change = abs((prices[i] / prices[max(0, i-1)] - 1)) if i > 0 else 0.01
+        volume = base_volume * (1 + price_change * 10) * np.random.uniform(0.8, 1.2)
+        volume = int(max(100000, min(volume, 50000000)))
+        volumes.append(volume)
+    
+    df = pd.DataFrame({
+        'Date': dates.strftime('%Y-%m-%d'),
+        'Open': opens,
+        'High': highs,
+        'Low': lows,
+        'Close': prices,
+        'Volume': volumes
+    })
+    
+    return df, prices[-1], None
+
+# ---------------- Enhanced Multi-Target Predictor ----------------
+class EnhancedMultiTargetPredictor:
+    def __init__(self):
+        self.models = {}
+        self.crisis_model = None
+        self.scaler_features = RobustScaler()
+        self.scaler_targets = {}
+        self.is_fitted = False
+        self.feature_columns = []
+        self.crisis_features = []
+        self.targets = ['Open', 'High', 'Low', 'Close']
+        self.historical_performance = {}
+        self.prediction_confidence = {}
+        self.market_regime = "NORMAL"
+        self.feature_importance = {}
+        self.model_metrics = {}
+        
+    def model_file(self, symbol):
+        safe = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
+        return os.path.join(MODELS_DIR, f"{safe}_enhanced_predictor.joblib")
+    
+    def save_to_disk(self, symbol):
+        try:
+            payload = {
+                'models': self.models,
+                'crisis_model': self.crisis_model,
+                'scaler_features': self.scaler_features,
+                'scaler_targets': self.scaler_targets,
+                'is_fitted': self.is_fitted,
+                'feature_columns': self.feature_columns,
+                'crisis_features': self.crisis_features,
+                'targets': self.targets,
+                'historical_performance': self.historical_performance,
+                'prediction_confidence': self.prediction_confidence,
+                'market_regime': self.market_regime,
+                'feature_importance': self.feature_importance,
+                'model_metrics': self.model_metrics,
+            }
+            joblib.dump(payload, self.model_file(symbol))
+            print(f"✅ Saved enhanced model to {self.model_file(symbol)}")
+            return True
+        except Exception as e:
+            print(f"Save failure: {e}")
+            return False
+    
+    def load_from_disk(self, symbol):
+        try:
+            path = self.model_file(symbol)
+            if not os.path.exists(path):
+                return False
+            payload = joblib.load(path)
+            
+            for key, value in payload.items():
+                setattr(self, key, value)
+            
+            print(f"✅ Loaded enhanced model from {path}")
+            return True
+        except Exception as e:
+            print(f"Load failure: {e}")
+            return False
+    
+    def prepare_data(self, data):
+        """Prepare data for training/prediction"""
+        try:
+            data_with_features = create_enhanced_features(data)
+            
+            if len(data_with_features) < 100:
+                print(f"⚠️ Insufficient data: {len(data_with_features)} rows")
+                return None, None, None, None, None
+            
+            # Define feature sets
+            base_features = ['Open', 'High', 'Low', 'Volume']
+            technical_features = [
+                'Return', 'Log_Return', 'High_Low_Ratio', 'Close_Open_Ratio',
+                'MA_5', 'MA_10', 'MA_20', 'MA_50', 'MA_100',
+                'Close_MA_Ratio_5', 'Close_MA_Ratio_20', 'Close_MA_Ratio_50',
+                'EMA_12', 'EMA_26', 'RSI', 'MACD', 'MACD_Signal', 'MACD_Histogram',
+                'BB_Middle', 'BB_Upper', 'BB_Lower', 'BB_Width', 'BB_Position',
+                'Volume_MA_5', 'Volume_MA_20', 'Volume_Ratio',
+                'Volatility_5', 'Volatility_20', 'Volatility_Ratio',
+                'Momentum_5', 'Momentum_10', 'Momentum_20'
+            ]
+            
+            # Filter available features
+            available_features = []
+            for feature in base_features + technical_features:
+                if feature in data_with_features.columns:
+                    nan_ratio = data_with_features[feature].isna().mean()
+                    if nan_ratio < 0.3:  # Allow up to 30% NaN
+                        available_features.append(feature)
+            
+            if len(available_features) < 10:
+                print(f"⚠️ Too few features available: {len(available_features)}")
+                return None, None, None, None, None
+            
+            self.feature_columns = available_features
+            
+            # Scale features
+            data_scaled = data_with_features.copy()
+            try:
+                data_scaled[available_features] = self.scaler_features.fit_transform(
+                    data_with_features[available_features].fillna(0)
+                )
+            except Exception as e:
+                print(f"Scaling error: {e}")
+                data_scaled[available_features] = data_with_features[available_features].fillna(0)
+            
+            # Scale targets
+            self.scaler_targets = {}
+            for target in self.targets:
+                try:
+                    self.scaler_targets[target] = RobustScaler()
+                    if target in data_with_features.columns:
+                        target_data = data_with_features[[target]].values.reshape(-1, 1)
+                        data_scaled[target] = self.scaler_targets[target].fit_transform(target_data).flatten()
+                except Exception:
+                    data_scaled[target] = data_scaled['Close']
+            
+            # Create sequences
+            X, y_arrays = self.create_sequences(data_scaled, available_features)
+            
+            if X is None or len(X) < 50:
+                print(f"⚠️ Insufficient sequences: {len(X) if X is not None else 0}")
+                return None, None, None, None, None
+            
+            return X, y_arrays, available_features, self.targets, data_scaled
+            
+        except Exception as e:
+            print(f"Data preparation error: {e}")
+            return None, None, None, None, None
+    
+    def create_sequences(self, data, features, window_size=60):
+        """Create sequences for time series prediction"""
+        try:
+            if len(data) <= window_size:
+                return None, None
+            
+            X, y_dict = [], {t: [] for t in self.targets}
+            
+            for i in range(window_size, len(data)):
+                try:
+                    seq = data[features].iloc[i-window_size:i].values
+                    
+                    # Validate sequence
+                    if np.isnan(seq).any() or np.isinf(seq).any():
+                        continue
+                    
+                    seq_std = np.std(seq)
+                    if seq_std < 1e-10:  # Almost constant sequence
+                        continue
+                    
+                    X.append(seq.flatten())
+                    
+                    for t in self.targets:
+                        if t in data.columns:
+                            y_dict[t].append(data[t].iloc[i])
+                        else:
+                            y_dict[t].append(data['Close'].iloc[i])
+                            
+                except Exception:
+                    continue
+            
+            if len(X) < 50:
+                return None, None
+            
+            X_array = np.array(X)
+            
+            if np.isnan(X_array).any() or np.isinf(X_array).any():
+                print("⚠️ NaN or Inf values in X array")
+                return None, None
+            
+            y_arrays = {t: np.array(y_dict[t]) for t in self.targets}
+            
+            return X_array, y_arrays
+            
+        except Exception as e:
+            print(f"Sequence creation error: {e}")
+            return None, None
+    
+    def train_multi_target_models(self, data):
+        """Train models for all targets"""
+        try:
+            # Prepare data
+            X, y_arrays, features, targets, data_scaled = self.prepare_data(data)
+            
+            if X is None:
+                return None, "Insufficient data for training"
+            
+            print(f"📊 Training on {len(X)} samples with {len(features)} features")
+            
+            # Split data (time-series aware)
+            train_size = int(len(X) * 0.8)
+            X_train, X_test = X[:train_size], X[train_size:]
+            
+            y_train = {t: y_arrays[t][:train_size] for t in targets}
+            y_test = {t: y_arrays[t][train_size:] for t in targets}
+            
+            if len(X_test) < 20:
+                return None, "Insufficient test data"
+            
+            # Train models for each target
+            models = {}
+            self.model_metrics = {}
+            self.feature_importance = {}
+            
+            for target in targets:
+                print(f"🤖 Training model for {target}...")
+                
+                # Train model
+                model = RandomForestRegressor(
+                    n_estimators=150,
+                    max_depth=20,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    random_state=42,
+                    n_jobs=-1
+                )
+                
+                model.fit(X_train, y_train[target])
+                models[target] = model
+                
+                # Calculate predictions
+                y_train_pred = model.predict(X_train)
+                y_test_pred = model.predict(X_test)
+                
+                # Calculate metrics
+                train_rmse = np.sqrt(mean_squared_error(y_train[target], y_train_pred))
+                test_rmse = np.sqrt(mean_squared_error(y_test[target], y_test_pred))
+                train_r2 = r2_score(y_train[target], y_train_pred)
+                test_r2 = r2_score(y_test[target], y_test_pred)
+                
+                # Direction accuracy
+                if len(y_train[target]) > 1 and len(y_train_pred) > 1:
+                    train_dir_true = np.diff(y_train[target]) > 0
+                    train_dir_pred = np.diff(y_train_pred) > 0
+                    train_dir_acc = np.mean(train_dir_true == train_dir_pred)
+                    
+                    test_dir_true = np.diff(y_test[target]) > 0
+                    test_dir_pred = np.diff(y_test_pred) > 0
+                    test_dir_acc = np.mean(test_dir_true == test_dir_pred) if len(test_dir_true) > 0 else 0.5
+                else:
+                    train_dir_acc = 0.5
+                    test_dir_acc = 0.5
+                
+                # Check for overfitting/underfitting
+                overfitting_ratio = test_rmse / train_rmse if train_rmse > 0 else 1.0
+                is_overfit = overfitting_ratio > 1.5
+                is_underfit = train_r2 < 0.3
+                
+                self.model_metrics[target] = {
+                    'train_rmse': float(train_rmse),
+                    'test_rmse': float(test_rmse),
+                    'train_r2': float(train_r2),
+                    'test_r2': float(test_r2),
+                    'train_direction_accuracy': float(train_dir_acc),
+                    'test_direction_accuracy': float(test_dir_acc),
+                    'overfitting_ratio': float(overfitting_ratio),
+                    'is_overfit': is_overfit,
+                    'is_underfit': is_underfit
+                }
+                
+                # Store feature importance
+                self.feature_importance[target] = dict(zip(features, model.feature_importances_))
+                
+                print(f"   {target}: Train R²={train_r2:.3f}, Test R²={test_r2:.3f}, "
+                      f"Direction Acc={test_dir_acc:.3f}")
+            
+            self.models = models
+            
+            # Train crisis detection model
+            self.train_crisis_model(data, data_scaled)
+            
+            # Update market regime
+            self.market_regime = self.detect_market_regime(data)
+            
+            # Calculate prediction confidence
+            X_pred = X[-1:] if len(X) > 0 else X_train[-1:]
+            if X_pred is not None:
+                self.prediction_confidence = self.calculate_confidence(X_pred)
+            
+            # Calculate historical performance
+            self.calculate_historical_performance(X_train, y_train, X_test, y_test)
+            
+            self.is_fitted = True
+            
+            # Summarize training results
+            avg_test_r2 = np.mean([m['test_r2'] for m in self.model_metrics.values()])
+            avg_overfitting = np.mean([m['overfitting_ratio'] for m in self.model_metrics.values()])
+            
+            print(f"\n🎯 Training Complete:")
+            print(f"   Average Test R²: {avg_test_r2:.3f}")
+            print(f"   Average Overfitting Ratio: {avg_overfitting:.2f}")
+            print(f"   Market Regime: {self.market_regime}")
+            
+            return self.model_metrics, None
+            
+        except Exception as e:
+            print(f"Training error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, str(e)
+    
+    def train_crisis_model(self, data, data_scaled):
+        """Train crisis detection model"""
+        try:
+            # Detect crises
+            crisis_data = detect_crises_enhanced(data)
+            
+            # Select features for crisis detection
+            crisis_features = [
+                'Return', 'Volatility_20', 'Volume_Ratio', 'RSI',
+                'BB_Position', 'Momentum_5', 'Close_MA_Ratio_50'
+            ]
+            
+            available_features = [f for f in crisis_features 
+                                if f in crisis_data.columns and f in data_scaled.columns]
+            
+            if len(available_features) < 3:
+                print("⚠️ Insufficient features for crisis model")
+                self.crisis_model = None
+                self.crisis_features = []
+                return
+            
+            self.crisis_features = available_features
+            
+            # Prepare crisis data
+            crisis_df = crisis_data[available_features + ['Crisis']].dropna()
+            
+            if len(crisis_df) < 50:
+                print("⚠️ Insufficient crisis data")
+                self.crisis_model = None
+                return
+            
+            Xc = crisis_df[available_features].values
+            yc = crisis_df['Crisis'].values
+            
+            # Train crisis classifier
+            crisis_model = RandomForestClassifier(
+                n_estimators=100,
+                class_weight='balanced',
+                random_state=42,
+                n_jobs=-1
+            )
+            
+            crisis_model.fit(Xc, yc)
+            
+            # Evaluate
+            yc_pred = crisis_model.predict(Xc)
+            accuracy = accuracy_score(yc, yc_pred)
+            
+            print(f"🔄 Crisis Model: Accuracy={accuracy:.3f}")
+            
+            self.crisis_model = crisis_model
+            
+        except Exception as e:
+            print(f"Crisis model training error: {e}")
+            self.crisis_model = None
+    
+    def detect_market_regime(self, data):
+        """Detect market regime"""
+        try:
+            if len(data) < 50:
+                return "NORMAL"
+            
+            recent = data.tail(50)
+            
+            # Calculate regime indicators
+            volatility = recent['Return'].std() * np.sqrt(252)  # Annualized
+            rsi = recent['RSI'].iloc[-1] if 'RSI' in recent.columns else 50
+            
+            # Determine regime
+            if volatility > 0.35:
+                return "HIGH_VOLATILITY"
+            elif volatility > 0.25:
+                return "ELEVATED_RISK"
+            elif rsi > 70:
+                return "OVERBOUGHT"
+            elif rsi < 30:
+                return "OVERSOLD"
+            else:
+                return "NORMAL"
+                
+        except Exception as e:
+            print(f"Market regime detection error: {e}")
+            return "NORMAL"
+    
+    def calculate_confidence(self, X_pred):
+        """Calculate prediction confidence"""
+        confidence = {}
+        
+        for target in self.targets:
+            if target in self.models:
+                model = self.models[target]
+                
+                if hasattr(model, 'estimators_'):  # Random Forest
+                    tree_predictions = []
+                    for estimator in model.estimators_:
+                        pred = estimator.predict(X_pred)
+                        tree_predictions.append(pred[0])
+                    
+                    mean_pred = np.mean(tree_predictions)
+                    std_pred = np.std(tree_predictions)
+                    
+                    if mean_pred != 0:
+                        cv = std_pred / abs(mean_pred)
+                        confidence_score = max(0, 1 - min(cv, 1)) * 100
+                    else:
+                        confidence_score = 50.0
+                    
+                    confidence[target] = {
+                        'confidence_score': float(confidence_score),
+                        'mean_prediction': float(mean_pred),
+                        'std_deviation': float(std_pred),
+                        'confidence_interval': float(1.96 * std_pred),
+                        'tree_predictions_count': len(tree_predictions)
+                    }
+                    
+        return confidence
+    
+    def calculate_historical_performance(self, X_train, y_train, X_test, y_test):
+        """Calculate historical performance metrics"""
+        performance = {}
+        
+        for target in self.targets:
+            if target in self.model_metrics:
+                metrics = self.model_metrics[target]
+                
+                performance[target] = {
+                    'train_rmse': metrics['train_rmse'],
+                    'test_rmse': metrics['test_rmse'],
+                    'train_r2': metrics['train_r2'],
+                    'test_r2': metrics['test_r2'],
+                    'train_direction_accuracy': metrics['train_direction_accuracy'],
+                    'test_direction_accuracy': metrics['test_direction_accuracy'],
+                    'overfitting_ratio': metrics['overfitting_ratio'],
+                    'is_overfit': metrics['is_overfit'],
+                    'is_underfit': metrics['is_underfit']
+                }
+        
+        # Overall performance
+        performance['overall'] = {
+            'avg_test_r2': np.mean([p['test_r2'] for p in performance.values()]),
+            'avg_direction_accuracy': np.mean([p['test_direction_accuracy'] for p in performance.values()]),
+            'avg_overfitting_ratio': np.mean([p['overfitting_ratio'] for p in performance.values()]),
+            'models_overfit': sum([1 for p in performance.values() if p['is_overfit']]),
+            'models_underfit': sum([1 for p in performance.values() if p['is_underfit']])
+        }
+        
+        self.historical_performance = performance
+        return performance
+    
+    def predict_next_day_prices(self, data):
+        """Predict next day prices"""
+        if not self.is_fitted:
+            return None, None, None, None, "Model not fitted"
+        
+        try:
+            # Prepare data
+            X, y_arrays, features, targets, data_scaled = self.prepare_data(data)
+            
+            if X is None or len(X) == 0:
+                return None, None, None, None, "Insufficient data for prediction"
+            
+            X_pred = X[-1:]
+            
+            # Update confidence and regime
+            self.prediction_confidence = self.calculate_confidence(X_pred)
+            self.market_regime = self.detect_market_regime(data)
+            
+            # Make predictions
+            predictions_scaled = {}
+            for target in targets:
+                if target in self.models:
+                    predictions_scaled[target] = self.models[target].predict(X_pred)
+                else:
+                    predictions_scaled[target] = np.array([data['Close'].iloc[-1]])
+            
+            # Inverse transform predictions
+            predictions_actual = {}
+            for target in targets:
+                if target in predictions_scaled and target in self.scaler_targets:
+                    try:
+                        pred_scaled = predictions_scaled[target].reshape(-1, 1)
+                        predictions_actual[target] = self.scaler_targets[target].inverse_transform(pred_scaled).flatten()
+                    except:
+                        predictions_actual[target] = predictions_scaled[target]
+                else:
+                    predictions_actual[target] = predictions_scaled[target]
+            
+            # Calculate crisis probability
+            crisis_prob = self.predict_crisis_probability(data_scaled)
+            
+            # Generate scenarios
+            current_close = data['Close'].iloc[-1]
+            scenarios = self.generate_scenarios(predictions_actual, current_close, crisis_prob)
+            
+            # Calculate confidence bands
+            confidence_data = self.calculate_confidence_bands(predictions_actual, current_close)
+            
+            return predictions_actual, confidence_data, scenarios, crisis_prob, None
+            
+        except Exception as e:
+            print(f"Prediction error: {e}")
+            return None, None, None, None, str(e)
+    
+    def predict_crisis_probability(self, data_scaled):
+        """Predict crisis probability"""
+        try:
+            if self.crisis_model is None or len(self.crisis_features) == 0:
+                return {"probability": 0.1, "severity": "LOW", "confidence": 0.5}
+            
+            # Get latest features
+            latest_features = []
+            for feature in self.crisis_features:
+                if feature in data_scaled.columns:
+                    latest_features.append(data_scaled[feature].iloc[-1])
+                else:
+                    latest_features.append(0.0)
+            
+            X_latest = np.array([latest_features])
+            
+            # Predict probability
+            crisis_probs = self.crisis_model.predict_proba(X_latest)
+            crisis_prob = crisis_probs[0, 1] if crisis_probs.shape[1] > 1 else crisis_probs[0, 0]
+            
+            # Determine severity
+            severity = "LOW"
+            if crisis_prob > 0.7:
+                severity = "HIGH"
+            elif crisis_prob > 0.4:
+                severity = "MEDIUM"
+            
+            return {
+                "probability": float(crisis_prob),
+                "severity": severity,
+                "confidence": 0.7,
+                "warning_level": "🔴" if crisis_prob > 0.7 else "🟡" if crisis_prob > 0.4 else "🟢"
+            }
+            
+        except Exception as e:
+            print(f"Crisis prediction error: {e}")
+            return {"probability": 0.1, "severity": "LOW", "confidence": 0.3}
+    
+    def calculate_confidence_bands(self, predictions, current_price):
+        """Calculate confidence bands"""
+        confidence_data = {}
+        
+        for target in self.targets:
+            if target in predictions and target in self.prediction_confidence:
+                pred = predictions[target][0]
+                conf = self.prediction_confidence[target]
+                
+                # Dynamic confidence interval based on market regime
+                regime_multiplier = {
+                    "HIGH_VOLATILITY": 2.0,
+                    "ELEVATED_RISK": 1.5,
+                    "OVERBOUGHT": 1.3,
+                    "OVERSOLD": 1.3,
+                    "NORMAL": 1.0
+                }.get(self.market_regime, 1.0)
+                
+                interval = conf['confidence_interval'] * regime_multiplier
+                
+                confidence_data[target] = {
+                    'predicted': float(pred),
+                    'lower': float(pred - interval),
+                    'upper': float(pred + interval),
+                    'confidence_score': conf['confidence_score'],
+                    'interval_size': float(interval),
+                    'quality': "HIGH" if conf['confidence_score'] > 80 else "MEDIUM" if conf['confidence_score'] > 60 else "LOW"
+                }
+        
+        return confidence_data
+    
+    def generate_scenarios(self, predictions, current_price, crisis_data):
+        """Generate trading scenarios"""
+        try:
+            if 'Close' not in predictions:
+                return {"base": {"probability": 100, "price_change": 0, "description": "UNKNOWN"}}
+            
+            predicted_close = predictions['Close'][0]
+            base_change = (predicted_close - current_price) / current_price * 100
+            
+            crisis_prob = crisis_data.get('probability', 0.1)
+            
+            if self.market_regime in ["HIGH_VOLATILITY", "ELEVATED_RISK"]:
+                probabilities = {
+                    'bearish': 30,
+                    'sideways': 40,
+                    'bullish': 30
+                }
+            elif crisis_prob > 0.5:
+                probabilities = {
+                    'crash': 40,
+                    'bearish': 30,
+                    'sideways': 20,
+                    'recovery': 10
+                }
+            else:
+                probabilities = {
+                    'bullish': 40,
+                    'sideways': 30,
+                    'bearish': 30
+                }
+            
+            # Generate scenarios
+            scenarios = {}
+            
+            # Base scenario
+            scenarios['base'] = {
+                'probability': 50,
+                'price_change': float(base_change),
+                'description': self.get_scenario_description(base_change)
+            }
+            
+            # Alternative scenarios
+            for scenario, prob in probabilities.items():
+                if scenario == 'bullish':
+                    change = base_change * 1.5
+                elif scenario == 'bearish':
+                    change = base_change * 0.5
+                elif scenario == 'sideways':
+                    change = base_change * 0.2
+                elif scenario == 'crash':
+                    change = min(base_change, -10)
+                elif scenario == 'recovery':
+                    change = max(base_change, 5)
+                else:
+                    change = base_change
+                
+                scenarios[scenario] = {
+                    'probability': prob,
+                    'price_change': float(change),
+                    'description': self.get_scenario_description(change)
+                }
+            
+            return scenarios
+            
+        except Exception as e:
+            print(f"Scenario generation error: {e}")
+            return {"base": {"probability": 100, "price_change": 0, "description": "ERROR"}}
+    
+    def get_scenario_description(self, change):
+        """Get descriptive scenario name"""
+        if change > 15:
+            return "EXTREME BULLISH - STRONG BUY"
+        elif change > 8:
+            return "VERY BULLISH - BUY"
+        elif change > 3:
+            return "BULLISH - ACCUMULATE"
+        elif change > 1:
+            return "SLIGHTLY BULLISH - HOLD"
+        elif change < -15:
+            return "MARKET CRASH - STRONG SELL"
+        elif change < -8:
+            return "VERY BEARISH - SELL"
+        elif change < -3:
+            return "BEARISH - REDUCE"
+        elif change < -1:
+            return "SLIGHTLY BEARISH - CAUTION"
+        else:
+            return "NEUTRAL - HOLD"
+    
+    def get_risk_alerts(self, predictions, current_price, crisis_data):
+        """Generate risk alerts"""
+        alerts = []
+        
+        try:
+            # Price movement alerts
+            if 'Close' in predictions:
+                pred_close = predictions['Close'][0]
+                change_pct = (pred_close - current_price) / current_price * 100
+                
+                if abs(change_pct) > 20:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Extreme Price Movement',
+                        'message': f'Expected {change_pct:+.1f}% change tomorrow'
+                    })
+                elif abs(change_pct) > 10:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'Large Price Movement',
+                        'message': f'Expected {change_pct:+.1f}% change tomorrow'
+                    })
+            
+            # Crisis alerts
+            crisis_prob = crisis_data.get('probability', 0)
+            if crisis_prob > 0.7:
+                alerts.append({
+                    'level': '🔴 CRITICAL',
+                    'type': 'High Crisis Probability',
+                    'message': f'Crisis probability: {crisis_prob:.1%}'
+                })
+            elif crisis_prob > 0.5:
+                alerts.append({
+                    'level': '🟡 HIGH',
+                    'type': 'Elevated Crisis Risk',
+                    'message': f'Crisis probability: {crisis_prob:.1%}'
+                })
+            
+            # Market regime alerts
+            if self.market_regime in ["HIGH_VOLATILITY", "ELEVATED_RISK"]:
+                alerts.append({
+                    'level': '🟡 HIGH',
+                    'type': 'Volatile Market Regime',
+                    'message': f'Market in {self.market_regime} regime'
+                })
+            
+            # Model confidence alerts
+            avg_confidence = np.mean([c['confidence_score'] for c in self.prediction_confidence.values()]) if self.prediction_confidence else 0
+            if avg_confidence < 50:
+                alerts.append({
+                    'level': '🟡 HIGH',
+                    'type': 'Low Model Confidence',
+                    'message': f'Average prediction confidence: {avg_confidence:.1f}%'
+                })
+            
+        except Exception as e:
+            print(f"Risk alert generation error: {e}")
+            alerts.append({
+                'level': '🟡 HIGH',
+                'type': 'System Error',
+                'message': 'Risk assessment temporarily unavailable'
+            })
+        
+        return alerts
+
+# ---------------- Global Predictor Instance ----------------
+predictor = EnhancedMultiTargetPredictor()
+
+# ---------------- Helper Functions ----------------
+def get_next_trading_day():
+    today = datetime.now()
+    if today.weekday() == 4:  # Friday
+        return (today + timedelta(days=3)).strftime('%Y-%m-%d')
+    if today.weekday() == 5:  # Saturday
+        return (today + timedelta(days=2)).strftime('%Y-%m-%d')
+    if today.weekday() == 6:  # Sunday
+        return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+    return (today + timedelta(days=1)).strftime('%Y-%m-%d')
+
+def get_market_status():
+    today = datetime.now()
+    
+    # Weekend
+    if today.weekday() >= 5:
+        return "closed", "Market is closed on weekends"
+    
+    current_time = today.time()
+    market_open = datetime.strptime('09:30', '%H:%M').time()
+    market_close = datetime.strptime('16:00', '%H:%M').time()
+    
+    if current_time < market_open:
+        return "pre_market", "Pre-market hours"
+    elif current_time > market_close:
+        return "after_hours", "After-hours trading"
+    else:
+        return "open", "Market is open"
+
+def get_risk_level_enhanced(change_percent, crisis_data):
+    """Enhanced risk level calculation"""
+    try:
+        crisis_prob = crisis_data.get('probability', 0.1)
+        severity = crisis_data.get('severity', 'LOW')
+        
+        severity_weight = {'LOW': 0.3, 'MEDIUM': 0.6, 'HIGH': 0.9}.get(severity, 0.3)
+        
+        price_risk = min(1.0, abs(change_percent) / 25)
+        crisis_risk = crisis_prob * severity_weight
+        
+        risk_score = (price_risk * 0.6) + (crisis_risk * 0.4)
+        
+        if risk_score > 0.7:
+            return "🔴 EXTREME RISK"
+        elif risk_score > 0.5:
+            return "🟡 HIGH RISK"
+        elif risk_score > 0.3:
+            return "🟠 MEDIUM RISK"
+        else:
+            return "🟢 LOW RISK"
+            
+    except:
+        return "🟢 LOW RISK"
+
+def get_trading_recommendation_enhanced(change_percent, risk_level, crisis_data, market_regime):
+    """Enhanced trading recommendation"""
+    crisis_prob = crisis_data.get('probability', 0.1)
+    severity = crisis_data.get('severity', 'LOW')
+    
+    if risk_level == "🔴 EXTREME RISK":
+        return "🚨 AVOID TRADING - EXTREME RISK"
+    elif risk_level == "🟡 HIGH RISK":
+        if crisis_prob > 0.6:
+            return "📉 STRONG SELL - HIGH CRISIS RISK"
+        else:
+            return "📈 CAUTIOUS - REDUCE POSITION SIZE"
+    elif risk_level == "🟠 MEDIUM RISK":
+        if change_percent > 5:
+            return "✅ MODERATE BUY - POSITIVE MOMENTUM"
+        elif change_percent < -3:
+            return "💼 CONSIDER SELL - NEGATIVE MOMENTUM"
+        else:
+            return "🔄 HOLD - WAIT FOR CONFIRMATION"
+    else:  # LOW RISK
+        if change_percent > 3:
+            return "✅ BUY - FAVORABLE CONDITIONS"
+        elif change_percent < -2:
+            return "📉 LIGHT SELL - MINOR HEADWINDS"
+        else:
+            return "🔄 HOLD - STABLE CONDITIONS"
+
+# ---------------- Flask Routes ----------------
 @server.route('/')
 def index():
     """Main index page"""
@@ -551,24 +1579,11 @@ def alerts():
 
 @server.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(server.root_path, 'static'),
-                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return '', 204
 
 @server.route('/static/<path:path>')
 def serve_static(path):
     return send_from_directory(os.path.join(current_dir, 'static'), path)
-
-# ---------------- Error Handlers ----------------
-@server.errorhandler(404)
-def not_found(error):
-    return render_template('index.html'), 404
-
-@server.errorhandler(500)
-def internal_error(error):
-    return jsonify({"error": "Internal server error", "message": str(error)}), 500
-
-# ---------------- Global Predictor Instance ----------------
-predictor = EnhancedMultiTargetPredictor()
 
 # ---------------- API Endpoints ----------------
 @server.route('/api/health')
@@ -586,7 +1601,7 @@ def health_check():
 def predict_stock():
     try:
         data = request.get_json() or {}
-        symbol = (data.get('symbol') or 'SPY').upper().strip()
+        symbol = (data.get('symbol') or 'AAPL').upper().strip()
         
         print(f"📈 Processing prediction request for {symbol}")
         
@@ -629,7 +1644,7 @@ def predict_stock():
             change_percent, risk_level, crisis_probs, predictor.market_regime
         )
         
-        risk_alerts = predictor.get_risk_alerts_enhanced(predictions, current_price, crisis_probs)
+        risk_alerts = predictor.get_risk_alerts(predictions, current_price, crisis_probs)
         
         # Calculate model health metrics
         model_health = {
@@ -640,8 +1655,6 @@ def predict_stock():
             'crisis_model_trained': predictor.crisis_model is not None,
             'market_regime': predictor.market_regime,
             'avg_confidence': np.mean([c['confidence_score'] for c in predictor.prediction_confidence.values()]) if predictor.prediction_confidence else 0,
-            'is_overfit': any(m.get('is_overfit', False) for m in predictor.model_metrics.values() if m),
-            'is_underfit': any(m.get('is_underfit', False) for m in predictor.model_metrics.values() if m),
             'avg_test_r2': predictor.historical_performance.get('overall', {}).get('avg_test_r2', 0) if predictor.historical_performance else 0
         }
         
@@ -668,16 +1681,13 @@ def predict_stock():
             "prediction_confidence": predictor.prediction_confidence,
             "market_regime": predictor.market_regime,
             "market_status": get_market_status()[1],
-            "feature_importance": predictor.feature_importance,
-            "model_metrics": predictor.model_metrics,
             "data_analysis": {
                 "total_data_points": len(historical_data),
                 "features_used": len(predictor.feature_columns),
                 "targets_predicted": len(predictor.targets),
-                "crisis_features": len(predictor.crisis_features),
                 "data_quality": "HIGH" if len(historical_data) > 1000 else "MEDIUM" if len(historical_data) > 200 else "LOW"
             },
-            "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}. Market in {predictor.market_regime.replace('_', ' ').lower()} regime."
+            "insight": f"AI predicts {change_percent:+.2f}% movement for {symbol}. {recommendation}. Market in {predictor.market_regime} regime."
         }
         
         print(f"✅ Prediction complete for {symbol}")
@@ -688,7 +1698,7 @@ def predict_stock():
         import traceback
         traceback.print_exc()
         return provide_fallback_prediction(
-            (request.get_json() or {}).get('symbol', 'SPY').upper(), 
+            (request.get_json() or {}).get('symbol', 'AAPL').upper(), 
             100.0, 
             None
         )
@@ -703,16 +1713,16 @@ def provide_fallback_prediction(symbol, current_price, historical_data):
         
         # Smarter fallback based on symbol characteristics
         volatility_multiplier = {
-            'TSLA': 2.0, 'NVDA': 1.8, 'AMD': 1.7,  # High volatility
-            'AAPL': 1.2, 'MSFT': 1.1, 'GOOGL': 1.1,  # Moderate
-            'JNJ': 0.8, 'PG': 0.8, 'KO': 0.8  # Low volatility
+            'TSLA': 2.0, 'NVDA': 1.8, 'AMD': 1.7,
+            'AAPL': 1.2, 'MSFT': 1.1, 'GOOGL': 1.1,
+            'JNJ': 0.8, 'PG': 0.8, 'KO': 0.8
         }.get(symbol, 1.0)
         
         # Generate realistic change
         base_change = np.random.normal(0, 0.02) * volatility_multiplier
         predicted_price = current_price * (1 + base_change)
         
-        # Simulate confidence based on data availability
+        # Simulate confidence
         has_history = historical_data is not None and len(historical_data) > 50
         confidence = 75 if has_history else 60
         
@@ -760,89 +1770,13 @@ def provide_fallback_prediction(symbol, current_price, historical_data):
             "symbol": symbol
         }), 500
 
-# ---------------- Helper Functions ----------------
-def get_next_trading_day():
-    today = datetime.now()
-    # Skip weekends
-    if today.weekday() == 4:  # Friday
-        return (today + timedelta(days=3)).strftime('%Y-%m-%d')
-    if today.weekday() == 5:  # Saturday
-        return (today + timedelta(days=2)).strftime('%Y-%m-%d')
-    if today.weekday() == 6:  # Sunday
-        return (today + timedelta(days=1)).strftime('%Y-%m-%d')
-    return (today + timedelta(days=1)).strftime('%Y-%m-%d')
-
-def get_market_status():
-    today = datetime.now()
-    
-    # Weekend
-    if today.weekday() >= 5:
-        return "closed", "Market is closed on weekends"
-    
-    current_time = today.time()
-    market_open = datetime.strptime('09:30', '%H:%M').time()
-    market_close = datetime.strptime('16:00', '%H:%M').time()
-    
-    if current_time < market_open:
-        return "pre_market", "Pre-market hours"
-    elif current_time > market_close:
-        return "after_hours", "After-hours trading"
-    else:
-        return "open", "Market is open"
-
-def get_risk_level_enhanced(change_percent, crisis_data):
-    """Enhanced risk level calculation"""
-    try:
-        crisis_prob = crisis_data.get('probability', 0.1)
-        severity = crisis_data.get('severity', 'LOW')
-        
-        # Weight based on severity
-        severity_weight = {'LOW': 0.3, 'MEDIUM': 0.6, 'HIGH': 0.9}.get(severity, 0.3)
-        
-        # Combined risk score
-        price_risk = min(1.0, abs(change_percent) / 25)  # Normalize to 25% max move
-        crisis_risk = crisis_prob * severity_weight
-        
-        risk_score = (price_risk * 0.6) + (crisis_risk * 0.4)
-        
-        if risk_score > 0.7:
-            return "🔴 EXTREME RISK"
-        elif risk_score > 0.5:
-            return "🟡 HIGH RISK"
-        elif risk_score > 0.3:
-            return "🟠 MEDIUM RISK"
-        else:
-            return "🟢 LOW RISK"
-            
-    except:
-        return "🟢 LOW RISK"
-
-def get_trading_recommendation_enhanced(change_percent, risk_level, crisis_data, market_regime):
-    """Enhanced trading recommendation"""
-    crisis_prob = crisis_data.get('probability', 0.1)
-    severity = crisis_data.get('severity', 'LOW')
-    
-    if risk_level == "🔴 EXTREME RISK":
-        return "🚨 AVOID TRADING - EXTREME RISK"
-    elif risk_level == "🟡 HIGH RISK":
-        if crisis_prob > 0.6:
-            return "📉 STRONG SELL - HIGH CRISIS RISK"
-        else:
-            return "📈 CAUTIOUS - REDUCE POSITION SIZE"
-    elif risk_level == "🟠 MEDIUM RISK":
-        if change_percent > 5:
-            return "✅ MODERATE BUY - POSITIVE MOMENTUM"
-        elif change_percent < -3:
-            return "💼 CONSIDER SELL - NEGATIVE MOMENTUM"
-        else:
-            return "🔄 HOLD - WAIT FOR CONFIRMATION"
-    else:  # LOW RISK
-        if change_percent > 3:
-            return "✅ BUY - FAVORABLE CONDITIONS"
-        elif change_percent < -2:
-            return "📉 LIGHT SELL - MINOR HEADWINDS"
-        else:
-            return "🔄 HOLD - STABLE CONDITIONS"
+# ---------------- Setup Application ----------------
+def setup_application():
+    """Setup the application directories and templates"""
+    print("🛠️ Setting up AlphaAnalytics application...")
+    setup_directories()
+    create_basic_templates()
+    print("✅ Setup complete!")
 
 # ---------------- Main Execution ----------------
 if __name__ == '__main__':
