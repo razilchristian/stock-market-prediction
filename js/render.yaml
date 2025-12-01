@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: stock-market-prediction
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: |
+      apt-get update && apt-get install -y gfortran g++
+      pip install --upgrade pip setuptools wheel
+      pip install numpy==1.26.4
+      pip install scipy==1.13.1
+      pip install -r requirements.txt
+    startCommand: gunicorn app:server
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
