@@ -1,4 +1,4 @@
-# app.py — Complete Stock Prediction System with 10-Year Data
+# app.py — Flask with Multi-Algorithm OCHL Prediction + Historical Performance + Confidence + Risk Alerts
 import os
 import time
 import random
@@ -15,7 +15,7 @@ import yfinance as yf
 from flask import Flask, send_from_directory, render_template, jsonify, request, redirect
 
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.linear_model import LinearRegression
@@ -26,24 +26,23 @@ import pmdarima as pm
 from statsmodels.tsa.arima.model import ARIMA as StatsmodelsARIMA
 warnings.filterwarnings('ignore')
 
-# ================ CONFIGURATION ================
+# ---------------- Config ----------------
 MODELS_DIR = 'models'
 HISTORY_DIR = 'history'
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
-# ================ FLASK APP ================
+# ---------------- Flask ----------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 server = Flask(__name__, template_folder='templates', static_folder='static')
 
-# ================ RATE LIMITER ================
+# ---------------- Rate limiter ----------------
 class RateLimiter:
     def __init__(self, max_per_minute=30):
         self.max_per_minute = max_per_minute
         self.min_interval = 60.0 / max_per_minute
         self.last_called = {}
         self.lock = threading.Lock()
-    
     def __call__(self, func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -61,9 +60,9 @@ class RateLimiter:
 
 rate_limiter = RateLimiter(max_per_minute=25)
 
-# ================ UTILITY FUNCTIONS ================
+# ---------------- Utility & feature functions ----------------
 def calculate_rsi(prices, window=14):
-    """Calculate RSI indicator"""
+    """Calculate RSI with NaN protection"""
     try:
         if len(prices) < window:
             return pd.Series([50] * len(prices), index=prices.index)
@@ -81,6 +80,22 @@ def calculate_rsi(prices, window=14):
     except:
         return pd.Series([50] * len(prices), index=prices.index)
 
+def calculate_bollinger_bands(data, window=20):
+    """Calculate Bollinger Bands with NaN protection"""
+    try:
+        if len(data) < window:
+            sma = data['Close']
+            std = pd.Series([0] * len(data), index=data.index)
+        else:
+            sma = data['Close'].rolling(window=window, min_periods=1).mean()
+            std = data['Close'].rolling(window=window, min_periods=1).std().fillna(0)
+        
+        upper_band = sma + (std * 2)
+        lower_band = sma - (std * 2)
+        return sma, upper_band, lower_band
+    except:
+        return data['Close'], data['Close'] * 1.1, data['Close'] * 0.9
+
 def safe_divide(a, b, default=1.0):
     """Safe division with default value"""
     try:
@@ -90,24 +105,28 @@ def safe_divide(a, b, default=1.0):
         return np.full_like(a, default, dtype=float)
 
 def create_advanced_features(data):
-    """Create comprehensive features for prediction"""
+    """Create comprehensive features for OCHL prediction with NaN protection"""
     try:
+        # Create a copy to avoid modifying original
         data = data.copy()
         
-        # Ensure required columns
+        # Ensure we have the required columns
         required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
         for col in required_cols:
             if col not in data.columns:
+                print(f"Warning: Missing column {col} in data")
                 if col == 'Volume':
                     data[col] = 1000000
                 else:
                     data[col] = 100.0
         
-        # Handle NaN values
+        # Convert to numeric and handle NaNs
         for col in data.columns:
             if col != 'Date':
                 data[col] = pd.to_numeric(data[col], errors='coerce')
+                # Forward fill, then backward fill
                 data[col] = data[col].ffill().bfill()
+                # If still NaN, fill with appropriate values
                 if data[col].isna().any():
                     if col == 'Volume':
                         data[col] = data[col].fillna(1000000)
@@ -116,18 +135,17 @@ def create_advanced_features(data):
                     else:
                         data[col] = data[col].fillna(0)
         
-        # Price features
+        # Basic price features
         data['Return'] = data['Close'].pct_change().fillna(0)
         data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1).replace(0, 1e-10)).fillna(0)
         data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
-        data['Volatility_20'] = data['Return'].rolling(window=20, min_periods=1).std().fillna(0)
         
-        # Price ranges
+        # Price ranges (with safe division)
         data['High_Low_Range'] = safe_divide(data['High'] - data['Low'], data['Close'].replace(0, 1e-10), 0.02)
         data['Open_Close_Range'] = safe_divide(data['Close'] - data['Open'], data['Open'].replace(0, 1e-10), 0)
         
         # Moving averages
-        for window in [5, 10, 20, 50, 100]:
+        for window in [5, 10, 20, 50]:
             data[f'MA_{window}'] = data['Close'].rolling(window=window, min_periods=1).mean().fillna(data['Close'])
             data[f'MA_Ratio_{window}'] = safe_divide(data['Close'], data[f'MA_{window}'].replace(0, 1e-10), 1.0)
         
@@ -139,7 +157,7 @@ def create_advanced_features(data):
         # Technical indicators
         data['RSI'] = calculate_rsi(data['Close'])
         
-        # MACD
+        # MACD calculation with NaN protection
         try:
             exp1 = data['Close'].ewm(span=12, min_periods=1).mean()
             exp2 = data['Close'].ewm(span=26, min_periods=1).mean()
@@ -152,33 +170,27 @@ def create_advanced_features(data):
             data['MACD_Histogram'] = 0
         
         # Bollinger Bands
-        try:
-            bb_middle = data['Close'].rolling(window=20, min_periods=1).mean()
-            bb_std = data['Close'].rolling(window=20, min_periods=1).std().fillna(0)
-            bb_upper = bb_middle + (bb_std * 2)
-            bb_lower = bb_middle - (bb_std * 2)
-            
-            data['BB_Middle'] = bb_middle
-            data['BB_Upper'] = bb_upper
-            data['BB_Lower'] = bb_lower
-            data['BB_Width'] = safe_divide(bb_upper - bb_lower, bb_middle.replace(0, 1e-10), 0.1)
-            data['BB_Position'] = safe_divide(data['Close'] - bb_lower, (bb_upper - bb_lower).replace(0, 1e-10), 0.5)
-        except:
-            data['BB_Middle'] = data['Close']
-            data['BB_Upper'] = data['Close'] * 1.1
-            data['BB_Lower'] = data['Close'] * 0.9
-            data['BB_Width'] = 0.1
-            data['BB_Position'] = 0.5
+        bb_middle, bb_upper, bb_lower = calculate_bollinger_bands(data)
+        data['BB_Middle'] = bb_middle
+        data['BB_Upper'] = bb_upper
+        data['BB_Lower'] = bb_lower
+        data['BB_Width'] = safe_divide(bb_upper - bb_lower, bb_middle.replace(0, 1e-10), 0.1)
+        data['BB_Position'] = safe_divide(data['Close'] - bb_lower, (bb_upper - bb_lower).replace(0, 1e-10), 0.5)
         
         # Momentum indicators
         for window in [5, 10, 20]:
             shifted = data['Close'].shift(window).replace(0, 1e-10)
             data[f'Momentum_{window}'] = safe_divide(data['Close'], shifted, 1.0) - 1
         
-        # Handle remaining NaN values
+        # Price patterns
+        prev_close = data['Close'].shift(1).fillna(data['Close'])
+        data['Gap_Up'] = ((data['Open'] > prev_close * 1.01) & (data['Open'] > 0)).astype(int)
+        data['Gap_Down'] = ((data['Open'] < prev_close * 0.99) & (data['Open'] > 0)).astype(int)
+        
+        # Handle any remaining NaN values
         data = data.fillna(method='ffill').fillna(method='bfill')
         
-        # Final NaN replacement
+        # Final check - replace any remaining NaN with appropriate defaults
         for col in data.columns:
             if col != 'Date':
                 if data[col].isna().any():
@@ -198,33 +210,51 @@ def create_advanced_features(data):
         return data
     except Exception as e:
         print(f"Feature creation error: {e}")
+        # Return minimal valid dataframe
         return pd.DataFrame({
-            'Open': [100.0], 'High': [101.0], 'Low': [99.0], 
-            'Close': [100.0], 'Volume': [1000000]
+            'Open': [100.0] * len(data) if hasattr(data, '__len__') else [100.0],
+            'High': [101.0] * len(data) if hasattr(data, '__len__') else [101.0],
+            'Low': [99.0] * len(data) if hasattr(data, '__len__') else [99.0],
+            'Close': [100.0] * len(data) if hasattr(data, '__len__') else [100.0],
+            'Volume': [1000000] * len(data) if hasattr(data, '__len__') else [1000000]
         })
 
-# ================ DATA FETCHING ================
+def detect_anomalies(data):
+    """Detect anomalies in the data using Isolation Forest"""
+    try:
+        features = ['Return', 'Volatility', 'Volume_Ratio', 'RSI', 'High_Low_Range']
+        available_features = [f for f in features if f in data.columns]
+        
+        if len(available_features) < 3:
+            return pd.Series([0] * len(data), index=data.index)
+        
+        X = data[available_features].fillna(0).values
+        
+        # Fit Isolation Forest
+        iso_forest = IsolationForest(contamination=0.1, random_state=42)
+        anomalies = iso_forest.fit_predict(X)
+        
+        # Convert to binary (1 = anomaly, 0 = normal)
+        anomaly_score = (anomalies == -1).astype(int)
+        return pd.Series(anomaly_score, index=data.index)
+    except:
+        return pd.Series([0] * len(data), index=data.index)
+
+# ---------------- Live data fetching ----------------
 @rate_limiter
 def get_live_stock_data_enhanced(ticker):
-    """Fetch stock data with fallbacks"""
+    """Fetch stock data with enhanced error handling"""
     try:
-        print(f"Fetching data for {ticker}...")
-        
-        # Try multiple time periods
         strategies = [
-            {"func": lambda: yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30), "name":"2y"},
-            {"func": lambda: yf.download(ticker, period="1y", interval="1d", progress=False, timeout=25), "name":"1y"},
-            {"func": lambda: yf.download(ticker, period="6mo", interval="1d", progress=False, timeout=20), "name":"6mo"},
+            {"func": lambda: yf.download(ticker, period="10y", interval="1d", progress=False, timeout=30), "name":"10y"},
+            {"func": lambda: yf.Ticker(ticker).history(period="8y", interval="1d"), "name":"ticker.history"},
+            {"func": lambda: yf.download(ticker, period="7y", interval="1d", progress=False, timeout=25), "name":"7y"},
         ]
         
         for strategy in strategies:
             try:
-                print(f"  Trying {strategy['name']}...")
                 hist = strategy['func']()
-                
-                if isinstance(hist, pd.DataFrame) and not hist.empty and len(hist) > 100:
-                    print(f"  ✅ Success: {len(hist)} days")
-                    
+                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 60:
                     hist = hist.reset_index()
                     
                     # Handle date column
@@ -234,16 +264,17 @@ def get_live_stock_data_enhanced(ticker):
                         hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
                         hist = hist.drop(columns=['Datetime'])
                     
-                    # Ensure required columns
+                    # Ensure we have all required columns
                     required = ['Open', 'High', 'Low', 'Close', 'Volume']
                     for col in required:
                         if col not in hist.columns:
+                            print(f"Warning: Missing {col} in data for {ticker}")
                             if col == 'Volume':
                                 hist[col] = 1000000
                             else:
                                 hist[col] = hist.get('Close', 100.0) if 'Close' in hist.columns else 100.0
                     
-                    # Clean data
+                    # Convert to numeric and handle NaNs
                     for col in required:
                         hist[col] = pd.to_numeric(hist[col], errors='coerce')
                         hist[col] = hist[col].ffill().bfill()
@@ -253,27 +284,31 @@ def get_live_stock_data_enhanced(ticker):
                             else:
                                 hist[col] = hist[col].fillna(100.0)
                     
-                    current_price = float(hist['Close'].iloc[-1]) if 'Close' in hist.columns else 100.0
-                    print(f"  Current price: ${current_price:.2f}")
+                    # Get current price
+                    if 'Close' in hist.columns and len(hist) > 0:
+                        current_price = float(hist['Close'].iloc[-1])
+                    else:
+                        current_price = 100.0
                     
+                    print(f"Successfully fetched {len(hist)} days of data for {ticker}")
                     return hist, current_price, None
                     
             except Exception as e:
-                print(f"  Strategy failed: {e}")
+                print(f"Strategy {strategy['name']} failed for {ticker}: {e}")
                 if "429" in str(e):
-                    time.sleep(10)
+                    time.sleep(5)
                 continue
         
-        # Fallback
-        print(f"  All strategies failed, using fallback data")
+        # Fallback: generate synthetic data
+        print(f"Using fallback data for {ticker}")
         return generate_fallback_data(ticker)
         
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"Error fetching data for {ticker}: {e}")
         return generate_fallback_data(ticker)
 
 def generate_fallback_data(ticker, days=500):
-    """Generate fallback data"""
+    """Generate fallback synthetic data without NaNs"""
     base_prices = {'AAPL':182,'MSFT':407,'GOOGL':172,'AMZN':178,'TSLA':175,'SPY':445}
     base_price = base_prices.get(ticker, 100.0)
     
@@ -285,27 +320,23 @@ def generate_fallback_data(ticker, days=500):
     if len(dates) > days:
         dates = dates[-days:]
     
-    # Generate prices
+    # Generate realistic prices
     prices = [base_price]
     for i in range(1, len(dates)):
-        change = random.gauss(0, 0.015)
-        new_price = max(prices[-1] * (1 + change), base_price * 0.1)
+        # Random walk with some mean reversion
+        change = random.gauss(0, 0.015)  # 1.5% daily volatility
+        new_price = prices[-1] * (1 + change)
+        # Ensure price stays positive and reasonable
+        new_price = max(new_price, base_price * 0.1)
         new_price = min(new_price, base_price * 3)
         prices.append(new_price)
     
-    # Generate OHLC
+    # Generate OHLC data
     opens, highs, lows = [], [], []
     for i, close in enumerate(prices):
-        if i == 0:
-            open_price = close * random.uniform(0.99, 1.01)
-        else:
-            open_price = prices[i-1] * random.uniform(0.99, 1.01)
-        
-        daily_range = close * 0.02
-        high = max(open_price, close) + daily_range * random.uniform(0.1, 0.5)
-        low = min(open_price, close) - daily_range * random.uniform(0.1, 0.5)
-        
-        high = max(high, low * 1.001)
+        open_price = close * random.uniform(0.99, 1.01)
+        high = max(open_price, close) * random.uniform(1.001, 1.03)
+        low = min(open_price, close) * random.uniform(0.97, 0.999)
         
         opens.append(open_price)
         highs.append(high)
@@ -320,20 +351,21 @@ def generate_fallback_data(ticker, days=500):
         'Volume': [random.randint(1000000, 10000000) for _ in range(len(prices))]
     })
     
-    print(f"Generated {len(df)} days of fallback data")
+    print(f"Generated {len(df)} days of fallback data for {ticker}")
     return df, prices[-1], None
 
-# ================ PREDICTOR CLASS ================
+# ---------------- OCHL Multi-Algorithm Predictor ----------------
 class OCHLPredictor:
     def __init__(self):
-        self.models = {}
-        self.scalers = {}
+        self.models = {}  # {target: {algorithm: model}}
+        self.scalers = {}  # {target: scaler}
         self.feature_scaler = StandardScaler()
         self.feature_columns = []
         self.targets = ['Open', 'Close', 'High', 'Low']
         self.historical_performance = {}
         self.prediction_history = {}
         self.risk_metrics = {}
+        self.anomaly_detector = None
         self.last_training_date = None
         self.is_fitted = False
         
@@ -364,7 +396,7 @@ class OCHLPredictor:
                             path = self.get_model_path(symbol, target, algo)
                             joblib.dump(model_data, path)
             
-            # Save history
+            # Save historical performance
             history_data = {
                 'historical_performance': self.historical_performance,
                 'prediction_history': self.prediction_history,
@@ -376,14 +408,14 @@ class OCHLPredictor:
             with open(self.get_history_path(symbol), 'w') as f:
                 json.dump(history_data, f, default=str)
                 
-            print(f"✅ Saved models for {symbol}")
+            print(f"Saved models and history for {symbol}")
             return True
         except Exception as e:
-            print(f"❌ Error saving models: {e}")
+            print(f"Error saving models: {e}")
             return False
     
     def load_models(self, symbol):
-        """Load trained models"""
+        """Load trained models and history"""
         try:
             loaded_models = {target: {} for target in self.targets}
             algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
@@ -398,20 +430,23 @@ class OCHLPredictor:
                             model_data = joblib.load(path)
                             loaded_models[target][algo] = model_data['model']
                             
+                            # Load scaler for this target
                             if target not in self.scalers:
                                 self.scalers[target] = model_data.get('scaler', StandardScaler())
                             
+                            # Load feature columns
                             if not self.feature_columns:
                                 self.feature_columns = model_data.get('features', [])
                             
                             models_loaded = True
+                            print(f"Loaded {target}-{algo} model for {symbol}")
                         except Exception as e:
-                            print(f"Error loading {target}-{algo}: {e}")
+                            print(f"Error loading {target}-{algo} model: {e}")
                             loaded_models[target][algo] = None
                     else:
                         loaded_models[target][algo] = None
             
-            # Load history
+            # Load historical data
             history_path = self.get_history_path(symbol)
             if os.path.exists(history_path):
                 try:
@@ -424,6 +459,7 @@ class OCHLPredictor:
                     self.last_training_date = history_data.get('last_training_date')
                     self.feature_columns = history_data.get('feature_columns', [])
                     self.is_fitted = models_loaded
+                    print(f"Loaded history for {symbol}")
                 except Exception as e:
                     print(f"Error loading history: {e}")
             
@@ -435,116 +471,131 @@ class OCHLPredictor:
             return False
     
     def prepare_training_data(self, data):
-        """Prepare data for training"""
+        """Prepare data for OCHL prediction with NaN protection"""
         try:
-            print(f"Preparing training data: {len(data)} rows")
+            print(f"Preparing training data with {len(data)} rows")
             
+            # Create features
             data_with_features = create_advanced_features(data)
+            print(f"Created {len(data_with_features.columns)} features")
             
-            # Feature selection
+            # Ensure we have enough data
+            if len(data_with_features) < 60:
+                print(f"Warning: Only {len(data_with_features)} rows of data, minimum 60 required")
+                return None, None, None
+            
+            # Feature selection - use all available numeric features except Date
             numeric_cols = [col for col in data_with_features.columns 
                           if col != 'Date' and pd.api.types.is_numeric_dtype(data_with_features[col])]
             
+            # Remove target columns from features
             feature_candidates = [col for col in numeric_cols if col not in self.targets]
             
-            if len(feature_candidates) > 20:
-                # Select top features by correlation
-                correlations = []
-                for target in self.targets:
-                    if target in data_with_features.columns:
-                        for feat in feature_candidates:
-                            if feat in data_with_features.columns:
-                                corr = abs(data_with_features[target].corr(data_with_features[feat]))
-                                if not np.isnan(corr):
-                                    correlations.append((feat, corr))
-                
-                feat_scores = {}
-                for feat, corr in correlations:
-                    if feat not in feat_scores:
-                        feat_scores[feat] = []
-                    feat_scores[feat].append(corr)
-                
-                avg_corrs = {feat: np.mean(scores) for feat, scores in feat_scores.items()}
-                sorted_feats = sorted(avg_corrs.items(), key=lambda x: x[1], reverse=True)
-                self.feature_columns = [feat for feat, _ in sorted_feats[:20]]
+            # Select top 30 features by variance if we have too many
+            if len(feature_candidates) > 30:
+                variances = data_with_features[feature_candidates].var()
+                top_features = variances.nlargest(30).index.tolist()
+                self.feature_columns = top_features
             else:
                 self.feature_columns = feature_candidates
             
             print(f"Selected {len(self.feature_columns)} features")
             
-            # Prepare sequences
+            # Prepare X (features) for each target
             X_data = {}
             y_data = {}
             
             for target in self.targets:
                 if target not in data_with_features.columns:
+                    # If target column doesn't exist, use Close as proxy
+                    print(f"Warning: {target} column not found, using Close as target")
                     data_with_features[target] = data_with_features['Close']
                 
-                data_with_features[target] = data_with_features[target].ffill().bfill()
+                # Ensure target has no NaN values
+                data_with_features[target] = data_with_features[target].ffill().bfill().fillna(data_with_features['Close'].mean())
                 
+                # Prepare sequences (use past 30 days to predict next day)
                 X_list = []
                 y_list = []
                 window_size = 30
                 
                 if len(data_with_features) < window_size + 10:
+                    print(f"Warning: Not enough data for window size {window_size}")
                     continue
                 
                 for i in range(window_size, len(data_with_features) - 1):
+                    # Features from window
                     features = data_with_features[self.feature_columns].iloc[i-window_size:i]
                     
+                    # Check for NaN in features
                     if features.isna().any().any():
+                        print(f"Warning: NaN found in features at index {i}")
                         features = features.fillna(0)
                     
                     features_flat = features.values.flatten()
+                    
+                    # Target is next day's value
                     target_value = data_with_features[target].iloc[i+1]
                     
+                    # Skip if target is NaN
                     if pd.isna(target_value):
                         continue
                     
                     X_list.append(features_flat)
                     y_list.append(target_value)
                 
-                if len(X_list) > 20:
+                if len(X_list) > 10:  # Need minimum samples
                     X_data[target] = np.array(X_list)
                     y_data[target] = np.array(y_list)
                     print(f"Prepared {len(X_list)} samples for {target}")
                 else:
+                    print(f"Warning: Insufficient samples for {target}")
                     X_data[target] = None
                     y_data[target] = None
             
+            # Check if we have data for all targets
             valid_targets = [t for t in self.targets if t in X_data and X_data[t] is not None and len(X_data[t]) > 0]
             if len(valid_targets) == 0:
+                print("Error: No valid training data for any target")
                 return None, None, None
             
+            print(f"Successfully prepared data for targets: {valid_targets}")
             return X_data, y_data, data_with_features
             
         except Exception as e:
             print(f"Error preparing training data: {e}")
+            import traceback
+            traceback.print_exc()
             return None, None, None
     
     def train_algorithm(self, X, y, algorithm):
-        """Train a specific algorithm"""
+        """Train a specific algorithm with NaN protection"""
         try:
+            # Check for NaN in inputs
             if np.any(np.isnan(X)) or np.any(np.isnan(y)):
+                print(f"Warning: NaN found in training data for {algorithm}")
                 X = np.nan_to_num(X, nan=0.0)
-                y_mean = np.nanmean(y) if not np.all(np.isnan(y)) else np.mean(y) if len(y) > 0 else 0
-                y = np.nan_to_num(y, nan=y_mean)
+                y = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0.0)
             
-            if len(X) < 20:
+            if len(X) < 10:
+                print(f"Warning: Insufficient data for {algorithm}")
                 return None
             
             if algorithm == 'linear_regression':
                 model = LinearRegression()
                 model.fit(X, y)
+                print(f"Trained Linear Regression with {len(X)} samples")
                 return model
                 
             elif algorithm == 'svr':
                 model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
-                if len(X) > 500:
-                    idx = np.random.choice(len(X), min(500, len(X)), replace=False)
+                # Use smaller sample for SVR if data is large
+                if len(X) > 1000:
+                    idx = np.random.choice(len(X), min(1000, len(X)), replace=False)
                     model.fit(X[idx], y[idx])
                 else:
                     model.fit(X, y)
+                print(f"Trained SVR with {len(X)} samples")
                 return model
                 
             elif algorithm == 'random_forest':
@@ -557,30 +608,42 @@ class OCHLPredictor:
                     n_jobs=-1
                 )
                 model.fit(X, y)
+                print(f"Trained Random Forest with {len(X)} samples")
                 return model
                 
             elif algorithm == 'arima':
+                # ARIMA needs 1D time series
                 if len(y) > 50:
                     try:
-                        y_clean = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0)
+                        # Ensure no NaN in y
+                        y_clean = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0.0)
+                        
                         model = pm.auto_arima(
                             y_clean,
                             start_p=1, start_q=1,
-                            max_p=2, max_q=2, m=1,
+                            max_p=3, max_q=3, m=1,
                             seasonal=False,
+                            d=1, D=0,
                             trace=False,
-                            error_action='ignore'
+                            error_action='ignore',
+                            suppress_warnings=True,
+                            maxiter=50
                         )
+                        print(f"Trained ARIMA with order {model.order}")
                         return model
-                    except:
+                    except Exception as e:
+                        print(f"ARIMA auto failed: {e}")
+                        # Fallback to simple ARIMA
                         try:
-                            y_clean = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0)
                             model = StatsmodelsARIMA(y_clean, order=(1,1,1))
                             model_fit = model.fit()
+                            print("Trained simple ARIMA(1,1,1)")
                             return model_fit
                         except:
+                            print("Simple ARIMA also failed")
                             return None
                 else:
+                    print(f"Warning: Insufficient data for ARIMA ({len(y)} samples)")
                     return None
                     
             return None
@@ -589,73 +652,92 @@ class OCHLPredictor:
             return None
     
     def train_all_models(self, data, symbol):
-        """Train all models"""
+        """Train models for all OCHL targets using all algorithms"""
         try:
             X_data, y_data, data_with_features = self.prepare_training_data(data)
             
             if X_data is None or y_data is None:
-                return False, "Insufficient data"
+                print("Error: Could not prepare training data")
+                return False, "Insufficient data for training"
             
             algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
             self.models = {target: {} for target in self.targets}
             self.scalers = {}
             
-            print(f"Training models for {symbol}...")
+            print(f"Training OCHL models for {symbol}...")
             
             targets_trained = 0
             
             for target in self.targets:
+                print(f"  Training models for {target}...")
+                
                 if target not in X_data or X_data[target] is None:
+                    print(f"    Skipping {target}: No data")
                     continue
                 
                 X = X_data[target]
                 y = y_data[target]
                 
-                if len(X) < 30 or len(y) < 30:
+                # Check data quality
+                if len(X) < 20 or len(y) < 20:
+                    print(f"    Skipping {target}: Insufficient samples ({len(X)})")
                     continue
                 
+                # Scale features and target
+                try:
+                    X_scaled = self.feature_scaler.fit_transform(X)
+                except:
+                    print(f"    Warning: Feature scaling failed for {target}")
+                    X_scaled = X  # Use unscaled features
+                
                 # Scale target
-                target_scaler = MinMaxScaler(feature_range=(0.1, 0.9))
-                y_scaled = target_scaler.fit_transform(y.reshape(-1, 1)).flatten()
-                self.scalers[target] = target_scaler
+                try:
+                    target_scaler = StandardScaler()
+                    y_scaled = target_scaler.fit_transform(y.reshape(-1, 1)).flatten()
+                    self.scalers[target] = target_scaler
+                except:
+                    print(f"    Warning: Target scaling failed for {target}")
+                    y_scaled = y
+                    self.scalers[target] = StandardScaler()
                 
-                # Scale features
-                X_scaled = self.feature_scaler.fit_transform(X)
-                
-                # Train algorithms
+                # Train each algorithm
                 for algo in algorithms:
+                    print(f"    Training {algo}...")
                     model = self.train_algorithm(X_scaled, y_scaled, algo)
                     self.models[target][algo] = model
                 
                 targets_trained += 1
             
             if targets_trained == 0:
-                return False, "No targets trained"
+                print("Error: No targets were successfully trained")
+                return False, "Failed to train any models"
             
-            # Calculate performance
+            # Calculate historical performance
             self.calculate_historical_performance(X_data, y_data, data_with_features)
             
             # Calculate risk metrics
             self.calculate_risk_metrics(data_with_features)
             
-            # Update history
+            # Save prediction history
             self.update_prediction_history(symbol, data_with_features)
             
             self.last_training_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.is_fitted = True
             
-            # Save models
+            # Save models and history
             self.save_models(symbol)
             
-            print(f"✅ Trained {targets_trained} targets")
-            return True, f"Trained {targets_trained} targets"
+            print(f"Successfully trained models for {targets_trained} targets")
+            return True, f"Trained models for {targets_trained} targets successfully"
             
         except Exception as e:
             print(f"Error training all models: {e}")
+            import traceback
+            traceback.print_exc()
             return False, str(e)
     
     def calculate_historical_performance(self, X_data, y_data, data_with_features):
-        """Calculate performance metrics"""
+        """Calculate comprehensive historical performance metrics"""
         try:
             performance = {}
             
@@ -669,12 +751,12 @@ class OCHLPredictor:
                 if X is None or y is None or len(X) < 20:
                     continue
                 
-                # Split data
+                # Split for validation (80/20)
                 split_idx = int(len(X) * 0.8)
                 X_train, X_test = X[:split_idx], X[split_idx:]
                 y_train, y_test = y[:split_idx], y[split_idx:]
                 
-                if len(X_test) < 5:
+                if len(X_test) < 5 or len(y_test) < 5:
                     continue
                 
                 # Scale features
@@ -686,14 +768,13 @@ class OCHLPredictor:
                     X_test_scaled = X_test
                 
                 # Scale target
-                target_scaler = self.scalers.get(target, MinMaxScaler(feature_range=(0.1, 0.9)))
+                target_scaler = self.scalers.get(target, StandardScaler())
                 try:
                     y_train_scaled = target_scaler.transform(y_train.reshape(-1, 1)).flatten()
                     y_test_scaled = target_scaler.transform(y_test.reshape(-1, 1)).flatten()
                 except:
                     y_train_scaled = y_train
                     y_test_scaled = y_test
-                    target_scaler = None
                 
                 target_performance = {}
                 
@@ -703,32 +784,36 @@ class OCHLPredictor:
                     
                     try:
                         if algo == 'arima':
+                            # ARIMA predictions - need to train on training data
                             try:
-                                arima_train = y_train_scaled[-100:] if len(y_train_scaled) > 100 else y_train_scaled
                                 temp_arima = pm.auto_arima(
-                                    arima_train,
+                                    y_train_scaled,
                                     start_p=1, start_q=1,
-                                    max_p=2, max_q=2,
+                                    max_p=3, max_q=3,
                                     seasonal=False,
                                     trace=False,
                                     error_action='ignore'
                                 )
                                 predictions_scaled = temp_arima.predict(n_periods=len(y_test_scaled))
                             except:
-                                predictions_scaled = np.full_like(y_test_scaled, np.mean(y_train_scaled))
+                                # Fallback
+                                predictions_scaled = np.zeros_like(y_test_scaled)
                         else:
+                            # Other models
                             predictions_scaled = model.predict(X_test_scaled)
                         
-                        if target_scaler is not None:
-                            predictions = target_scaler.inverse_transform(
-                                predictions_scaled.reshape(-1, 1)
-                            ).flatten()
-                            actuals = target_scaler.inverse_transform(
-                                y_test_scaled.reshape(-1, 1)
-                            ).flatten()
-                        else:
-                            predictions = predictions_scaled
-                            actuals = y_test_scaled
+                        # Ensure predictions are valid
+                        if np.any(np.isnan(predictions_scaled)):
+                            predictions_scaled = np.nan_to_num(predictions_scaled, nan=np.nanmean(predictions_scaled))
+                        
+                        # Inverse transform
+                        predictions = target_scaler.inverse_transform(
+                            predictions_scaled.reshape(-1, 1)
+                        ).flatten()
+                        
+                        actuals = target_scaler.inverse_transform(
+                            y_test_scaled.reshape(-1, 1)
+                        ).flatten()
                         
                         # Ensure same length
                         min_len = min(len(predictions), len(actuals))
@@ -758,126 +843,155 @@ class OCHLPredictor:
                             'mae': float(mae),
                             'r2': float(r2),
                             'mape': float(mape),
-                            'direction_accuracy': float(direction_accuracy)
+                            'direction_accuracy': float(direction_accuracy),
+                            'sample_size': len(actuals)
                         }
                         
                     except Exception as e:
+                        print(f"Error calculating performance for {target}-{algo}: {e}")
                         target_performance[algo] = {
-                            'rmse': 9999, 'mae': 9999, 'r2': -1,
-                            'mape': 100, 'direction_accuracy': 0
+                            'rmse': 9999,
+                            'mae': 9999,
+                            'r2': -1,
+                            'mape': 100,
+                            'direction_accuracy': 0,
+                            'sample_size': 0
                         }
                 
                 performance[target] = target_performance
             
             self.historical_performance = performance
+            print(f"Calculated performance for {len(performance)} targets")
             return performance
             
         except Exception as e:
-            print(f"Error calculating performance: {e}")
+            print(f"Error calculating historical performance: {e}")
             return {}
     
     def calculate_risk_metrics(self, data):
-        """Calculate risk metrics"""
+        """Calculate various risk metrics"""
         try:
             if 'Close' not in data.columns:
                 self.risk_metrics = {}
                 return
             
             returns = data['Close'].pct_change().dropna()
-            returns = returns.fillna(0)
             
             if len(returns) < 10:
                 self.risk_metrics = {}
                 return
             
-            # Basic metrics
-            volatility = returns.std() * np.sqrt(252)
+            # Ensure no NaN in returns
+            returns = returns.fillna(0)
+            
+            # Basic risk metrics
+            volatility = returns.std() * np.sqrt(252)  # Annualized
             sharpe_ratio = (returns.mean() * 252) / (returns.std() * np.sqrt(252)) if returns.std() > 0 else 0
             
-            # VaR
+            # Value at Risk (VaR)
             var_95 = np.percentile(returns, 5) * 100 if len(returns) >= 20 else 0
+            var_99 = np.percentile(returns, 1) * 100 if len(returns) >= 100 else 0
             
-            # Max drawdown
+            # Expected Shortfall (CVaR)
+            cvar_95 = returns[returns <= np.percentile(returns, 5)].mean() * 100 if len(returns) >= 20 else 0
+            cvar_99 = returns[returns <= np.percentile(returns, 1)].mean() * 100 if len(returns) >= 100 else 0
+            
+            # Maximum Drawdown
             cumulative = (1 + returns).cumprod()
             rolling_max = cumulative.expanding().max()
             drawdown = (cumulative - rolling_max) / rolling_max.replace(0, 1e-10)
             max_drawdown = drawdown.min() * 100 if len(drawdown) > 0 else 0
             
+            # Skewness and Kurtosis
+            skewness = returns.skew() if len(returns) > 2 else 0
+            kurtosis = returns.kurtosis() if len(returns) > 3 else 0
+            
+            # Anomaly detection
+            anomaly_score = detect_anomalies(data).mean() * 100
+            
             self.risk_metrics = {
-                'volatility': float(volatility * 100),
+                'volatility': float(volatility * 100),  # as percentage
                 'sharpe_ratio': float(sharpe_ratio),
                 'var_95': float(var_95),
+                'var_99': float(var_99),
+                'cvar_95': float(cvar_95),
+                'cvar_99': float(cvar_99),
                 'max_drawdown': float(max_drawdown),
-                'total_return': float(returns.mean() * 252 * 100),
-                'positive_days': float((returns > 0).mean() * 100)
+                'skewness': float(skewness),
+                'kurtosis': float(kurtosis),
+                'anomaly_score': float(anomaly_score),
+                'total_returns': float(returns.mean() * 252 * 100),  # annualized percentage
+                'positive_days': float((returns > 0).mean() * 100),
+                'negative_days': float((returns < 0).mean() * 100)
             }
+            
+            print(f"Calculated risk metrics: {len(self.risk_metrics)} metrics")
             
         except Exception as e:
             print(f"Error calculating risk metrics: {e}")
             self.risk_metrics = {}
     
     def update_prediction_history(self, symbol, data):
-        """Update prediction history"""
+        """Update prediction history with latest actuals"""
         try:
             if symbol not in self.prediction_history:
                 self.prediction_history[symbol] = []
             
-            latest = {
+            # Get latest actual prices
+            latest_actuals = {
                 'date': data['Date'].iloc[-1] if 'Date' in data.columns else datetime.now().strftime('%Y-%m-%d'),
                 'actual_open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else 0,
                 'actual_high': float(data['High'].iloc[-1]) if 'High' in data.columns else 0,
                 'actual_low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else 0,
-                'actual_close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 0
+                'actual_close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 0,
+                'volume': float(data['Volume'].iloc[-1]) if 'Volume' in data.columns else 0
             }
             
-            self.prediction_history[symbol].append(latest)
+            # Keep only last 100 predictions
+            self.prediction_history[symbol].append(latest_actuals)
             if len(self.prediction_history[symbol]) > 100:
                 self.prediction_history[symbol] = self.prediction_history[symbol][-100:]
                 
         except Exception as e:
-            print(f"Error updating history: {e}")
+            print(f"Error updating prediction history: {e}")
     
     def predict_ochl(self, data, symbol):
-        """Predict next day's prices"""
+        """Predict next day's OCHL using ensemble of all algorithms"""
         try:
-            print(f"Predicting for {symbol}...")
+            print(f"Starting prediction for {symbol}")
             
             X_data, _, data_with_features = self.prepare_training_data(data)
             
             if X_data is None:
-                return None, "Insufficient data"
+                print("Error: Could not prepare prediction data")
+                return None, "Insufficient data for prediction"
             
             predictions = {}
             confidence_scores = {}
             algorithm_predictions = {}
             
-            # Current prices for fallback
-            current_prices = {
-                'open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else 100.0,
-                'high': float(data['High'].iloc[-1]) if 'High' in data.columns else 100.0,
-                'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else 100.0,
-                'close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 100.0
-            }
-            
             for target in self.targets:
-                fallback_value = current_prices[target.lower()]
+                print(f"  Predicting {target}...")
                 
                 if target not in self.models or target not in X_data or X_data[target] is None:
-                    predictions[target] = fallback_value
+                    print(f"    Skipping {target}: No model or data")
+                    predictions[target] = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
                     confidence_scores[target] = 50
                     continue
                 
                 X = X_data[target]
                 if len(X) == 0:
-                    predictions[target] = fallback_value
+                    print(f"    Skipping {target}: Empty data")
+                    predictions[target] = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
                     confidence_scores[target] = 50
                     continue
                 
-                # Get latest features
+                # Get latest features for prediction
                 latest_features = X[-1:].reshape(1, -1)
                 try:
                     latest_scaled = self.feature_scaler.transform(latest_features)
                 except:
+                    print(f"    Warning: Feature scaling failed for prediction")
                     latest_scaled = latest_features
                 
                 target_predictions = {}
@@ -885,52 +999,58 @@ class OCHLPredictor:
                 
                 for algo, model in self.models[target].items():
                     if model is None:
+                        print(f"    Skipping {algo}: No model")
                         continue
                     
                     try:
+                        pred_actual = None
+                        
                         if algo == 'arima':
-                            target_scaler = self.scalers.get(target, MinMaxScaler(feature_range=(0.1, 0.9)))
+                            # ARIMA needs time series data
+                            target_scaler = self.scalers.get(target, StandardScaler())
+                            y_scaled = target_scaler.transform(
+                                data_with_features[target].values[-100:].reshape(-1, 1)
+                            ).flatten() if target in data_with_features.columns else np.zeros(100)
                             
-                            if target in data_with_features.columns:
-                                recent_target = data_with_features[target].values[-50:]
-                            else:
-                                recent_target = data_with_features['Close'].values[-50:]
-                            
-                            recent_scaled = target_scaler.transform(recent_target.reshape(-1, 1)).flatten()
-                            
-                            if len(recent_scaled) > 20:
+                            # Train temporary ARIMA on recent data
+                            if len(y_scaled) > 30:
                                 try:
                                     temp_arima = pm.auto_arima(
-                                        recent_scaled,
+                                        y_scaled,
                                         start_p=1, start_q=1,
-                                        max_p=2, max_q=2,
+                                        max_p=3, max_q=3,
                                         seasonal=False,
                                         trace=False,
                                         error_action='ignore'
                                     )
                                     pred_scaled = temp_arima.predict(n_periods=1)[0]
-                                except:
-                                    pred_scaled = recent_scaled[-1] if len(recent_scaled) > 0 else 0.5
+                                    
+                                    # Inverse transform
+                                    pred_actual = target_scaler.inverse_transform(
+                                        np.array([[pred_scaled]])
+                                    )[0][0]
+                                except Exception as e:
+                                    print(f"      ARIMA prediction failed: {e}")
+                                    pred_actual = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                             else:
-                                pred_scaled = recent_scaled[-1] if len(recent_scaled) > 0 else 0.5
+                                pred_actual = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                         else:
+                            # Other models
                             pred_scaled = float(model.predict(latest_scaled)[0])
+                            
+                            # Inverse transform
+                            target_scaler = self.scalers.get(target, StandardScaler())
+                            pred_actual = target_scaler.inverse_transform(
+                                np.array([[pred_scaled]])
+                            )[0][0]
                         
-                        # Ensure bounds
-                        pred_scaled = max(0.01, min(0.99, pred_scaled))
+                        # Ensure prediction is valid
+                        if pred_actual is None or np.isnan(pred_actual) or np.isinf(pred_actual):
+                            print(f"      Invalid prediction from {algo}")
+                            pred_actual = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                         
-                        # Inverse transform
-                        target_scaler = self.scalers.get(target, MinMaxScaler(feature_range=(0.1, 0.9)))
-                        pred_actual = target_scaler.inverse_transform(
-                            np.array([[pred_scaled]])
-                        )[0][0]
-                        
-                        # Sanity checks
-                        if pred_actual < 0.01 or pred_actual > 10000:
-                            pred_actual = fallback_value
-                        
-                        # Confidence
-                        confidence = 70
+                        # Calculate confidence based on historical performance
+                        confidence = 70  # default
                         if target in self.historical_performance and algo in self.historical_performance[target]:
                             perf = self.historical_performance[target][algo]
                             direction_acc = perf.get('direction_accuracy', 50)
@@ -947,17 +1067,22 @@ class OCHLPredictor:
                         target_predictions[algo] = float(pred_actual)
                         target_confidences[algo] = float(confidence)
                         
+                        print(f"      {algo}: ${pred_actual:.2f} (conf: {confidence:.1f}%)")
+                        
                     except Exception as e:
+                        print(f"      Error predicting with {algo}: {e}")
+                        # Use last known value as fallback
+                        fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                         target_predictions[algo] = float(fallback_value)
                         target_confidences[algo] = 50.0
                 
                 if target_predictions:
-                    # Weighted ensemble
+                    # Calculate weighted ensemble prediction
                     weights = {}
                     total_weight = 0
                     
                     for algo, conf in target_confidences.items():
-                        weight = max(conf / 100, 0.1)
+                        weight = max(conf / 100, 0.1)  # Minimum weight of 0.1
                         weights[algo] = weight
                         total_weight += weight
                     
@@ -967,32 +1092,37 @@ class OCHLPredictor:
                             for algo, pred in target_predictions.items()
                         )
                     else:
+                        # Equal weights if no confidence scores
                         ensemble_pred = np.mean(list(target_predictions.values()))
-                    
-                    if ensemble_pred < 0.01:
-                        ensemble_pred = fallback_value
                     
                     predictions[target] = float(ensemble_pred)
                     confidence_scores[target] = float(np.mean(list(target_confidences.values())))
                     algorithm_predictions[target] = {
                         'individual': target_predictions,
                         'confidences': target_confidences,
-                        'ensemble': float(ensemble_pred)
+                        'ensemble': float(ensemble_pred),
+                        'ensemble_confidence': float(np.mean(list(target_confidences.values())))
                     }
+                    
+                    print(f"    {target} ensemble: ${ensemble_pred:.2f} (conf: {confidence_scores[target]:.1f}%)")
                 else:
+                    # Fallback to current price
+                    fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                     predictions[target] = float(fallback_value)
                     confidence_scores[target] = 50.0
+                    print(f"    {target} fallback: ${fallback_value:.2f}")
             
-            # Ensure all targets have predictions
+            # Ensure we have predictions for all targets
             for target in self.targets:
                 if target not in predictions:
-                    predictions[target] = current_prices[target.lower()]
+                    fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
+                    predictions[target] = float(fallback_value)
                     confidence_scores[target] = 50.0
             
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
             
-            # Confidence metrics
+            # Calculate prediction confidence metrics
             confidence_metrics = self.calculate_prediction_confidence(predictions, confidence_scores)
             
             result = {
@@ -1001,24 +1131,33 @@ class OCHLPredictor:
                 'confidence_scores': confidence_scores,
                 'confidence_metrics': confidence_metrics,
                 'risk_alerts': risk_alerts,
-                'current_prices': current_prices
+                'current_prices': {
+                    'open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else 100.0,
+                    'high': float(data['High'].iloc[-1]) if 'High' in data.columns else 100.0,
+                    'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else 100.0,
+                    'close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 100.0
+                }
             }
             
-            print(f"✅ Predictions complete")
+            print(f"Successfully generated predictions for {symbol}")
             return result, None
             
         except Exception as e:
-            print(f"Error predicting: {e}")
+            print(f"Error predicting OCHL: {e}")
+            import traceback
+            traceback.print_exc()
             return None, str(e)
     
     def calculate_prediction_confidence(self, predictions, confidence_scores):
-        """Calculate confidence metrics"""
+        """Calculate comprehensive confidence metrics"""
         try:
             if not predictions or not confidence_scores:
                 return {}
             
+            # Calculate overall confidence
             overall_confidence = np.mean(list(confidence_scores.values())) if confidence_scores else 0
             
+            # Calculate prediction consistency
             predicted_values = list(predictions.values())
             if len(predicted_values) >= 2:
                 mean_val = np.mean(predicted_values)
@@ -1030,6 +1169,7 @@ class OCHLPredictor:
             else:
                 consistency_score = 0
             
+            # Determine confidence level
             if overall_confidence >= 80:
                 confidence_level = "HIGH"
                 confidence_color = "success"
@@ -1044,43 +1184,49 @@ class OCHLPredictor:
                 'overall_confidence': float(overall_confidence),
                 'consistency_score': float(consistency_score),
                 'confidence_level': confidence_level,
-                'confidence_color': confidence_color
+                'confidence_color': confidence_color,
+                'target_confidence': {
+                    target: {
+                        'score': float(confidence_scores.get(target, 0)),
+                        'level': "HIGH" if confidence_scores.get(target, 0) >= 80 else 
+                                 "MEDIUM" if confidence_scores.get(target, 0) >= 60 else "LOW"
+                    }
+                    for target in self.targets if target in confidence_scores
+                }
             }
-        except:
-            return {
-                'overall_confidence': 50.0,
-                'consistency_score': 0.0,
-                'confidence_level': "LOW",
-                'confidence_color': "danger"
-            }
+        except Exception as e:
+            print(f"Error calculating prediction confidence: {e}")
+            return {}
     
     def generate_risk_alerts(self, data, predictions):
-        """Generate risk alerts"""
+        """Generate risk alerts based on various factors"""
         alerts = []
         
         try:
+            # Get current and predicted prices
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             predicted_close = predictions.get('Close', current_close)
             
+            # Calculate expected change
             expected_change = ((predicted_close - current_close) / current_close) * 100 if current_close != 0 else 0
             
-            # Price movement alerts
+            # 1. Price movement alerts
             if abs(expected_change) > 10:
                 alerts.append({
                     'level': '🔴 CRITICAL',
                     'type': 'Extreme Price Movement',
-                    'message': f'Expected change: {expected_change:+.1f}%',
-                    'details': 'Consider adjusting position size'
+                    'message': f'Expected price change of {expected_change:+.1f}%',
+                    'details': 'Consider adjusting position size or setting stop-loss'
                 })
             elif abs(expected_change) > 5:
                 alerts.append({
                     'level': '🟡 HIGH',
                     'type': 'Large Price Movement',
-                    'message': f'Expected change: {expected_change:+.1f}%',
+                    'message': f'Expected price change of {expected_change:+.1f}%',
                     'details': 'Monitor position closely'
                 })
             
-            # Volatility alerts
+            # 2. Volatility alerts
             if 'Volatility' in data.columns:
                 recent_volatility = data['Volatility'].iloc[-10:].mean()
                 if recent_volatility > 0.03:
@@ -1091,50 +1237,132 @@ class OCHLPredictor:
                         'details': 'Market showing increased volatility'
                     })
             
-            # RSI alerts
+            # 3. RSI alerts
             if 'RSI' in data.columns and len(data) > 0:
                 current_rsi = data['RSI'].iloc[-1]
                 if current_rsi > 80:
                     alerts.append({
                         'level': '🟡 HIGH',
-                        'type': 'Overbought',
-                        'message': f'RSI: {current_rsi:.1f}',
-                        'details': 'Consider taking profits'
+                        'type': 'Overbought Condition',
+                        'message': f'RSI at {current_rsi:.1f} (Overbought)',
+                        'details': 'Consider taking profits or waiting for pullback'
                     })
                 elif current_rsi < 20:
                     alerts.append({
                         'level': '🟢 MEDIUM',
-                        'type': 'Oversold',
-                        'message': f'RSI: {current_rsi:.1f}',
+                        'type': 'Oversold Condition',
+                        'message': f'RSI at {current_rsi:.1f} (Oversold)',
                         'details': 'Potential buying opportunity'
                     })
             
+            # 4. Volume alerts
+            if 'Volume_Ratio' in data.columns and len(data) > 0:
+                volume_ratio = data['Volume_Ratio'].iloc[-1]
+                if volume_ratio > 2.0:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'Unusual Volume',
+                        'message': f'Volume {volume_ratio:.1f}x average',
+                        'details': 'High volume may indicate significant news or event'
+                    })
+            
+            # 5. Prediction confidence alerts
+            confidence_metrics = self.calculate_prediction_confidence(predictions, {})
+            overall_conf = confidence_metrics.get('overall_confidence', 0)
+            
+            if overall_conf < 50:
+                alerts.append({
+                    'level': '🟡 HIGH',
+                    'type': 'Low Prediction Confidence',
+                    'message': f'Model confidence: {overall_conf:.1f}%',
+                    'details': 'Consider additional analysis before trading'
+                })
+            
+            # 6. Risk metric alerts
+            if self.risk_metrics:
+                if self.risk_metrics.get('max_drawdown', 0) < -20:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Large Historical Drawdown',
+                        'message': f'Max drawdown: {self.risk_metrics["max_drawdown"]:.1f}%',
+                        'details': 'Stock has experienced significant declines historically'
+                    })
+                
+                if self.risk_metrics.get('var_95', 0) < -5:
+                    alerts.append({
+                        'level': '🟡 HIGH',
+                        'type': 'High Downside Risk',
+                        'message': f'95% VaR: {self.risk_metrics["var_95"]:.1f}%',
+                        'details': 'High probability of significant losses'
+                    })
+            
+            # 7. Market regime alert
+            market_regime = self.detect_market_regime(data)
+            if market_regime != "NORMAL":
+                alerts.append({
+                    'level': '🟡 HIGH' if market_regime == "HIGH_VOLATILITY" else '🟢 MEDIUM',
+                    'type': 'Special Market Regime',
+                    'message': f'Current regime: {market_regime.replace("_", " ").title()}',
+                    'details': 'Market conditions may affect prediction accuracy'
+                })
+            
+            # Sort alerts by severity
+            severity_order = {'🔴 CRITICAL': 0, '🟡 HIGH': 1, '🟢 MEDIUM': 2, '🟢 LOW': 3}
+            alerts.sort(key=lambda x: severity_order.get(x['level'], 4))
+            
+            print(f"Generated {len(alerts)} risk alerts")
             return alerts
             
-        except:
+        except Exception as e:
+            print(f"Error generating risk alerts: {e}")
             return []
+    
+    def detect_market_regime(self, data):
+        """Detect current market regime"""
+        try:
+            if len(data) < 20:
+                return "NORMAL"
+            
+            recent = data.tail(20)
+            
+            # Calculate regime indicators
+            volatility = recent['Volatility'].mean() if 'Volatility' in recent.columns else 0
+            volume_ratio = recent['Volume_Ratio'].mean() if 'Volume_Ratio' in recent.columns else 1
+            rsi = recent['RSI'].iloc[-1] if 'RSI' in recent.columns else 50
+            
+            if volatility > 0.03:
+                return "HIGH_VOLATILITY"
+            elif volume_ratio > 1.5:
+                return "HIGH_VOLUME"
+            elif rsi > 75 or rsi < 25:
+                return "EXTREME_SENTIMENT"
+            else:
+                return "NORMAL"
+                
+        except:
+            return "NORMAL"
 
-# Global predictor
+# Global predictor instance
 predictor = OCHLPredictor()
 
-# ================ HELPER FUNCTIONS ================
+# ---------------- Helper Functions ----------------
 def get_next_trading_day():
     today = datetime.now()
-    if today.weekday() == 4:
+    if today.weekday() == 4:  # Friday
         return (today + timedelta(days=3)).strftime('%Y-%m-%d')
-    if today.weekday() == 5:
+    if today.weekday() == 5:  # Saturday
         return (today + timedelta(days=2)).strftime('%Y-%m-%d')
-    if today.weekday() == 6:
+    if today.weekday() == 6:  # Sunday
         return (today + timedelta(days=1)).strftime('%Y-%m-%d')
     return (today + timedelta(days=1)).strftime('%Y-%m-%d')
 
 def get_last_market_date():
     today = datetime.now()
-    if today.weekday() == 0:
+    if today.weekday() == 0:  # Monday
         return (today - timedelta(days=3)).strftime('%Y-%m-%d')
-    if today.weekday() == 6:
+    if today.weekday() == 6:  # Sunday
         return (today - timedelta(days=2)).strftime('%Y-%m-%d')
-    if today.weekday() == 5:
+    if today.weekday() == 5:  # Saturday
         return (today - timedelta(days=1)).strftime('%Y-%m-%d')
     return (today - timedelta(days=1)).strftime('%Y-%m-%d')
 
@@ -1155,11 +1383,13 @@ def get_market_status():
     return "open", "Market is open"
 
 def get_risk_level_from_metrics(risk_metrics):
+    """Calculate overall risk level from risk metrics"""
     if not risk_metrics:
         return "🟢 LOW RISK"
     
     risk_score = 0
     
+    # Weight different risk factors
     if 'volatility' in risk_metrics:
         risk_score += min(risk_metrics['volatility'] / 50, 1) * 0.3
     
@@ -1169,6 +1399,10 @@ def get_risk_level_from_metrics(risk_metrics):
     if 'var_95' in risk_metrics:
         risk_score += min(abs(risk_metrics['var_95']) / 10, 1) * 0.2
     
+    if 'anomaly_score' in risk_metrics:
+        risk_score += (risk_metrics['anomaly_score'] / 100) * 0.2
+    
+    # Determine risk level
     if risk_score > 0.7:
         return "🔴 EXTREME RISK"
     elif risk_score > 0.5:
@@ -1179,6 +1413,7 @@ def get_risk_level_from_metrics(risk_metrics):
         return "🟢 LOW RISK"
 
 def get_trading_recommendation(predictions, current_prices, confidence):
+    """Generate trading recommendation"""
     if confidence < 50:
         return "🚨 LOW CONFIDENCE - WAIT"
     
@@ -1197,19 +1432,51 @@ def get_trading_recommendation(predictions, current_prices, confidence):
     else:
         return "🔄 HOLD"
 
-# ================ FLASK ROUTES ================
-@server.route('/')
-def index():
-    return render_template('index.html')
+# ---------------- NAVIGATION MAP ----------------
+NAVIGATION_MAP = {
+    'index':'/','jeet':'/jeet','portfolio':'/portfolio','mystock':'/mystock','deposit':'/deposit',
+    'insight':'/insight','prediction':'/prediction','news':'/news','videos':'/videos','superstars':'/Superstars',
+    'alerts':'/alerts','help':'/help','profile':'/profile'
+}
 
-@server.route('/api/health')
-def health_check():
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
-    })
+# ---------------- Dynamic routes for NAVIGATION_MAP ----------------
+def _find_template_for_page(page_key):
+    candidates = [
+        f"{page_key}.html",
+        f"{page_key.capitalize()}.html",
+        f"{page_key.lower()}.html",
+        f"{page_key.title()}.html",
+    ]
+    for fn in candidates:
+        full = os.path.join(current_dir, 'templates', fn)
+        if os.path.exists(full):
+            return fn
+    fallback = 'jeet.html'
+    if os.path.exists(os.path.join(current_dir, 'templates', fallback)):
+        return fallback
+    return 'index.html'
 
+# Register routes dynamically
+for page_name, route_path in NAVIGATION_MAP.items():
+    def make_view(p=page_name):
+        def view():
+            template_name = _find_template_for_page(p)
+            return render_template(template_name, navigation=NAVIGATION_MAP)
+        return view
+    try:
+        server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
+    except AssertionError:
+        try:
+            server.url_map._rules = [r for r in server.url_map._rules if r.endpoint != page_name]
+            server.add_url_rule(route_path, endpoint=page_name, view_func=make_view(), methods=['GET'])
+        except Exception:
+            pass
+
+@server.route('/navigate/<page_name>')
+def navigate_to_page(page_name):
+    return redirect(NAVIGATION_MAP.get(page_name, '/'))
+
+# ---------------- API Endpoints ----------------
 @server.route('/api/stocks')
 @rate_limiter
 def get_stocks_list():
@@ -1231,54 +1498,69 @@ def get_stocks_list():
                 change = ((current-prev_close)/prev_close)*100 if prev_close!=0 else 0.0
                 stock['price'] = round(current,2)
                 stock['change'] = round(change,2)
-        except:
+        except Exception:
             continue
     
     return jsonify(popular_stocks)
 
+@server.route('/api/health')
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "4.0.0",
+        "algorithms": ["Linear Regression", "SVR", "Random Forest", "ARIMA"],
+        "features": "OCHL Prediction + Historical Performance + Confidence + Risk Alerts"
+    })
+
 @server.route('/api/predict', methods=['POST'])
 @rate_limiter
 def predict_stock():
-    """Main prediction endpoint"""
+    """Main prediction endpoint with full OCHL prediction"""
     try:
         data = request.get_json() or {}
-        symbol = (data.get('symbol') or 'AAPL').upper().strip()
+        symbol = (data.get('symbol') or 'SPY').upper().strip()
         
-        print(f"\n=== Predicting {symbol} ===")
+        print(f"\n=== PREDICTION REQUEST FOR {symbol} ===")
         
-        # Get data
+        # Get historical data
         historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
+            print(f"Error fetching data: {error}")
             return jsonify({"error": str(error)}), 400
         
-        print(f"Data: {len(historical_data)} days")
+        print(f"Fetched {len(historical_data)} days of data")
         
-        # Load or train models
+        # Load existing models or train new ones
         models_loaded = predictor.load_models(symbol)
         
         if not models_loaded or not predictor.is_fitted:
-            print("Training new models...")
+            print("No models found, training new ones...")
+            # Train all models
             success, train_msg = predictor.train_all_models(historical_data, symbol)
             if not success:
+                print(f"Training failed: {train_msg}")
                 return provide_fallback_prediction(symbol, historical_data)
-            print("Training complete")
+            print("Training successful")
         else:
-            print("Using existing models")
+            print("Loaded existing models")
         
         # Make prediction
+        print("Making predictions...")
         prediction_result, pred_error = predictor.predict_ochl(historical_data, symbol)
         
         if pred_error:
+            print(f"Prediction error: {pred_error}")
             return provide_fallback_prediction(symbol, historical_data)
         
-        # Prepare response
+        # Prepare comprehensive response
         current_prices = prediction_result['current_prices']
         predictions = prediction_result['predictions']
         confidence_scores = prediction_result['confidence_scores']
         confidence_metrics = prediction_result['confidence_metrics']
         risk_alerts = prediction_result['risk_alerts']
         
-        # Calculate changes
+        # Calculate expected changes
         expected_changes = {}
         for target in ['Open', 'High', 'Low', 'Close']:
             if target in predictions and target.lower() in current_prices:
@@ -1287,11 +1569,11 @@ def predict_stock():
                 change = ((predicted - current) / current) * 100 if current != 0 else 0
                 expected_changes[target] = change
         
-        # Trading recommendation
+        # Generate trading recommendation
         overall_confidence = confidence_metrics.get('overall_confidence', 70)
         recommendation = get_trading_recommendation(predictions, current_prices, overall_confidence)
         
-        # Risk level
+        # Get risk level
         risk_level = get_risk_level_from_metrics(predictor.risk_metrics)
         
         response = {
@@ -1315,36 +1597,51 @@ def predict_stock():
                 for target in ['Open', 'High', 'Low', 'Close']
             },
             
-            # Confidence
+            # Algorithm details
+            "algorithm_details": prediction_result.get('algorithm_details', {}),
+            
+            # Confidence metrics
             "confidence_metrics": confidence_metrics,
             
-            # Performance
+            # Historical performance
             "historical_performance": predictor.historical_performance,
             
-            # Risk
+            # Risk metrics
             "risk_metrics": predictor.risk_metrics,
+            
+            # Risk alerts
             "risk_alerts": risk_alerts,
+            
+            # Risk level and recommendation
             "risk_level": risk_level,
             "trading_recommendation": recommendation,
             
-            # History
-            "prediction_history": predictor.prediction_history.get(symbol, [])[-5:],
+            # Prediction history
+            "prediction_history": predictor.prediction_history.get(symbol, [])[-10:],  # Last 10 predictions
             
             # Model info
             "model_info": {
                 "last_training_date": predictor.last_training_date,
-                "is_fitted": predictor.is_fitted
+                "is_fitted": predictor.is_fitted,
+                "targets_trained": list(predictor.models.keys()),
+                "feature_count": len(predictor.feature_columns),
+                "algorithms_used": ["linear_regression", "svr", "random_forest", "arima"]
             },
             
             # Data info
             "data_info": {
-                "total_days": len(historical_data)
+                "total_days": len(historical_data),
+                "date_range": {
+                    "start": historical_data['Date'].iloc[0] if 'Date' in historical_data.columns else "N/A",
+                    "end": historical_data['Date'].iloc[-1] if 'Date' in historical_data.columns else "N/A"
+                }
             },
             
-            # Insight
-            "insight": f"Predicted {expected_changes.get('Close', 0):+.1f}% change. {recommendation}"
+            # Summary insight
+            "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%"
         }
         
+        print(f"=== PREDICTION COMPLETE FOR {symbol} ===")
         print(f"Predicted Close: ${predictions.get('Close', 0):.2f} ({expected_changes.get('Close', 0):+.1f}%)")
         print(f"Confidence: {overall_confidence:.1f}%")
         print(f"Recommendation: {recommendation}")
@@ -1352,18 +1649,24 @@ def predict_stock():
         return jsonify(response)
         
     except Exception as e:
-        print(f"Prediction error: {e}")
+        print(f"Prediction endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            "error": "Prediction service unavailable",
-            "fallback": True
+            "error": "Prediction service temporarily unavailable",
+            "fallback": True,
+            "symbol": symbol if 'symbol' in locals() else 'UNKNOWN'
         }), 500
 
 @server.route('/api/train', methods=['POST'])
+@rate_limiter
 def train_models():
-    """Train models endpoint"""
+    """Explicit training endpoint"""
     try:
         data = request.get_json() or {}
-        symbol = (data.get('symbol') or 'AAPL').upper().strip()
+        symbol = (data.get('symbol') or 'SPY').upper().strip()
+        
+        print(f"\n=== TRAINING REQUEST FOR {symbol} ===")
         
         historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
@@ -1376,7 +1679,9 @@ def train_models():
                 "status": "success",
                 "message": train_msg,
                 "symbol": symbol,
-                "last_training_date": predictor.last_training_date
+                "last_training_date": predictor.last_training_date,
+                "historical_performance": predictor.historical_performance,
+                "risk_metrics": predictor.risk_metrics
             })
         else:
             return jsonify({
@@ -1386,39 +1691,77 @@ def train_models():
             }), 400
             
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Training endpoint error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@server.route('/api/history/<symbol>')
+@rate_limiter
+def get_prediction_history(symbol):
+    """Get prediction history for a symbol"""
+    try:
+        symbol = symbol.upper()
+        
+        # Load history if available
+        history_path = os.path.join(HISTORY_DIR, f"{symbol}_history.json")
+        if os.path.exists(history_path):
+            with open(history_path, 'r') as f:
+                history_data = json.load(f)
+            
+            return jsonify({
+                "status": "success",
+                "symbol": symbol,
+                "history": history_data.get('prediction_history', []),
+                "performance": history_data.get('historical_performance', {}),
+                "last_updated": history_data.get('last_training_date')
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "No history found for this symbol"
+            }), 404
+            
+    except Exception as e:
+        print(f"History endpoint error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 def provide_fallback_prediction(symbol, historical_data):
-    """Fallback prediction"""
+    """Provide fallback prediction when models fail"""
     try:
+        print(f"Using fallback prediction for {symbol}")
+        
         if historical_data is None or historical_data.empty:
             current_price = 100.0
+            print("No historical data, using default price")
         else:
             current_price = historical_data['Close'].iloc[-1] if 'Close' in historical_data.columns else 100.0
+            print(f"Using current price: ${current_price}")
         
-        # Generate predictions
+        # Generate reasonable predictions
         predictions = {}
-        base_change = random.uniform(-0.05, 0.05)
-        
         for target in ['Open', 'High', 'Low', 'Close']:
+            base = current_price
             if target == 'High':
-                pred = current_price * (1 + base_change + random.uniform(0.01, 0.03))
+                pred = base * random.uniform(1.01, 1.03)
             elif target == 'Low':
-                pred = current_price * (1 + base_change - random.uniform(0.01, 0.03))
+                pred = base * random.uniform(0.97, 0.99)
             elif target == 'Open':
-                pred = current_price * (1 + base_change * random.uniform(0.5, 1.5))
-            else:
-                pred = current_price * (1 + base_change)
-            
-            pred = max(pred, current_price * 0.5)
-            pred = min(pred, current_price * 1.5)
+                pred = base * random.uniform(0.99, 1.01)
+            else:  # Close
+                pred = base * random.uniform(0.98, 1.02)
             
             predictions[target] = pred
         
         # Calculate changes
         changes = {}
         for target, pred in predictions.items():
-            change = ((pred - current_price) / current_price) * 100 if current_price != 0 else 0
+            current = current_price
+            change = ((pred - current) / current) * 100 if current != 0 else 0
             changes[target] = change
         
         return jsonify({
@@ -1439,351 +1782,62 @@ def provide_fallback_prediction(symbol, historical_data):
             },
             "confidence_metrics": {
                 "overall_confidence": 65,
-                "confidence_level": "MEDIUM"
+                "confidence_level": "MEDIUM",
+                "confidence_color": "warning"
             },
             "risk_alerts": [{
                 "level": "🟡 HIGH",
                 "type": "Fallback Mode",
-                "message": "Using fallback predictions"
+                "message": "Using fallback prediction engine",
+                "details": "Primary models unavailable, using simplified predictions"
             }],
             "risk_level": "🟠 MEDIUM RISK",
             "trading_recommendation": "🔄 HOLD",
-            "fallback": True
+            "fallback": True,
+            "message": "Using fallback prediction engine"
         })
         
-    except:
+    except Exception as e:
+        print(f"Fallback prediction error: {e}")
         return jsonify({
-            "error": "Service unavailable",
+            "error": "Prediction service unavailable",
             "fallback": True
         }), 500
 
+# ---------------- Serve static/templates ----------------
 @server.route('/static/<path:path>')
 def serve_static(path):
-    return send_from_directory('static', path)
+    return send_from_directory(os.path.join(current_dir,'static'), path)
 
-# ================ CREATE TEMPLATE ================
-def create_default_template():
-    """Create default HTML template"""
-    template_dir = os.path.join(current_dir, 'templates')
-    os.makedirs(template_dir, exist_ok=True)
-    
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Stock Prediction System</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-                background: #f5f5f5;
-            }
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                background: white;
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            }
-            h1 {
-                color: #333;
-                text-align: center;
-            }
-            .prediction-box {
-                background: #e8f4f8;
-                padding: 20px;
-                margin: 20px 0;
-                border-radius: 8px;
-                border-left: 4px solid #2196F3;
-            }
-            .prediction-grid {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 15px;
-                margin: 20px 0;
-            }
-            .prediction-item {
-                background: white;
-                padding: 15px;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                text-align: center;
-            }
-            .price {
-                font-size: 24px;
-                font-weight: bold;
-                margin: 10px 0;
-            }
-            .change-positive {
-                color: #4CAF50;
-            }
-            .change-negative {
-                color: #f44336;
-            }
-            .alerts {
-                margin: 20px 0;
-            }
-            .alert {
-                padding: 12px;
-                margin: 10px 0;
-                border-radius: 6px;
-                border-left: 4px solid;
-            }
-            .alert-critical {
-                background: #ffebee;
-                border-color: #f44336;
-            }
-            .alert-high {
-                background: #fff3e0;
-                border-color: #ff9800;
-            }
-            .alert-medium {
-                background: #e8f5e9;
-                border-color: #4CAF50;
-            }
-            .input-group {
-                margin: 20px 0;
-                display: flex;
-                gap: 10px;
-            }
-            input {
-                flex: 1;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 16px;
-            }
-            button {
-                padding: 10px 20px;
-                background: #2196F3;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-            }
-            button:hover {
-                background: #0b7dda;
-            }
-            .loading {
-                text-align: center;
-                padding: 20px;
-                display: none;
-            }
-            .recommendation {
-                font-size: 20px;
-                padding: 15px;
-                text-align: center;
-                margin: 20px 0;
-                border-radius: 8px;
-                background: #e8f5e9;
-                border: 2px solid #4CAF50;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>📈 Stock Prediction System</h1>
-            
-            <div class="input-group">
-                <input type="text" id="symbolInput" placeholder="Enter stock symbol (e.g., AAPL)" value="AAPL">
-                <button onclick="predictStock()">Predict</button>
-                <button onclick="trainModel()">Train Model</button>
-            </div>
-            
-            <div id="loading" class="loading">
-                <p>⚡ Analyzing data and making predictions...</p>
-            </div>
-            
-            <div id="predictionResult"></div>
-        </div>
-        
-        <script>
-            async function predictStock() {
-                const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
-                if (!symbol) {
-                    alert('Please enter a stock symbol');
-                    return;
-                }
-                
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('predictionResult').innerHTML = '';
-                
-                try {
-                    const response = await fetch('/api/predict', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ symbol: symbol })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.error) {
-                        document.getElementById('predictionResult').innerHTML = `
-                            <div class="prediction-box">
-                                <h2>Error: ${data.error}</h2>
-                                ${data.fallback ? '<p>Using fallback predictions</p>' : ''}
-                            </div>
-                        `;
-                    } else {
-                        displayPrediction(data);
-                    }
-                } catch (error) {
-                    document.getElementById('predictionResult').innerHTML = `
-                        <div class="prediction-box">
-                            <h2>Error: Failed to get prediction</h2>
-                            <p>Please try again</p>
-                        </div>
-                    `;
-                }
-                
-                document.getElementById('loading').style.display = 'none';
-            }
-            
-            function displayPrediction(data) {
-                let html = `
-                    <div class="prediction-box">
-                        <h2>${data.symbol} Prediction Results</h2>
-                        <p><strong>Market Status:</strong> ${data.market_status}</p>
-                        <p><strong>Prediction Date:</strong> ${data.prediction_date}</p>
-                        
-                        <div class="recommendation">
-                            <strong>Recommendation:</strong> ${data.trading_recommendation}
-                        </div>
-                        
-                        <div class="prediction-grid">
-                `;
-                
-                // Add prediction items
-                ['Open', 'High', 'Low', 'Close'].forEach(target => {
-                    const pred = data.predictions[target];
-                    const changeClass = pred.expected_change >= 0 ? 'change-positive' : 'change-negative';
-                    
-                    html += `
-                        <div class="prediction-item">
-                            <h3>${target}</h3>
-                            <div class="price">$${pred.predicted_price.toFixed(2)}</div>
-                            <div class="${changeClass}">${pred.expected_change >= 0 ? '+' : ''}${pred.expected_change.toFixed(2)}%</div>
-                            <div>Current: $${pred.current_price.toFixed(2)}</div>
-                            <div>Confidence: ${pred.confidence.toFixed(1)}%</div>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-                
-                // Add confidence
-                html += `
-                    <div style="margin: 20px 0; padding: 15px; background: #f0f7ff; border-radius: 8px;">
-                        <h3>Prediction Confidence: ${data.confidence_metrics.overall_confidence.toFixed(1)}%</h3>
-                        <p>Level: ${data.confidence_metrics.confidence_level}</p>
-                    </div>
-                `;
-                
-                // Add risk alerts
-                if (data.risk_alerts && data.risk_alerts.length > 0) {
-                    html += `<div class="alerts"><h3>⚠️ Risk Alerts</h3>`;
-                    data.risk_alerts.forEach(alert => {
-                        html += `
-                            <div class="alert alert-${alert.level.includes('CRITICAL') ? 'critical' : alert.level.includes('HIGH') ? 'high' : 'medium'}">
-                                <strong>${alert.level} ${alert.type}</strong><br>
-                                ${alert.message}<br>
-                                <small>${alert.details}</small>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                }
-                
-                // Add risk metrics
-                if (data.risk_metrics) {
-                    html += `<div style="margin: 20px 0;"><h3>📊 Risk Metrics</h3>`;
-                    html += `<p>Risk Level: ${data.risk_level}</p>`;
-                    html += `<p>Volatility: ${data.risk_metrics.volatility?.toFixed(2) || 'N/A'}%</p>`;
-                    html += `<p>Max Drawdown: ${data.risk_metrics.max_drawdown?.toFixed(2) || 'N/A'}%</p>`;
-                    html += `</div>`;
-                }
-                
-                html += `</div>`;
-                
-                document.getElementById('predictionResult').innerHTML = html;
-            }
-            
-            async function trainModel() {
-                const symbol = document.getElementById('symbolInput').value.trim().toUpperCase();
-                if (!symbol) {
-                    alert('Please enter a stock symbol');
-                    return;
-                }
-                
-                document.getElementById('loading').style.display = 'block';
-                
-                try {
-                    const response = await fetch('/api/train', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ symbol: symbol })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.status === 'success') {
-                        alert(`Model trained successfully for ${symbol}!`);
-                    } else {
-                        alert(`Training failed: ${data.message}`);
-                    }
-                } catch (error) {
-                    alert('Failed to train model');
-                }
-                
-                document.getElementById('loading').style.display = 'none';
-            }
-            
-            // Predict AAPL on page load
-            window.onload = function() {
-                predictStock();
-            };
-        </script>
-    </body>
-    </html>
-    """
-    
-    with open(os.path.join(template_dir, 'index.html'), 'w') as f:
-        f.write(html_content)
-    
-    print("✅ Created default template")
+# ---------------- Error handlers ----------------
+@server.errorhandler(404)
+def not_found(error): 
+    return jsonify({"error":"Page not found"}), 404
 
-# ================ MAIN ================
+@server.errorhandler(500)
+def internal_error(error): 
+    return jsonify({"error":"Internal server error"}), 500
+
+# ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 60)
-    print("Stock Market Prediction System")
+    print("Stock Market Prediction System v4.0")
     print("=" * 60)
     print("Features:")
-    print("  • Real-time stock data")
-    print("  • OCHL predictions (Open, Close, High, Low)")
-    print("  • 4 ML algorithms: Linear Regression, SVR, Random Forest, ARIMA")
-    print("  • Risk alerts and confidence scoring")
-    print("  • Web interface")
+    print("  • OCHL (Open, Close, High, Low) Prediction")
+    print("  • 4 Algorithms: Linear Regression, SVR, Random Forest, ARIMA")
+    print("  • Historical Performance Tracking")
+    print("  • Prediction Confidence Scoring")
+    print("  • Comprehensive Risk Alerts")
+    print("  • Model Persistence & History")
+    print("=" * 60)
+    print("Note: NaN protection enabled throughout the system")
     print("=" * 60)
     
-    # Create necessary directories
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(HISTORY_DIR, exist_ok=True)
     
-    # Create default template
-    create_default_template()
-    
-    # Start server
     port = int(os.environ.get('PORT', 8080))
-    print(f"Server starting on http://localhost:{port}")
-    print("Press Ctrl+C to stop")
-    print("=" * 60)
-    
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
