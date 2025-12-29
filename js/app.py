@@ -388,7 +388,8 @@ class OCHLPredictor:
                         if model is not None:
                             model_data = {
                                 'model': model,
-                                'scaler': self.scalers.get(target, StandardScaler()),
+                                'feature_scaler': self.feature_scaler,   
+                                'target_scaler': self.scalers.get(target, StandardScaler()),
                                 'features': self.feature_columns,
                                 'window_size': 30,
                                 'target': target,
@@ -419,6 +420,13 @@ class OCHLPredictor:
         """Load trained models and history"""
         try:
             loaded_models = {target: {} for target in self.targets}
+            # Load feature scaler ONCE
+            if not hasattr(self.feature_scaler, "mean_"):
+                self.feature_scaler = model_data.get('feature_scaler', StandardScaler())
+
+            # Load target scaler
+            if target not in self.scalers:
+                self.scalers[target] = model_data.get('target_scaler', StandardScaler())
             algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
             
             models_loaded = False
@@ -1013,6 +1021,11 @@ class OCHLPredictor:
                     confidence_scores[target] = 50.0
                     continue
                 #scale features safely
+                if not hasattr(self.feature_scaler, "mean_"):
+                   print("Feature scaler not fitted — using fallback")
+                   predictions[target] = float(data_with_features[target].iloc[-1])
+                   confidence_scores[target] = 50.0
+                   continue
                 latest_scaled = self.feature_scaler.transform(latest_features)    
                 
                 target_predictions = {}
