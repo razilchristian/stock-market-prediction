@@ -390,6 +390,7 @@ class OCHLPredictor:
                                 'model': model,
                                 'scaler': self.scalers.get(target, StandardScaler()),
                                 'features': self.feature_columns,
+                                'window_size': 30,
                                 'target': target,
                                 'algorithm': algo
                             }
@@ -492,14 +493,13 @@ class OCHLPredictor:
             feature_candidates = [col for col in numeric_cols if col not in self.targets]
             
             # Select top 30 features by variance if we have too many
-            if len(feature_candidates) > 30:
-                variances = data_with_features[feature_candidates].var()
-                top_features = variances.nlargest(30).index.tolist()
-                self.feature_columns = top_features
-            else:
-                self.feature_columns = feature_candidates
-            
-            print(f"Selected {len(self.feature_columns)} features")
+            if not self.feature_columns:
+                if len(feature_candidates) > 30:
+                    variances = data_with_features[feature_candidates].var()
+                    self.feature_columns = variances.nlargest(30).index.tolist()
+                else:
+                    self.feature_columns = feature_candidates
+
             
             # Prepare X (features) for each target
             X_data = {}
@@ -532,7 +532,15 @@ class OCHLPredictor:
                         print(f"Warning: NaN found in features at index {i}")
                         features = features.fillna(0)
                     
-                    features_flat = features.values.flatten()
+                    features_array = features[self.feature_columns].values
+                    features_flat = features_array.flatten()
+
+                    expected_dim = len(self.feature_columns) * window_size
+                    if features_flat.shape[0] !=expected_dim:
+                        print(f"Skipping index {i}: feature shape mismatch"
+                              f"({features_flat.shape[0]} != {expected_dim})")
+                        continue
+                    
                     
                     # Target is next day's value
                     target_value = data_with_features[target].iloc[i+1]
@@ -685,7 +693,11 @@ class OCHLPredictor:
                 
                 # Scale features and target
                 try:
-                    X_scaled = self.feature_scaler.fit_transform(X)
+                    if not hasattr(self.feature_scaler, "mean_"):
+                        X_scaled = self.feature_scaler.fit_transform(X)
+                    else:
+                        X_scaled = self.feature_scaler.transform(X)
+
                 except:
                     print(f"    Warning: Feature scaling failed for {target}")
                     X_scaled = X  # Use unscaled features
@@ -760,13 +772,13 @@ class OCHLPredictor:
                     continue
                 
                 # Scale features
-                try:
-                    X_train_scaled = self.feature_scaler.transform(X_train)
+                if not hasattr(self.feature_scaler, "mean_"):
+                    X_train_scaled = self.feature_scaler.fit_transform(X_train)
                     X_test_scaled = self.feature_scaler.transform(X_test)
-                except:
-                    X_train_scaled = X_train
-                    X_test_scaled = X_test
-                
+                else:
+                   X_train_scaled = self.feature_scaler.transform(X_train)
+                   X_test_scaled = self.feature_scaler.transform(X_test)
+
                 # Scale target
                 target_scaler = self.scalers.get(target, StandardScaler())
                 try:
@@ -987,12 +999,21 @@ class OCHLPredictor:
                     continue
                 
                 # Get latest features for prediction
-                latest_features = X[-1:].reshape(1, -1)
-                try:
-                    latest_scaled = self.feature_scaler.transform(latest_features)
-                except:
-                    print(f"    Warning: Feature scaling failed for prediction")
-                    latest_scaled = latest_features
+                latest_features = X[-1:].reshape(1,-1)
+
+                expected_dim = len(self.feature_columns) * 30
+                if latest_features.shape[1] != expected_dim:
+                    print(f" Feature mismatch during prediction"
+                          f"({latest_features.shape[1]} != {expected_dim})")
+                     #fallback to last known values
+                    fallback_value = data_with_features[target].iloc[-1]\
+                     if target in data_with_features.columns else data_with_features["Close"].iloc[-1]
+                    
+                    predictions[target] = float(fallback_value)
+                    confidence_scores[target] = 50.0
+                    continue
+                #scale features safely
+                latest_scaled = self.feature_scaler.transform(latest_features)    
                 
                 target_predictions = {}
                 target_confidences = {}
