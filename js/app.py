@@ -998,6 +998,9 @@ class OCHLPredictor:
                     predictions[target] = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
                     confidence_scores[target] = 50
                     continue
+            
+                    
+            
                 
                 X = X_data[target]
                 if len(X) == 0:
@@ -1152,7 +1155,18 @@ class OCHLPredictor:
                     fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
                     predictions[target] = float(fallback_value)
                     confidence_scores[target] = 50.0
-            
+            # 🔽 POST-PROCESSING: enforce OHLC constraints
+            pred_open = predictions["Open"]
+            pred_close = predictions["Close"]
+            pred_high = predictions["High"]
+            pred_low = predictions["Low"]
+
+            pred_high = max(pred_high, pred_open, pred_close)
+            pred_low = min(pred_low, pred_open, pred_close)
+
+            predictions["High"] = pred_high
+            predictions["Low"] = pred_low
+
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
             
