@@ -1533,7 +1533,7 @@ def get_stocks_list():
         {"symbol":"MSFT","name":"Microsoft Corp.","price":407.57,"change":-0.85},
         {"symbol":"GOOGL","name":"Alphabet Inc.","price":172.34,"change":2.13},
         {"symbol":"AMZN","name":"Amazon.com Inc.","price":178.22,"change":0.67},
-        {"symbol":"TSLA","name":"Tesla Inc.","price":175.79,"change":-3.21}
+        {"symbol":"TSLA","name":"Tesla Inc.","price":175.79,"change":-3.21},
          # ✅ Added stocks
         {"symbol":"GE","name":"GE Aerospace","price":148.25,"change":0.0},
         {"symbol":"PHD","name":"Palomar Holdings","price":199.47,"change":0.0},
