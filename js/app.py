@@ -1538,7 +1538,8 @@ def get_stocks_list():
         {"symbol":"GE","name":"GE Aerospace","price":148.25,"change":0.0},
         {"symbol":"PLMR","name":"Palomar Holdings","price":199.47,"change":0.0},
         {"symbol":"META","name":"Meta Platforms Inc.","price":485.00,"change":0.0},
-        {"symbol":"NVDA","name":"NVIDIA Corp.","price":620.00,"change":0.0}
+        {"symbol":"NVDA","name":"NVIDIA Corp.","price":620.00,"change":0.0},
+        {"symbol":"NKE","name":"Nike Inc.","price":110.00,"change":0.0}
     ]
     
     for stock in popular_stocks:
