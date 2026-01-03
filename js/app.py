@@ -29,10 +29,8 @@ warnings.filterwarnings('ignore')
 # ---------------- Config ----------------
 MODELS_DIR = 'models'
 HISTORY_DIR = 'history'
-PERFORMANCE_DIR = 'performance'
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(HISTORY_DIR, exist_ok=True)
-os.makedirs(PERFORMANCE_DIR, exist_ok=True)
 
 # ---------------- Flask ----------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -366,7 +364,6 @@ class OCHLPredictor:
         self.targets = ['Open', 'Close', 'High', 'Low']
         self.historical_performance = {}
         self.prediction_history = {}
-        self.model_performance_history = {}
         self.risk_metrics = {}
         self.anomaly_detector = None
         self.last_training_date = None
@@ -381,10 +378,6 @@ class OCHLPredictor:
     def get_history_path(self, symbol):
         safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
         return os.path.join(HISTORY_DIR, f"{safe_symbol}_history.json")
-    
-    def get_performance_path(self, symbol):
-        safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
-        return os.path.join(PERFORMANCE_DIR, f"{safe_symbol}_performance.json")
     
     def save_models(self, symbol):
         """Save all trained models"""
@@ -409,7 +402,6 @@ class OCHLPredictor:
             history_data = {
                 'historical_performance': self.historical_performance,
                 'prediction_history': self.prediction_history,
-                'model_performance_history': self.model_performance_history,
                 'risk_metrics': self.risk_metrics,
                 'last_training_date': self.last_training_date,
                 'feature_columns': self.feature_columns
@@ -417,160 +409,12 @@ class OCHLPredictor:
             
             with open(self.get_history_path(symbol), 'w') as f:
                 json.dump(history_data, f, default=str)
-            
-            # Save detailed performance data
-            performance_data = {
-                'detailed_performance': self.get_detailed_performance_data(),
-                'last_updated': datetime.now().isoformat()
-            }
-            
-            with open(self.get_performance_path(symbol), 'w') as f:
-                json.dump(performance_data, f, default=str)
                 
             print(f"Saved models and history for {symbol}")
             return True
         except Exception as e:
             print(f"Error saving models: {e}")
             return False
-    
-    def get_detailed_performance_data(self):
-        """Get detailed performance data for all models"""
-        detailed_data = {}
-        
-        for target in self.targets:
-            if target in self.historical_performance:
-                detailed_data[target] = {}
-                for algo, perf in self.historical_performance[target].items():
-                    detailed_data[target][algo] = {
-                        'metrics': perf,
-                        'model_info': self.get_model_info(algo),
-                        'prediction_trend': self.get_prediction_trend(target, algo),
-                        'confidence_score': self.calculate_model_confidence(perf)
-                    }
-        
-        return detailed_data
-    
-    def get_model_info(self, algorithm):
-        """Get model information based on algorithm type"""
-        model_info = {
-            'linear_regression': {
-                'name': 'Linear Regression',
-                'description': 'Simple linear relationship modeling',
-                'strengths': ['Fast training', 'Interpretable', 'Works well with linear relationships'],
-                'weaknesses': ['Cannot capture non-linear patterns', 'Sensitive to outliers'],
-                'complexity': 'Low',
-                'best_for': 'Short-term predictions with stable trends'
-            },
-            'svr': {
-                'name': 'Support Vector Regression',
-                'description': 'Uses kernel functions to capture non-linear patterns',
-                'strengths': ['Handles non-linear data', 'Robust to outliers', 'Good generalization'],
-                'weaknesses': ['Slow with large datasets', 'Sensitive to kernel choice'],
-                'complexity': 'Medium',
-                'best_for': 'Volatile markets with non-linear patterns'
-            },
-            'random_forest': {
-                'name': 'Random Forest',
-                'description': 'Ensemble of decision trees for robust predictions',
-                'strengths': ['Handles non-linear data', 'Feature importance', 'Robust to noise'],
-                'weaknesses': ['Can overfit', 'Less interpretable', 'Slower prediction'],
-                'complexity': 'High',
-                'best_for': 'Complex patterns with sufficient data'
-            },
-            'arima': {
-                'name': 'ARIMA',
-                'description': 'Time series forecasting model',
-                'strengths': ['Specialized for time series', 'Captures trends and seasonality'],
-                'weaknesses': ['Requires stationary data', 'Linear assumptions'],
-                'complexity': 'Medium',
-                'best_for': 'Time series with clear patterns'
-            }
-        }
-        
-        return model_info.get(algorithm, {
-            'name': algorithm.replace('_', ' ').title(),
-            'description': 'Unknown algorithm',
-            'strengths': [],
-            'weaknesses': [],
-            'complexity': 'Unknown',
-            'best_for': 'General prediction'
-        })
-    
-    def get_prediction_trend(self, target, algorithm, days=30):
-        """Get prediction trend over recent days"""
-        try:
-            trend_data = {
-                'dates': [],
-                'predictions': [],
-                'actuals': [],
-                'errors': []
-            }
-            
-            # This would be populated with actual historical prediction data
-            # For now, return sample data
-            for i in range(days):
-                trend_data['dates'].append((datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'))
-                trend_data['predictions'].append(random.uniform(90, 110))
-                trend_data['actuals'].append(random.uniform(95, 105))
-                trend_data['errors'].append(random.uniform(-5, 5))
-            
-            return trend_data
-        except:
-            return {
-                'dates': [],
-                'predictions': [],
-                'actuals': [],
-                'errors': []
-            }
-    
-    def calculate_model_confidence(self, performance_metrics):
-        """Calculate overall confidence score for a model"""
-        try:
-            if not performance_metrics:
-                return 50
-            
-            # Weight different metrics
-            weights = {
-                'r2': 0.3,
-                'direction_accuracy': 0.3,
-                'mape': 0.2,
-                'rmse': 0.1,
-                'mae': 0.1
-            }
-            
-            confidence = 0
-            total_weight = 0
-            
-            for metric, weight in weights.items():
-                if metric in performance_metrics:
-                    if metric == 'r2':
-                        # R² ranges from -∞ to 1, normalize to 0-100
-                        score = max(0, performance_metrics[metric]) * 100
-                    elif metric == 'direction_accuracy':
-                        score = performance_metrics[metric]
-                    elif metric == 'mape':
-                        # MAPE: lower is better, invert and cap at 100
-                        score = max(0, 100 - min(performance_metrics[metric], 100))
-                    elif metric == 'rmse':
-                        # RMSE: lower is better, assume typical range 0-20
-                        score = max(0, 100 - min(performance_metrics[metric] * 5, 100))
-                    elif metric == 'mae':
-                        # MAE: lower is better, assume typical range 0-20
-                        score = max(0, 100 - min(performance_metrics[metric] * 5, 100))
-                    else:
-                        score = 50
-                    
-                    confidence += score * weight
-                    total_weight += weight
-            
-            if total_weight > 0:
-                confidence = confidence / total_weight
-            else:
-                confidence = 50
-            
-            return min(max(confidence, 0), 100)
-        except:
-            return 50
     
     def load_models(self, symbol):
         """Load trained models and history"""
@@ -629,7 +473,6 @@ class OCHLPredictor:
                         
                         self.historical_performance = history_data.get('historical_performance', {})
                         self.prediction_history = history_data.get('prediction_history', {})
-                        self.model_performance_history = history_data.get('model_performance_history', {})
                         self.risk_metrics = history_data.get('risk_metrics', {})
                         self.last_training_date = history_data.get('last_training_date')
                         self.feature_columns = history_data.get('feature_columns', self.feature_columns)
@@ -935,9 +778,6 @@ class OCHLPredictor:
             # Save prediction history
             self.update_prediction_history(symbol, data_with_features)
             
-            # Update model performance history
-            self.update_model_performance_history(symbol)
-            
             self.last_training_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.is_fitted = True
             
@@ -952,30 +792,6 @@ class OCHLPredictor:
             import traceback
             traceback.print_exc()
             return False, str(e)
-    
-    def update_model_performance_history(self, symbol):
-        """Update model performance history"""
-        try:
-            if symbol not in self.model_performance_history:
-                self.model_performance_history[symbol] = []
-            
-            performance_record = {
-                'timestamp': datetime.now().isoformat(),
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'historical_performance': self.historical_performance,
-                'risk_metrics': self.risk_metrics,
-                'feature_count': len(self.feature_columns),
-                'models_trained': sum(len(models) for models in self.models.values())
-            }
-            
-            self.model_performance_history[symbol].append(performance_record)
-            
-            # Keep only last 100 records
-            if len(self.model_performance_history[symbol]) > 100:
-                self.model_performance_history[symbol] = self.model_performance_history[symbol][-100:]
-                
-        except Exception as e:
-            print(f"Error updating model performance history: {e}")
     
     def calculate_historical_performance(self, X_data, y_data, data_with_features):
         """Calculate comprehensive historical performance metrics"""
@@ -1079,35 +895,13 @@ class OCHLPredictor:
                         else:
                             direction_accuracy = 0
                         
-                        # Additional metrics
-                        mean_actual = np.mean(actuals) if len(actuals) > 0 else 0
-                        mean_prediction = np.mean(predictions) if len(predictions) > 0 else 0
-                        std_actual = np.std(actuals) if len(actuals) > 1 else 0
-                        std_prediction = np.std(predictions) if len(predictions) > 1 else 0
-                        
-                        # Calculate prediction bias
-                        bias = mean_prediction - mean_actual
-                        relative_bias = (bias / mean_actual * 100) if mean_actual != 0 else 0
-                        
-                        # Calculate precision (inverse of variance)
-                        precision = 1 / (std_prediction + 1e-10) if std_prediction > 0 else 0
-                        
                         target_performance[algo] = {
                             'rmse': float(rmse),
                             'mae': float(mae),
                             'r2': float(r2),
                             'mape': float(mape),
                             'direction_accuracy': float(direction_accuracy),
-                            'sample_size': len(actuals),
-                            'mean_actual': float(mean_actual),
-                            'mean_prediction': float(mean_prediction),
-                            'std_actual': float(std_actual),
-                            'std_prediction': float(std_prediction),
-                            'bias': float(bias),
-                            'relative_bias': float(relative_bias),
-                            'precision': float(precision),
-                            'prediction_range': [float(np.min(predictions)), float(np.max(predictions))] if len(predictions) > 0 else [0, 0],
-                            'actual_range': [float(np.min(actuals)), float(np.max(actuals))] if len(actuals) > 0 else [0, 0]
+                            'sample_size': len(actuals)
                         }
                         
                     except Exception as e:
@@ -1118,16 +912,7 @@ class OCHLPredictor:
                             'r2': -1,
                             'mape': 100,
                             'direction_accuracy': 0,
-                            'sample_size': 0,
-                            'mean_actual': 0,
-                            'mean_prediction': 0,
-                            'std_actual': 0,
-                            'std_prediction': 0,
-                            'bias': 0,
-                            'relative_bias': 0,
-                            'precision': 0,
-                            'prediction_range': [0, 0],
-                            'actual_range': [0, 0]
+                            'sample_size': 0
                         }
                 
                 performance[target] = target_performance
@@ -1241,7 +1026,6 @@ class OCHLPredictor:
             predictions = {}
             confidence_scores = {}
             algorithm_predictions = {}
-            algorithm_details = {}
             
             for target in self.targets:
                 print(f"  Predicting {target}...")
@@ -1289,7 +1073,6 @@ class OCHLPredictor:
                 
                 target_predictions = {}
                 target_confidences = {}
-                target_performance = {}
                 
                 for algo, model in self.models[target].items():
                     if model is None:
@@ -1345,7 +1128,6 @@ class OCHLPredictor:
                         
                         # Calculate confidence based on historical performance
                         confidence = 70  # default
-                        perf_data = {}
                         if target in self.historical_performance and algo in self.historical_performance[target]:
                             perf = self.historical_performance[target][algo]
                             direction_acc = perf.get('direction_accuracy', 50)
@@ -1358,32 +1140,9 @@ class OCHLPredictor:
                                 (max(r2_score_val, 0) * 100) * 0.2
                             )
                             confidence = min(max(confidence, 0), 100)
-                            
-                            # Store performance data
-                            perf_data = {
-                                'r2': perf.get('r2', 0),
-                                'mape': perf.get('mape', 0),
-                                'direction_accuracy': perf.get('direction_accuracy', 0),
-                                'rmse': perf.get('rmse', 0),
-                                'mae': perf.get('mae', 0),
-                                'bias': perf.get('bias', 0),
-                                'precision': perf.get('precision', 0),
-                                'sample_size': perf.get('sample_size', 0)
-                            }
                         
                         target_predictions[algo] = float(pred_actual)
                         target_confidences[algo] = float(confidence)
-                        target_performance[algo] = perf_data
-                        
-                        # Store algorithm details
-                        algorithm_details[f"{target}_{algo}"] = {
-                            'target': target,
-                            'algorithm': algo,
-                            'prediction': float(pred_actual),
-                            'confidence': float(confidence),
-                            'performance': perf_data,
-                            'model_info': self.get_model_info(algo)
-                        }
                         
                         print(f"      {algo}: ${pred_actual:.2f} (conf: {confidence:.1f}%)")
                         
@@ -1393,7 +1152,6 @@ class OCHLPredictor:
                         fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                         target_predictions[algo] = float(fallback_value)
                         target_confidences[algo] = 50.0
-                        target_performance[algo] = {}
                 
                 if target_predictions:
                     # Calculate weighted ensemble prediction
@@ -1419,10 +1177,8 @@ class OCHLPredictor:
                     algorithm_predictions[target] = {
                         'individual': target_predictions,
                         'confidences': target_confidences,
-                        'performance': target_performance,
                         'ensemble': float(ensemble_pred),
-                        'ensemble_confidence': float(np.mean(list(target_confidences.values()))),
-                        'weights': {algo: float(weights.get(algo, 0.25)) for algo in target_predictions.keys()}
+                        'ensemble_confidence': float(np.mean(list(target_confidences.values())))
                     }
                     
                     print(f"    {target} ensemble: ${ensemble_pred:.2f} (conf: {confidence_scores[target]:.1f}%)")
@@ -1458,13 +1214,9 @@ class OCHLPredictor:
             # Calculate prediction confidence metrics
             confidence_metrics = self.calculate_prediction_confidence(predictions, confidence_scores)
             
-            # Prepare model comparison data
-            model_comparison = self.prepare_model_comparison_data(algorithm_predictions)
-            
             result = {
                 'predictions': predictions,
                 'algorithm_details': algorithm_predictions,
-                'algorithm_full_details': algorithm_details,
                 'confidence_scores': confidence_scores,
                 'confidence_metrics': confidence_metrics,
                 'risk_alerts': risk_alerts,
@@ -1473,9 +1225,7 @@ class OCHLPredictor:
                     'high': float(data['High'].iloc[-1]) if 'High' in data.columns else 100.0,
                     'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else 100.0,
                     'close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 100.0
-                },
-                'model_comparison': model_comparison,
-                'historical_performance_summary': self.get_performance_summary()
+                }
             }
             
             print(f"Successfully generated predictions for {symbol}")
@@ -1486,183 +1236,6 @@ class OCHLPredictor:
             import traceback
             traceback.print_exc()
             return None, str(e)
-    
-    def prepare_model_comparison_data(self, algorithm_predictions):
-        """Prepare data for comparing all models"""
-        comparison_data = {
-            'by_algorithm': {},
-            'by_target': {},
-            'summary_metrics': {}
-        }
-        
-        try:
-            # Group by algorithm
-            algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
-            
-            for algo in algorithms:
-                algo_data = {}
-                total_confidence = 0
-                algo_count = 0
-                
-                for target, data in algorithm_predictions.items():
-                    if 'individual' in data and algo in data['individual']:
-                        algo_data[target] = {
-                            'prediction': data['individual'][algo],
-                            'confidence': data['confidences'].get(algo, 0),
-                            'performance': data['performance'].get(algo, {})
-                        }
-                        total_confidence += data['confidences'].get(algo, 0)
-                        algo_count += 1
-                
-                if algo_data:
-                    comparison_data['by_algorithm'][algo] = {
-                        'predictions': algo_data,
-                        'avg_confidence': total_confidence / algo_count if algo_count > 0 else 0,
-                        'model_info': self.get_model_info(algo)
-                    }
-            
-            # Group by target
-            for target, data in algorithm_predictions.items():
-                if 'individual' in data:
-                    target_data = {}
-                    for algo, pred in data['individual'].items():
-                        target_data[algo] = {
-                            'prediction': pred,
-                            'confidence': data['confidences'].get(algo, 0),
-                            'performance': data['performance'].get(algo, {}),
-                            'model_info': self.get_model_info(algo)
-                        }
-                    comparison_data['by_target'][target] = target_data
-            
-            # Calculate summary metrics
-            if self.historical_performance:
-                comparison_data['summary_metrics'] = self.calculate_summary_metrics()
-            
-            return comparison_data
-            
-        except Exception as e:
-            print(f"Error preparing model comparison data: {e}")
-            return comparison_data
-    
-    def calculate_summary_metrics(self):
-        """Calculate summary metrics for all models"""
-        try:
-            summary = {
-                'best_performing_models': {},
-                'worst_performing_models': {},
-                'avg_metrics': {},
-                'model_rankings': {}
-            }
-            
-            for target in self.targets:
-                if target in self.historical_performance:
-                    models_perf = self.historical_performance[target]
-                    
-                    # Rank models by R² score
-                    ranked_models = sorted(
-                        models_perf.items(),
-                        key=lambda x: x[1].get('r2', -10),
-                        reverse=True
-                    )
-                    
-                    if ranked_models:
-                        summary['best_performing_models'][target] = {
-                            'model': ranked_models[0][0],
-                            'r2': ranked_models[0][1].get('r2', 0),
-                            'mape': ranked_models[0][1].get('mape', 0)
-                        }
-                        
-                        summary['worst_performing_models'][target] = {
-                            'model': ranked_models[-1][0],
-                            'r2': ranked_models[-1][1].get('r2', 0),
-                            'mape': ranked_models[-1][1].get('mape', 0)
-                        }
-                        
-                        summary['model_rankings'][target] = [
-                            {
-                                'algorithm': algo,
-                                'r2': perf.get('r2', 0),
-                                'mape': perf.get('mape', 0),
-                                'direction_accuracy': perf.get('direction_accuracy', 0)
-                            }
-                            for algo, perf in ranked_models
-                        ]
-            
-            # Calculate average metrics across all targets
-            all_r2 = []
-            all_mape = []
-            all_direction_acc = []
-            
-            for target in self.targets:
-                if target in self.historical_performance:
-                    for algo, perf in self.historical_performance[target].items():
-                        all_r2.append(perf.get('r2', 0))
-                        all_mape.append(perf.get('mape', 0))
-                        all_direction_acc.append(perf.get('direction_accuracy', 0))
-            
-            if all_r2:
-                summary['avg_metrics'] = {
-                    'avg_r2': float(np.mean(all_r2)),
-                    'avg_mape': float(np.mean(all_mape)),
-                    'avg_direction_accuracy': float(np.mean(all_direction_acc))
-                }
-            
-            return summary
-            
-        except Exception as e:
-            print(f"Error calculating summary metrics: {e}")
-            return {}
-    
-    def get_performance_summary(self):
-        """Get a summary of all model performances"""
-        try:
-            summary = {
-                'total_models': 0,
-                'models_by_target': {},
-                'best_models': [],
-                'overall_accuracy': 0
-            }
-            
-            total_accuracy = 0
-            total_models = 0
-            
-            for target in self.targets:
-                if target in self.historical_performance:
-                    target_models = len(self.historical_performance[target])
-                    summary['models_by_target'][target] = target_models
-                    summary['total_models'] += target_models
-                    
-                    # Find best model for this target
-                    best_algo = None
-                    best_r2 = -10
-                    
-                    for algo, perf in self.historical_performance[target].items():
-                        r2 = perf.get('r2', 0)
-                        if r2 > best_r2:
-                            best_r2 = r2
-                            best_algo = algo
-                        
-                        # Accumulate for overall accuracy
-                        accuracy = perf.get('direction_accuracy', 0)
-                        total_accuracy += accuracy
-                        total_models += 1
-                    
-                    if best_algo:
-                        summary['best_models'].append({
-                            'target': target,
-                            'algorithm': best_algo,
-                            'r2': best_r2,
-                            'model_info': self.get_model_info(best_algo)
-                        })
-            
-            if total_models > 0:
-                summary['overall_accuracy'] = total_accuracy / total_models
-            
-            return summary
-            
-        except Exception as e:
-            print(f"Error getting performance summary: {e}")
-            return {}
     
     def calculate_prediction_confidence(self, predictions, confidence_scores):
         """Calculate comprehensive confidence metrics"""
@@ -2081,9 +1654,6 @@ def predict_stock():
         confidence_scores = prediction_result['confidence_scores']
         confidence_metrics = prediction_result['confidence_metrics']
         risk_alerts = prediction_result['risk_alerts']
-        model_comparison = prediction_result.get('model_comparison', {})
-        historical_performance_summary = prediction_result.get('historical_performance_summary', {})
-        algorithm_full_details = prediction_result.get('algorithm_full_details', {})
         
         # Calculate expected changes
         expected_changes = {}
@@ -2122,22 +1692,14 @@ def predict_stock():
                 for target in ['Open', 'High', 'Low', 'Close']
             },
             
-            # Algorithm details - FULL DETAILS
-            "algorithm_details": algorithm_full_details,
-            "algorithm_predictions": prediction_result.get('algorithm_details', {}),
-            
-            # Model comparison
-            "model_comparison": model_comparison,
-            
-            # Performance summary
-            "performance_summary": historical_performance_summary,
+            # Algorithm details
+            "algorithm_details": prediction_result.get('algorithm_details', {}),
             
             # Confidence metrics
             "confidence_metrics": confidence_metrics,
             
-            # Historical performance - FULL DETAILS
+            # Historical performance
             "historical_performance": predictor.historical_performance,
-            "historical_performance_summary": historical_performance_summary,
             
             # Risk metrics
             "risk_metrics": predictor.risk_metrics,
@@ -2152,20 +1714,13 @@ def predict_stock():
             # Prediction history
             "prediction_history": predictor.prediction_history.get(symbol, [])[-10:],  # Last 10 predictions
             
-            # Model performance history
-            "model_performance_history": predictor.model_performance_history.get(symbol, [])[-5:],
-            
             # Model info
             "model_info": {
                 "last_training_date": predictor.last_training_date,
                 "is_fitted": predictor.is_fitted,
                 "targets_trained": list(predictor.models.keys()),
                 "feature_count": len(predictor.feature_columns),
-                "algorithms_used": ["linear_regression", "svr", "random_forest", "arima"],
-                "algorithms_info": {
-                    algo: predictor.get_model_info(algo)
-                    for algo in ["linear_regression", "svr", "random_forest", "arima"]
-                }
+                "algorithms_used": ["linear_regression", "svr", "random_forest", "arima"]
             },
             
             # Data info
@@ -2221,7 +1776,6 @@ def train_models():
                 "symbol": symbol,
                 "last_training_date": predictor.last_training_date,
                 "historical_performance": predictor.historical_performance,
-                "model_performance_history": predictor.model_performance_history.get(symbol, []),
                 "risk_metrics": predictor.risk_metrics
             })
         else:
@@ -2256,7 +1810,6 @@ def get_prediction_history(symbol):
                 "symbol": symbol,
                 "history": history_data.get('prediction_history', []),
                 "performance": history_data.get('historical_performance', {}),
-                "model_performance_history": history_data.get('model_performance_history', []),
                 "last_updated": history_data.get('last_training_date')
             })
         else:
@@ -2267,107 +1820,6 @@ def get_prediction_history(symbol):
             
     except Exception as e:
         print(f"History endpoint error: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@server.route('/api/performance/<symbol>')
-@rate_limiter
-def get_detailed_performance(symbol):
-    """Get detailed performance data for all models"""
-    try:
-        symbol = symbol.upper()
-        
-        # Load performance data if available
-        performance_path = os.path.join(PERFORMANCE_DIR, f"{symbol}_performance.json")
-        if os.path.exists(performance_path):
-            with open(performance_path, 'r') as f:
-                performance_data = json.load(f)
-            
-            # Also get basic info from predictor
-            predictor.load_models(symbol)
-            
-            return jsonify({
-                "status": "success",
-                "symbol": symbol,
-                "detailed_performance": performance_data.get('detailed_performance', {}),
-                "historical_performance": predictor.historical_performance,
-                "model_info": {
-                    "last_training_date": predictor.last_training_date,
-                    "feature_count": len(predictor.feature_columns),
-                    "feature_columns": predictor.feature_columns[:20]  # First 20 features
-                },
-                "algorithm_info": {
-                    algo: predictor.get_model_info(algo)
-                    for algo in ["linear_regression", "svr", "random_forest", "arima"]
-                }
-            })
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "No performance data found for this symbol"
-            }), 404
-            
-    except Exception as e:
-        print(f"Performance endpoint error: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@server.route('/api/models/comparison/<symbol>')
-@rate_limiter
-def get_model_comparison(symbol):
-    """Get detailed model comparison for a symbol"""
-    try:
-        symbol = symbol.upper()
-        
-        # Load models first
-        models_loaded = predictor.load_models(symbol)
-        
-        if not models_loaded:
-            return jsonify({
-                "status": "error",
-                "message": "No models found for this symbol"
-            }), 404
-        
-        # Get historical data for comparison
-        historical_data, _, _ = get_live_stock_data_enhanced(symbol)
-        if historical_data is None:
-            return jsonify({
-                "status": "error",
-                "message": "Could not fetch data for comparison"
-            }), 400
-        
-        # Make prediction to get comparison data
-        prediction_result, _ = predictor.predict_ochl(historical_data, symbol)
-        
-        if prediction_result is None:
-            return jsonify({
-                "status": "error",
-                "message": "Could not generate model comparison"
-            }), 400
-        
-        # Prepare comparison data
-        comparison_data = {
-            "symbol": symbol,
-            "timestamp": datetime.now().isoformat(),
-            "model_comparison": prediction_result.get('model_comparison', {}),
-            "performance_summary": prediction_result.get('historical_performance_summary', {}),
-            "historical_performance": predictor.historical_performance,
-            "algorithm_details": prediction_result.get('algorithm_full_details', {}),
-            "model_rankings": predictor.calculate_summary_metrics().get('model_rankings', {}),
-            "best_models": predictor.get_performance_summary().get('best_models', [])
-        }
-        
-        return jsonify({
-            "status": "success",
-            "data": comparison_data
-        })
-        
-    except Exception as e:
-        print(f"Model comparison endpoint error: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -2473,7 +1925,6 @@ if __name__ == '__main__':
     print("  • Prediction Confidence Scoring")
     print("  • Comprehensive Risk Alerts")
     print("  • Model Persistence & History")
-    print("  • Detailed Model Performance Comparison")
     print("=" * 60)
     print("Note: NaN protection enabled throughout the system")
     print("=" * 60)
@@ -2482,7 +1933,6 @@ if __name__ == '__main__':
     os.makedirs('static', exist_ok=True)
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(HISTORY_DIR, exist_ok=True)
-    os.makedirs(PERFORMANCE_DIR, exist_ok=True)
     
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
