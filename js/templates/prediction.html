@@ -1,1939 +1,1641 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Stock Predictions - AlphaAnalytics</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
-/* ---------- FULL UI CSS (updated) ---------- */
-/* Core reset & fonts */
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-:root{
-  --primary-white: #ffffff;
-  --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-  --bg-dark: #0f0f23;
-  --bg-card: rgba(30, 30, 46, 0.8);
-  --bg-card-hover: rgba(40, 40, 62, 0.9);
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0c0;
-  --text-muted: #707090;
-  --border-color: rgba(255,255,255,0.1);
-  --hover-color: rgba(0,230,255,0.15);
-  --active-color: #00e6ff;
-  --up-color: #00ff9d;
-  --down-color: #ff4d7c;
-  --accent-blue: #00e6ff;
-  --accent-teal: #00ff9d;
-  --accent-purple: #8a2be2;
-  --accent-pink: #ff4d7c;
-  --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
-  --glass: rgba(255,255,255,0.03);
-  --crisis-red: #ff4757;
-  --warning-orange: #ffa502;
-  --normal-green: #2ed573;
-}
-
-body.light {
-  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  --bg-dark: #ffffff;
-  --bg-card: rgba(255,255,255,0.9);
-  --bg-card-hover: rgba(255,255,255,1);
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --border-color: rgba(0,0,0,0.1);
-  --hover-color: rgba(0,119,204,0.1);
-  --active-color: #0077cc;
-  --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --crisis-red: #ff3838;
-  --warning-orange: #ff9f1a;
-  --normal-green: #00b894;
-}
-
-html,body { height:100%; }
-body {
-  background: var(--bg-gradient);
-  color: var(--text-primary);
-  transition: all 0.4s ease;
-  min-height: 100vh;
-  line-height: 1.6;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-}
-
-.container {
-  display:flex;
-  flex-direction:column;
-  min-height:100vh;
-  max-width:1400px;
-  margin:0 auto;
-}
-
-/* Navbar */
-.navbar {
-  background: rgba(15,15,35,0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  padding: 0;
-}
-.nav-wrap { max-width:1400px; margin:0 auto; padding: 0 20px; }
-.nav-row {
-  display:flex; align-items:center; justify-content:space-between; padding:12px 0;
-}
-.logo {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size:28px; font-weight:700;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  display:flex; align-items:center; gap:8px;
-}
-.logo i{ font-size:24px; }
-.nav-items { display:flex; gap:8px; list-style:none; }
-.nav-item {
-  padding:10px 16px; border-radius:12px; color:var(--text-secondary);
-  text-decoration:none; font-weight:500; font-size:14px;
-  transition: all 0.3s ease; display:flex; align-items:center; gap:6px;
-}
-.nav-item:hover { background:var(--hover-color); color:var(--active-color); transform: translateY(-2px); }
-.nav-item.active { background:var(--active-color); color:var(--bg-dark); box-shadow:var(--shadow-glow); }
-
-.menu-toggle { display:none; flex-direction:column; gap:4px; background:none; border:none; cursor:pointer; padding:8px; }
-.menu-toggle span { width:24px; height:2px; background:var(--text-primary); border-radius:2px; transition:all .3s; }
-
-/* Mobile */
-@media (max-width:768px) {
-  .nav-items { display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-dark); border-top:1px solid var(--border-color); padding:16px; flex-direction:column; gap:8px; z-index:1000; }
-  .nav-items.show{ display:flex; }
-  .nav-item { padding:12px 16px; border-radius:8px; justify-content:flex-start; }
-  .menu-toggle { display:flex; }
-}
-
-/* Main content */
-.main-content {
-  flex:1;
-  padding:24px;
-  display:flex;
-  flex-direction:column;
-  gap:32px;
-}
-
-/* Header */
-.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:20px; }
-.header h1 { font-family:'Space Grotesk', sans-serif; font-size:32px; font-weight:700; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.header-controls { display:flex; gap:16px; align-items:center; }
-
-/* Search bar */
-.search-container { position:relative; width:400px; max-width:100%; }
-.search-bar {
-  width:100%; padding:14px 20px 14px 48px; background:var(--bg-card); border:1px solid var(--border-color);
-  border-radius:16px; color:var(--text-primary); font-size:15px; font-weight:500; transition:all .3s; backdrop-filter: blur(10px);
-}
-.search-bar:focus { outline:none; border-color:var(--active-color); box-shadow:var(--shadow-glow); }
-.search-icon { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:18px; }
-
-/* Buttons */
-.action-buttons { display:flex; gap:12px; }
-.btn { padding:12px 20px; border:none; border-radius:12px; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all .3s; }
-.btn-primary { background:var(--active-color); color:var(--bg-dark); box-shadow:var(--shadow-glow); }
-.btn-secondary { background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); }
-.btn:disabled { opacity:.6; cursor:not-allowed; transform:none !important; }
-
-/* AI Insight */
-.ai-insight { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); }
-.ai-insight-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-.ai-insight-header h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.ai-icon { font-size:20px; color:var(--active-color); }
-.ai-content { color:var(--text-primary); font-size:15px; line-height:1.6; }
-
-/* Dashboard layout */
-.prediction-dashboard { display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-bottom:32px; }
-@media (max-width:900px){ .prediction-dashboard{ grid-template-columns:1fr; } }
-
-/* Stock selector */
-.stock-selector { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
-.stock-selector::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
-.stock-selector:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
-.stock-selector h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:16px; }
-.stock-search-container { position:relative; margin-bottom:16px; }
-.stock-search { width:100%; padding:14px 20px 14px 48px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:12px; color:var(--text-primary); font-size:15px; font-weight:500; transition:all .3s; }
-.stock-search:focus { outline:none; border-color:var(--active-color); box-shadow:var(--shadow-glow); }
-.stock-search-icon { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:18px; }
-.stock-list { display:flex; flex-direction:column; gap:10px; max-height:400px; overflow-y:auto; }
-.stock-item { display:flex; justify-content:space-between; align-items:center; padding:16px; background:var(--bg-dark); border-radius:12px; cursor:pointer; transition:all .3s; border:1px solid var(--border-color); }
-.stock-item:hover { border-color:var(--active-color); transform:translateY(-2px); }
-.stock-item.active { background:var(--active-color); color:var(--bg-dark); border-color:var(--active-color); }
-.stock-info { display:flex; flex-direction:column; }
-.stock-symbol { font-weight:700; font-size:16px; font-family:'Space Grotesk', sans-serif; }
-.stock-name { font-size:13px; color:var(--text-secondary); margin-top:4px; }
-.stock-price { font-weight:700; font-size:16px; font-family:'Space Grotesk', sans-serif; }
-.price-up { color:var(--up-color); }
-.price-down { color:var(--down-color); }
-
-/* Prediction card */
-.prediction-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
-.prediction-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
-.prediction-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
-.prediction-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-.prediction-title { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; }
-.prediction-actions { display:flex; gap:10px; }
-.prediction-chart { height:200px; background:var(--bg-dark); border-radius:12px; margin-bottom:20px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
-.prediction-details { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.prediction-item { display:flex; flex-direction:column; gap:6px; }
-.prediction-label { font-size:13px; color:var(--text-secondary); font-weight:500; }
-.prediction-value { font-size:18px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
-.confidence-high { color:var(--up-color); }
-.confidence-medium { color:#ffa500; }
-.confidence-low { color:var(--down-color); }
-
-/* Next day predictions */
-.next-day-predictions { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); margin-bottom:32px; display:none; }
-.next-day-predictions h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.predictions-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
-@media (max-width:900px){ .predictions-grid{ grid-template-columns:repeat(2,1fr); } }
-@media (max-width:480px){ .predictions-grid{ grid-template-columns:1fr; } }
-.prediction-type { background:var(--bg-dark); padding:20px; border-radius:12px; border:1px solid var(--border-color); text-align:center; }
-.prediction-type-label { font-size:14px; color:var(--text-secondary); margin-bottom:8px; }
-.prediction-type-value { font-size:20px; font-weight:700; font-family:'Space Grotesk', sans-serif; margin-bottom:6px; }
-.prediction-type-change { font-size:14px; font-weight:600; }
-
-/* Metrics */
-.metrics-section { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-bottom:32px; }
-@media (max-width:900px){ .metrics-section{ grid-template-columns:repeat(2,1fr); } }
-@media (max-width:480px){ .metrics-section{ grid-template-columns:1fr; } }
-.metric-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; display:flex; flex-direction:column; align-items:center; text-align:center; position:relative; overflow:hidden; }
-.metric-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
-.metric-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
-.metric-icon { font-size:28px; margin-bottom:12px; color:var(--active-color); }
-.metric-value { font-size:32px; font-weight:700; margin-bottom:8px; font-family:'Space Grotesk', sans-serif; }
-.metric-label { font-size:14px; color:var(--text-secondary); font-weight:500; }
-
-/* Charts */
-.charts-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
-@media (max-width:900px){ .charts-section{ grid-template-columns:1fr; } }
-.chart-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); transition:all .3s; position:relative; overflow:hidden; }
-.chart-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal)); }
-.chart-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-card); border-color:var(--active-color); }
-.chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-.chart-title { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; }
-.chart-actions select { padding:8px 12px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-size:14px; font-weight:500; }
-.chart-container { height:250px; background:var(--bg-dark); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-color); position:relative; overflow:hidden; }
-
-/* Performance & Confidence */
-.performance-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
-@media (max-width:900px){ .performance-section{ grid-template-columns:1fr; } }
-
-.performance-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); }
-.performance-card h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-
-.performance-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
-.performance-item { background:var(--bg-dark); padding:16px; border-radius:12px; border:1px solid var(--border-color); }
-.performance-label { font-size:12px; color:var(--text-secondary); margin-bottom:6px; }
-.performance-value { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
-.performance-subtext { font-size:11px; color:var(--text-muted); margin-top:4px; }
-
-.confidence-bars { display:flex; flex-direction:column; gap:12px; }
-.confidence-bar { display:flex; align-items:center; gap:12px; }
-.confidence-label { width:80px; font-size:13px; color:var(--text-secondary); }
-.confidence-track { flex:1; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; }
-.confidence-fill { height:100%; border-radius:4px; transition:width 0.5s ease; }
-.confidence-value { width:50px; text-align:right; font-size:13px; font-weight:600; }
-
-/* NEW: Algorithm Breakdown Section */
-.algorithm-section { display:none; margin-bottom:32px; }
-.algorithm-section.active { display:block; }
-
-.algorithm-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
-.algorithm-tab { padding:10px 16px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.3s; }
-.algorithm-tab:hover { border-color:var(--active-color); }
-.algorithm-tab.active { background:var(--active-color); color:var(--bg-dark); border-color:var(--active-color); box-shadow:var(--shadow-glow); }
-
-.algorithm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; }
-.algorithm-card { background:var(--bg-card); border-radius:16px; padding:20px; border:1px solid var(--border-color); }
-.algorithm-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-.algorithm-name { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
-.algorithm-confidence { font-size:14px; font-weight:600; padding:4px 12px; border-radius:20px; }
-.algorithm-confidence.high { background:rgba(0, 255, 157, 0.2); color:var(--up-color); }
-.algorithm-confidence.medium { background:rgba(255, 165, 0, 0.2); color:#ffa500; }
-.algorithm-confidence.low { background:rgba(255, 77, 124, 0.2); color:var(--down-color); }
-
-.algorithm-predictions { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
-.algorithm-prediction-item { background:var(--bg-dark); padding:12px; border-radius:8px; border:1px solid var(--border-color); }
-.algorithm-prediction-label { font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
-.algorithm-prediction-value { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
-.algorithm-prediction-change { font-size:12px; font-weight:600; }
-
-.algorithm-performance { margin-top:16px; padding-top:16px; border-top:1px solid var(--border-color); }
-.algorithm-performance-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
-.algorithm-performance-item { text-align:center; }
-.algorithm-performance-label { font-size:10px; color:var(--text-muted); margin-bottom:2px; }
-.algorithm-performance-value { font-size:12px; font-weight:700; }
-
-/* Crisis & Market Regime */
-.crisis-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
-@media (max-width:900px){ .crisis-section{ grid-template-columns:1fr; } }
-
-.crisis-card { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); position:relative; overflow:hidden; }
-.crisis-card.critical { border-color:var(--crisis-red); }
-.crisis-card.warning { border-color:var(--warning-orange); }
-.crisis-card.normal { border-color:var(--normal-green); }
-
-.crisis-card h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:16px; }
-.crisis-card.critical h3 { color:var(--crisis-red); }
-.crisis-card.warning h3 { color:var(--warning-orange); }
-.crisis-card.normal h3 { color:var(--normal-green); }
-
-.crisis-indicator { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-.crisis-icon { font-size:24px; }
-.crisis-level { font-size:20px; font-weight:700; }
-.crisis-probability { font-size:28px; font-weight:700; margin:16px 0; }
-.crisis-description { font-size:14px; color:var(--text-secondary); line-height:1.5; }
-
-.regime-indicators { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-.regime-indicator { display:flex; align-items:center; gap:8px; padding:12px; background:var(--bg-dark); border-radius:8px; border:1px solid var(--border-color); }
-.regime-icon { font-size:16px; }
-.regime-text { font-size:13px; }
-
-/* Risk Alerts */
-.risk-alerts { background:var(--bg-card); border-radius:20px; padding:24px; border:1px solid var(--border-color); backdrop-filter: blur(10px); margin-bottom:32px; display:none; }
-.risk-alerts h3 { font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; margin-bottom:20px; color:var(--crisis-red); }
-.alert-list { display:flex; flex-direction:column; gap:12px; }
-.alert-item { display:flex; align-items:flex-start; gap:12px; padding:16px; background:var(--bg-dark); border-radius:12px; border-left:4px solid var(--crisis-red); }
-.alert-item.warning { border-left-color:var(--warning-orange); }
-.alert-item.info { border-left-color:var(--accent-blue); }
-.alert-icon { font-size:18px; margin-top:2px; }
-.alert-content { flex:1; }
-.alert-level { font-size:14px; font-weight:700; margin-bottom:4px; }
-.alert-message { font-size:13px; color:var(--text-secondary); margin-bottom:4px; }
-.alert-action { font-size:12px; color:var(--text-muted); }
-
-/* Loading & iframe removed (we removed Dash iframe) */
-.loading-overlay { display:none; }
-
-/* Shimmer */
-.shimmer { background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%); background-size:200% 100%; animation: shimmer 1.5s infinite; border-radius:4px; }
-@keyframes shimmer { 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
-
-/* Notification */
-.notification { position: fixed; top:20px; right:20px; padding:16px 20px; border-radius:12px; background:var(--bg-card); border:1px solid var(--border-color); backdrop-filter: blur(10px); z-index:10000; transform:translateX(400px); transition: transform .3s ease; max-width:400px; }
-.notification.show { transform:translateX(0); }
-.notification.success { border-color: var(--up-color); }
-.notification.error { border-color: var(--down-color); }
-.notification-content { display:flex; align-items:center; gap:12px; }
-.notification-icon { font-size:20px; }
-.notification.success .notification-icon { color:var(--up-color); }
-.notification.error .notification-icon { color:var(--down-color); }
-.notification-message { flex:1; font-size:14px; font-weight:500; }
-
-/* Responsive tweaks */
-@media (max-width:768px){
-  .navbar { padding:0 16px; }
-  .nav-row { flex-wrap:wrap; }
-  .main-content { padding:16px; }
-  .header { flex-direction:column; align-items:flex-start; }
-  .header-controls { width:100%; justify-content:space-between; }
-  .search-container { width:100%; }
-  .performance-grid { grid-template-columns:1fr; }
-  .regime-indicators { grid-template-columns:1fr; }
-  .algorithm-grid { grid-template-columns:1fr; }
-  .algorithm-predictions { grid-template-columns:1fr; }
-}
-@media (max-width:480px){
-  .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
-  .performance-card, .crisis-card { padding:20px; }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction - AI Models</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #3b82f6;
+            --dark-bg: #1e293b;
+            --card-bg: #334155;
+            --text-light: #f1f5f9;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid #475569;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            background-color: rgba(30, 41, 59, 0.7);
+            border-bottom: 1px solid #475569;
+            font-weight: 600;
+            padding: 1rem 1.25rem;
+        }
+        
+        .prediction-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .model-card {
+            border-left: 4px solid var(--info-color);
+        }
+        
+        .performance-card {
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .risk-card {
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .badge {
+            font-weight: 500;
+            padding: 0.35em 0.65em;
+        }
+        
+        .price-change-positive {
+            color: var(--success-color);
+            font-weight: 600;
+        }
+        
+        .price-change-negative {
+            color: var(--danger-color);
+            font-weight: 600;
+        }
+        
+        .confidence-high {
+            color: var(--success-color);
+        }
+        
+        .confidence-medium {
+            color: var(--warning-color);
+        }
+        
+        .confidence-low {
+            color: var(--danger-color);
+        }
+        
+        .model-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        
+        .model-linear { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .model-svr { background-color: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+        .model-rf { background-color: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .model-arima { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        
+        .metric-card {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: rgba(30, 41, 59, 0.5);
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+        
+        .metric-label {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        
+        .algorithm-table th {
+            border-bottom: 2px solid #475569;
+            background-color: rgba(30, 41, 59, 0.7);
+        }
+        
+        .algorithm-table td {
+            border-color: #475569;
+            vertical-align: middle;
+        }
+        
+        .progress {
+            height: 8px;
+            background-color: #475569;
+        }
+        
+        .progress-bar {
+            background-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            padding-top: 1rem;
+        }
+        
+        .nav-tabs {
+            border-bottom: 1px solid #475569;
+        }
+        
+        .nav-tabs .nav-link {
+            color: #94a3b8;
+            border: 1px solid transparent;
+            border-radius: 8px 8px 0 0;
+            margin-right: 0.25rem;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--text-light);
+            background-color: var(--card-bg);
+            border-color: #475569 #475569 var(--card-bg);
+        }
+        
+        .nav-tabs .nav-link:hover {
+            color: var(--text-light);
+            border-color: #475569;
+        }
+        
+        .search-box {
+            max-width: 400px;
+        }
+        
+        #loadingSpinner {
+            display: none;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+        
+        .alert {
+            border-radius: 8px;
+            border: none;
+        }
+        
+        .alert-warning {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .alert-danger {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .stock-symbol {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        
+        .stock-price {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .recommendation-badge {
+            font-size: 1.1rem;
+            padding: 0.5rem 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .stock-price {
+                font-size: 1.5rem;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-  <!-- NAVBAR -->
-  <header class="navbar">
-    <div class="nav-wrap">
-      <div class="nav-row">
-        <div class="logo"><i class="fas fa-chart-line"></i> AlphaAnalytics</div>
-        <button class="menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
-        <nav class="nav-items">
-          <a href="/jeet" class="nav-item"><i class="fas fa-home"></i>Dashboard</a>
-          <a href="/portfolio" class="nav-item"><i class="fas fa-briefcase"></i>Portfolio</a>
-          <a href="/mystock" class="nav-item"><i class="fas fa-star"></i>My Stock</a>
-          <a href="/deposit" class="nav-item"><i class="fas fa-wallet"></i>Deposit</a>
-          <a href="/insight" class="nav-item"><i class="fas fa-brain"></i>Insight</a>
-          <a href="/prediction" class="nav-item active"><i class="fas fa-crystal-ball"></i>Prediction</a>
-          <a href="/news" class="nav-item"><i class="fas fa-newspaper"></i>News</a>
-          <a href="/videos" class="nav-item"><i class="fas fa-play-circle"></i>Videos</a>
-          <a href="/Superstars" class="nav-item"><i class="fas fa-trophy"></i>Superstars</a>
-          <a href="/alerts" class="nav-item"><i class="fas fa-bell"></i>Alerts</a>
-          <a href="/help" class="nav-item"><i class="fas fa-question-circle"></i>Help</a>
-          <a href="/profile" class="nav-item"><i class="fas fa-user"></i>Profile</a>
-        </nav>
-      </div>
-    </div>
-  </header>
-
-  <!-- Notification -->
-  <div class="notification" id="notification">
-    <div class="notification-content">
-      <i class="fas fa-check-circle notification-icon"></i>
-      <div class="notification-message" id="notificationMessage">Operation completed successfully!</div>
-    </div>
-  </div>
-
-  <!-- MAIN -->
-  <main class="main-content">
-    <div class="header">
-      <h1>AI Stock Predictions</h1>
-      <div class="header-controls">
-        <div class="search-container">
-          <i class="fas fa-search search-icon"></i>
-          <input id="globalSearch" class="search-bar" placeholder="Search predictions..." />
-        </div>
-        <div class="action-buttons">
-          <button class="btn btn-primary" id="generateAllBtn"><i class="fas fa-bolt"></i>Generate All</button>
-          <button class="btn btn-secondary" id="themeBtn"><i class="fas fa-palette"></i>Theme</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="ai-insight">
-      <div class="ai-insight-header">
-        <i class="fas fa-robot ai-icon"></i>
-        <h3>AI Prediction Engine</h3>
-      </div>
-      <div class="ai-content" id="aiInsightText">
-        Our AI analyzes historical data, technical indicators and market signals to generate next-day predictions.
-      </div>
-    </div>
-
-    <!-- Risk Alerts -->
-    <div class="risk-alerts" id="riskAlerts">
-      <h3><i class="fas fa-exclamation-triangle"></i> Risk Alerts</h3>
-      <div class="alert-list" id="alertList"></div>
-    </div>
-
-    <!-- Metrics -->
-    <div class="metrics-section">
-      <div class="metric-card">
-        <div class="metric-icon"><i class="fas fa-bullseye"></i></div>
-        <div class="metric-value" id="metricAccuracy">—</div>
-        <div class="metric-label">Prediction Accuracy</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-icon"><i class="fas fa-trophy"></i></div>
-        <div class="metric-value" id="metricProfit">—</div>
-        <div class="metric-label">Profitable Predictions</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-icon"><i class="fas fa-bolt"></i></div>
-        <div class="metric-value" id="metricLatency">—</div>
-        <div class="metric-label">Avg. Processing Time</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-icon"><i class="fas fa-database"></i></div>
-        <div class="metric-value" id="metricHistory">—</div>
-        <div class="metric-label">Historical Data</div>
-      </div>
-    </div>
-
-    <!-- Crisis & Market Regime -->
-    <div class="crisis-section">
-      <div class="crisis-card normal" id="crisisCard">
-        <h3><i class="fas fa-shield-alt"></i> Market Crisis Detection</h3>
-        <div class="crisis-indicator">
-          <i class="fas fa-check-circle crisis-icon" style="color:var(--normal-green)"></i>
-          <div class="crisis-level">Normal Market Conditions</div>
-        </div>
-        <div class="crisis-probability" id="crisisProbability">10%</div>
-        <div class="crisis-description" id="crisisDescription">Market conditions appear stable with normal volatility levels.</div>
-      </div>
-
-      <div class="crisis-card normal" id="regimeCard">
-        <h3><i class="fas fa-chart-line"></i> Market Regime</h3>
-        <div class="crisis-indicator">
-          <i class="fas fa-chart-bar crisis-icon" style="color:var(--normal-green)"></i>
-          <div class="crisis-level" id="regimeLevel">NORMAL</div>
-        </div>
-        <div class="regime-indicators">
-          <div class="regime-indicator">
-            <i class="fas fa-wave-square regime-icon"></i>
-            <div class="regime-text" id="volatilityIndicator">Volatility: Normal</div>
-          </div>
-          <div class="regime-indicator">
-            <i class="fas fa-tachometer-alt regime-icon"></i>
-            <div class="regime-text" id="momentumIndicator">Momentum: Neutral</div>
-          </div>
-          <div class="regime-indicator">
-            <i class="fas fa-volume-up regime-icon"></i>
-            <div class="regime-text" id="volumeIndicator">Volume: Average</div>
-          </div>
-          <div class="regime-indicator">
-            <i class="fas fa-balance-scale regime-icon"></i>
-            <div class="regime-text" id="sentimentIndicator">Sentiment: Balanced</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Next Day Predictions -->
-    <div class="next-day-predictions" id="nextDayPredictions">
-      <h3 id="nextDayHeader">📈 Next Day Price Predictions</h3>
-      <div class="predictions-grid" id="predictionsGrid"></div>
-    </div>
-
-    <!-- Prediction Dashboard -->
-    <div class="prediction-dashboard">
-      <!-- Stock Selector -->
-      <div class="stock-selector">
-        <h3>Select Stock</h3>
-        <div class="stock-search-container">
-          <i class="fas fa-search stock-search-icon"></i>
-          <input id="stockSearch" class="stock-search" placeholder="Search stocks..." />
-        </div>
-        <div class="stock-list" id="stockList">
-          <!-- Filled by JS -->
-        </div>
-      </div>
-
-      <!-- Prediction Card -->
-      <div class="prediction-card">
-        <div class="prediction-header">
-          <div class="prediction-title" id="selectedStock">SPY - SPDR S&P 500 ETF</div>
-          <div class="prediction-actions">
-            <button class="btn btn-secondary" id="refreshBtn"><i class="fas fa-sync-alt"></i>Refresh</button>
-            <button class="btn btn-primary" id="predictBtn"><i class="fas fa-chart-line"></i>Predict</button>
-            <button class="btn btn-secondary" id="trainBtn"><i class="fas fa-brain"></i>Train</button>
-          </div>
-        </div>
-
-        <div class="prediction-chart" id="predictionChart">
-          <div>Select a stock and click Predict to generate AI-powered forecasts</div>
-        </div>
-
-        <div class="prediction-details">
-          <div class="prediction-item">
-            <div class="prediction-label">Current Price</div>
-            <div class="prediction-value" id="currentPrice">—</div>
-          </div>
-          <div class="prediction-item">
-            <div class="prediction-label">Predicted Close</div>
-            <div class="prediction-value" id="predictedPrice">—</div>
-          </div>
-          <div class="prediction-item">
-            <div class="prediction-label">Confidence</div>
-            <div class="prediction-value confidence-high" id="confidenceLevel">—</div>
-          </div>
-          <div class="prediction-item">
-            <div class="prediction-label">Time Horizon</div>
-            <div class="prediction-value" id="timeHorizon">Next Day</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- NEW: Algorithm Breakdown Section -->
-    <div class="algorithm-section" id="algorithmSection">
-      <div class="performance-card">
-        <h3><i class="fas fa-microchip"></i> Algorithm Predictions Breakdown</h3>
-        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
-          See how each algorithm predicts OCHL (Open, Close, High, Low) values
-        </p>
-        
-        <div class="algorithm-tabs" id="algorithmTabs">
-          <!-- Tabs will be generated by JavaScript -->
-        </div>
-        
-        <div class="algorithm-grid" id="algorithmGrid">
-          <!-- Algorithm cards will be generated by JavaScript -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Performance & Confidence -->
-    <div class="performance-section">
-      <div class="performance-card">
-        <h3><i class="fas fa-chart-bar"></i> Historical Performance</h3>
-        <div class="performance-grid" id="performanceGrid">
-          <div class="performance-item">
-            <div class="performance-label">Model R² Score</div>
-            <div class="performance-value" id="r2Score">—</div>
-            <div class="performance-subtext">Higher is better</div>
-          </div>
-          <div class="performance-item">
-            <div class="performance-label">Direction Accuracy</div>
-            <div class="performance-value" id="directionAccuracy">—</div>
-            <div class="performance-subtext">Price movement prediction</div>
-          </div>
-          <div class="performance-item">
-            <div class="performance-label">RMSE</div>
-            <div class="performance-value" id="rmseScore">—</div>
-            <div class="performance-subtext">Lower is better</div>
-          </div>
-          <div class="performance-item">
-            <div class="performance-label">Overfitting Ratio</div>
-            <div class="performance-value" id="overfittingRatio">—</div>
-            <div class="performance-subtext">Close to 1.0 is ideal</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="performance-card">
-        <h3><i class="fas fa-chart-pie"></i> Prediction Confidence</h3>
-        <div class="confidence-bars" id="confidenceBars">
-          <div class="confidence-bar">
-            <div class="confidence-label">Open</div>
-            <div class="confidence-track">
-              <div class="confidence-fill" style="width: 0%; background: var(--accent-blue)"></div>
-            </div>
-            <div class="confidence-value">—</div>
-          </div>
-          <div class="confidence-bar">
-            <div class="confidence-label">High</div>
-            <div class="confidence-track">
-              <div class="confidence-fill" style="width: 0%; background: var(--accent-teal)"></div>
-            </div>
-            <div class="confidence-value">—</div>
-          </div>
-          <div class="confidence-bar">
-            <div class="confidence-label">Low</div>
-            <div class="confidence-track">
-              <div class="confidence-fill" style="width: 0%; background: var(--accent-purple)"></div>
-            </div>
-            <div class="confidence-value">—</div>
-          </div>
-          <div class="confidence-bar">
-            <div class="confidence-label">Close</div>
-            <div class="confidence-track">
-              <div class="confidence-fill" style="width: 0%; background: var(--up-color)"></div>
-            </div>
-            <div class="confidence-value">—</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts -->
-    <div class="charts-section">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-title">Historical Performance</div>
-          <div class="chart-actions">
-            <select id="historyRange">
-              <option>1 Month</option>
-              <option>3 Months</option>
-              <option>1 Year</option>
-              <option selected>10 Years</option>
-            </select>
-          </div>
-        </div>
-        <div class="chart-container" id="historicalChart">Historical performance chart will appear here</div>
-      </div>
-
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-title">Prediction Confidence</div>
-          <div class="chart-actions">
-            <select id="confidenceFilter">
-              <option>All Stocks</option>
-              <option>Tech Sector</option>
-              <option selected>Selected Stock</option>
-            </select>
-          </div>
-        </div>
-        <div class="chart-container" id="confidenceChart">Confidence chart will appear here</div>
-      </div>
-    </div>
-
-    <!-- Model / Disclaimer -->
-    <div class="card" style="padding:20px; background:var(--bg-card); border-radius:20px; border:1px solid var(--border-color);">
-      <h3 style="color:var(--accent-blue); margin-bottom:8px">Model & Deployment</h3>
-      <p style="color:var(--text-secondary); font-size:14px; line-height:1.5;">
-        This AI prediction system uses advanced machine learning models with historical performance tracking, 
-        real-time confidence scoring, and market crisis detection. All predictions are for educational purposes only.
-      </p>
-    </div>
-
-  </main>
-</div>
-
-<script>
-/* =============== ENHANCED PREDICTION UI SCRIPT =============== */
-/* Shows which algorithm gives what prediction for OCHL values */
-
-const CONFIG = {
-  API_BASE_URL: window.location.origin,
-  DEBOUNCE_DELAY: 300,
-  NOTIFICATION_DURATION: 4500,
-  STOCK_REFRESH_INTERVAL: 300000 // 5 minutes
-};
-
-const AppState = {
-  allStocks: [],
-  selectedStock: null,
-  isGenerating: false,
-  currentPredictions: null,
-  lastFetchTime: null,
-  marketStatus: "unknown",
-  activeAlgorithmTab: 'all'
-};
-
-/* Mobile menu handler */
-class MobileMenu {
-  constructor() {
-    this.menuToggle = document.querySelector('.menu-toggle');
-    this.navItems = document.querySelector('.nav-items');
-    this.isOpen = false;
-    this.init();
-  }
-  
-  init() {
-    if (this.menuToggle && this.navItems) {
-      this.menuToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggle();
-      });
-      
-      document.addEventListener('click', (event) => {
-        if (this.isOpen && !event.target.closest('.navbar')) {
-          this.close();
-        }
-      });
-    }
-  }
-  
-  toggle() { 
-    this.isOpen = !this.isOpen; 
-    this.navItems.classList.toggle('show'); 
-    const spans = this.menuToggle.querySelectorAll('span'); 
-    spans.forEach(s => s.classList.toggle('active')); 
-  }
-  
-  close() { 
-    this.isOpen = false; 
-    this.navItems.classList.remove('show'); 
-    const spans = this.menuToggle.querySelectorAll('span'); 
-    spans.forEach(s => s.classList.remove('active')); 
-  }
-}
-
-/* Notification system */
-class NotificationManager {
-  static show(message, type = 'success') {
-    const n = document.getElementById('notification');
-    const msg = document.getElementById('notificationMessage');
-    
-    if (!n || !msg) { 
-      console.log(`${type.toUpperCase()}: ${message}`); 
-      return; 
-    }
-    
-    msg.textContent = message;
-    n.className = `notification ${type}`;
-    n.classList.add('show');
-    
-    const icon = n.querySelector('.notification-icon');
-    if (type === 'success') {
-      icon.className = 'fas fa-check-circle notification-icon';
-    } else {
-      icon.className = 'fas fa-exclamation-circle notification-icon';
-    }
-    
-    setTimeout(() => n.classList.remove('show'), CONFIG.NOTIFICATION_DURATION);
-  }
-}
-
-/* API Service for Flask backend */
-class StockAPIService {
-  static async fetchStocks() {
-    try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/stocks`);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.error('Fetch stocks error:', err);
-      NotificationManager.show('Using cached stock list', 'error');
-      return this.getFallbackStocks();
-    }
-  }
-
-  static async predict(symbol) {
-    try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/predict`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Prediction failed: ${res.status} ${errorText}`);
-      }
-      
-      return await res.json();
-    } catch (err) {
-      console.error('Prediction error:', err);
-      throw err;
-    }
-  }
-
-  static async trainModels(symbol) {
-    try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/train`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Training failed: ${res.status} ${errorText}`);
-      }
-      
-      return await res.json();
-    } catch (err) {
-      console.error('Training error:', err);
-      throw err;
-    }
-  }
-
-  static async getPredictionHistory(symbol) {
-    try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/api/history/${symbol}`);
-      if (!res.ok) throw new Error(`History error: ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.error('History error:', err);
-      return null;
-    }
-  }
-
-  static getFallbackStocks() {
-    return [
-      { symbol: "AAPL", name: "Apple Inc.", price: 182.63, change: 1.24 },
-      { symbol: "MSFT", name: "Microsoft Corp.", price: 407.57, change: -0.85 },
-      { symbol: "GOOGL", name: "Alphabet Inc.", price: 172.34, change: 2.13 },
-      { symbol: "AMZN", name: "Amazon.com Inc.", price: 178.22, change: 0.67 },
-      { symbol: "TSLA", name: "Tesla Inc.", price: 175.79, change: -3.21 },
-      { symbol: "META", name: "Meta Platforms Inc.", price: 485.58, change: 1.89 },
-      { symbol: "NVDA", name: "NVIDIA Corp.", price: 950.02, change: 5.42 },
-      { symbol: "SPY", name: "SPDR S&P 500 ETF", price: 445.20, change: 0.45 },
-      { symbol: "QQQ", name: "Invesco QQQ Trust", price: 378.90, change: 0.67 },
-      { symbol: "JPM", name: "JPMorgan Chase & Co.", price: 195.18, change: -0.32 }
-    ];
-  }
-}
-
-/* Stock List Manager */
-class StockListManager {
-  constructor() {
-    this.stockListEl = document.getElementById('stockList');
-    this.searchEl = document.getElementById('stockSearch');
-    this.debounced = this.debounce(this.filterList.bind(this), CONFIG.DEBOUNCE_DELAY);
-    this.init();
-  }
-
-  init() {
-    if (this.searchEl) {
-      this.searchEl.addEventListener('input', this.debounced);
-    }
-  }
-
-  async populate() {
-    if (!this.stockListEl) return;
-    
-    this.stockListEl.innerHTML = `
-      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
-      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
-      <div class="shimmer" style="height: 60px; margin-bottom: 10px;"></div>
-    `;
-    
-    AppState.allStocks = await StockAPIService.fetchStocks();
-    this.render();
-    
-    if (AppState.allStocks.length > 0) {
-      this.select(AppState.allStocks[0]);
-    }
-  }
-
-  render() {
-    this.stockListEl.innerHTML = '';
-    AppState.allStocks.forEach(stock => {
-      this.stockListEl.appendChild(this.createStockItem(stock));
-    });
-  }
-
-  createStockItem(stock) {
-    const item = document.createElement('div');
-    item.className = 'stock-item';
-    
-    const change = stock.change || 0;
-    const price = stock.price || 0;
-    
-    item.innerHTML = `
-      <div class="stock-info">
-        <div class="stock-symbol">${stock.symbol}</div>
-        <div class="stock-name">${stock.name}</div>
-      </div>
-      <div class="stock-price ${change >= 0 ? 'price-up' : 'price-down'}">
-        $${price.toFixed(2)} 
-        <span>${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span>
-      </div>
-    `;
-    
-    item.addEventListener('click', () => this.select(stock));
-    return item;
-  }
-
-  select(stock) {
-    // Remove active class from all items
-    document.querySelectorAll('.stock-item').forEach(i => i.classList.remove('active'));
-    
-    // Find and activate selected item
-    const items = Array.from(document.querySelectorAll('.stock-item'));
-    const foundItem = items.find(i => {
-      const symbolEl = i.querySelector('.stock-symbol');
-      return symbolEl && symbolEl.textContent === stock.symbol;
-    });
-    
-    if (foundItem) {
-      foundItem.classList.add('active');
-    }
-    
-    AppState.selectedStock = stock;
-    document.getElementById('selectedStock').textContent = `${stock.symbol} - ${stock.name}`;
-    
-    // Update current price display
-    const currentPriceEl = document.getElementById('currentPrice');
-    if (currentPriceEl) {
-      currentPriceEl.textContent = `$${(stock.price || 0).toFixed(2)}`;
-    }
-    
-    // Reset prediction display
-    PredictionDisplay.reset();
-  }
-
-  filterList(e) {
-    const query = (e.target.value || '').toLowerCase().trim();
-    
-    document.querySelectorAll('.stock-item').forEach(item => {
-      const symbol = item.querySelector('.stock-symbol')?.textContent?.toLowerCase() || '';
-      const name = item.querySelector('.stock-name')?.textContent?.toLowerCase() || '';
-      
-      if (symbol.includes(query) || name.includes(query)) {
-        item.style.display = 'flex';
-      } else {
-        item.style.display = 'none';
-      }
-    });
-  }
-
-  debounce(fn, wait) {
-    let timeout;
-    return function(...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => fn.apply(this, args), wait);
-    };
-  }
-}
-
-/* Comprehensive Prediction Display */
-class PredictionDisplay {
-  static reset() {
-    // Reset main prediction display
-    const elements = {
-      'predictedPrice': '—',
-      'confidenceLevel': '—',
-      'currentPrice': '—'
-    };
-    
-    Object.keys(elements).forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = elements[id];
-    });
-    
-    // Reset chart
-    const chartEl = document.getElementById('predictionChart');
-    if (chartEl) {
-      chartEl.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-          <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-          <div>Select a stock and click "Predict" to generate AI-powered forecasts</div>
-        </div>
-      `;
-    }
-    
-    // Hide sections
-    this.hideNextDayPredictions();
-    this.hideRiskAlerts();
-    this.hideAlgorithmSection();
-    this.resetPerformance();
-    this.resetCrisisDetection();
-    this.resetMetrics();
-    
-    // Reset confidence bars
-    document.querySelectorAll('.confidence-fill').forEach(el => {
-      el.style.width = '0%';
-    });
-    
-    document.querySelectorAll('.confidence-value').forEach(el => {
-      el.textContent = '—';
-    });
-  }
-
-  static update(data) {
-    if (!data) return;
-    
-    console.log('Prediction data received:', data);
-    
-    // Store current predictions
-    AppState.currentPredictions = data;
-    AppState.lastFetchTime = new Date();
-    
-    // Update current prices
-    const currentPrices = data.current_prices || {};
-    document.getElementById('currentPrice').textContent = 
-      `$${(currentPrices.close || data.current_prices?.close || 0).toFixed(2)}`;
-    
-    // Update predictions
-    const predictions = data.predictions || {};
-    this.updatePredictions(predictions, currentPrices.close || 0);
-    
-    // Update confidence
-    const confidence = data.confidence_metrics || {};
-    this.updateConfidence(confidence);
-    
-    // Update AI insight
-    this.updateInsight(data.insight || data.message || 'AI analysis completed.');
-    
-    // Update charts
-    this.updateChart(data);
-    
-    // Update next day predictions
-    this.updateNextDayPredictions(predictions, currentPrices);
-    
-    // Update algorithm breakdown
-    this.updateAlgorithmBreakdown(data);
-    
-    // Update performance metrics
-    this.updatePerformance(data.historical_performance || {});
-    
-    // Update confidence bars
-    this.updateConfidenceBars(predictions);
-    
-    // Update crisis detection
-    this.updateCrisisDetection(data);
-    
-    // Update risk alerts
-    this.updateRiskAlerts(data.risk_alerts || []);
-    
-    // Update metrics
-    this.updateMetrics(data);
-    
-    // Update risk level and recommendation
-    this.updateRiskAndRecommendation(data);
-  }
-
-  static updatePredictions(predictions, currentClose) {
-    if (!predictions.Close) return;
-    
-    const predictedClose = predictions.Close.predicted_price || predictions.Close.predicted || 0;
-    const expectedChange = predictions.Close.expected_change || 0;
-    
-    const predictedPriceEl = document.getElementById('predictedPrice');
-    if (predictedPriceEl) {
-      predictedPriceEl.innerHTML = `
-        $${predictedClose.toFixed(2)} 
-        <span style="color: ${expectedChange >= 0 ? 'var(--up-color)' : 'var(--down-color)'}; font-size: 14px;">
-          (${expectedChange >= 0 ? '+' : ''}${expectedChange.toFixed(2)}%)
-        </span>
-      `;
-    }
-  }
-
-  static updateConfidence(confidence) {
-    const overallConfidence = confidence.overall_confidence || 70;
-    const confidenceLevel = confidence.confidence_level || "MEDIUM";
-    
-    const confidenceEl = document.getElementById('confidenceLevel');
-    if (confidenceEl) {
-      let colorClass = 'confidence-low';
-      if (overallConfidence >= 80) colorClass = 'confidence-high';
-      else if (overallConfidence >= 60) colorClass = 'confidence-medium';
-      
-      confidenceEl.textContent = `${confidenceLevel} (${Math.round(overallConfidence)}%)`;
-      confidenceEl.className = `prediction-value ${colorClass}`;
-    }
-  }
-
-  static updateChart(data) {
-    const chartEl = document.getElementById('predictionChart');
-    if (!chartEl) return;
-    
-    const symbol = AppState.selectedStock?.symbol || data.symbol || 'N/A';
-    const currentPrice = data.current_prices?.close || 0;
-    const predictedPrice = data.predictions?.Close?.predicted_price || currentPrice;
-    const change = currentPrice ? ((predictedPrice - currentPrice) / currentPrice) * 100 : 0;
-    
-    // Create a simple bar chart visualization
-    const maxVal = Math.max(currentPrice, predictedPrice) * 1.1;
-    const currentHeight = (currentPrice / maxVal) * 100;
-    const predictedHeight = (predictedPrice / maxVal) * 100;
-    
-    chartEl.innerHTML = `
-      <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-        <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">
-          ${symbol} Price Forecast
-        </div>
-        
-        <div style="display: flex; align-items: flex-end; height: 140px; gap: 30px; padding: 0 20px;">
-          <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Current</div>
-            <div style="background: linear-gradient(to top, var(--accent-blue), var(--accent-teal)); 
-                        width: 40px; height: ${currentHeight}%; border-radius: 6px 6px 0 0;">
-            </div>
-            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${currentPrice.toFixed(2)}</div>
-          </div>
-          
-          <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Predicted</div>
-            <div style="background: linear-gradient(to top, ${change >= 0 ? 'var(--up-color)' : 'var(--down-color)'}, 
-                        ${change >= 0 ? 'rgba(0, 255, 157, 0.7)' : 'rgba(255, 77, 124, 0.7)'}); 
-                        width: 40px; height: ${predictedHeight}%; border-radius: 6px 6px 0 0;">
-            </div>
-            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${predictedPrice.toFixed(2)}</div>
-          </div>
-        </div>
-        
-        <div style="margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-muted);">
-          Expected change: <span style="color: ${change >= 0 ? 'var(--up-color)' : 'var(--down-color)'}; font-weight: 600;">
-            ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
-          </span>
-        </div>
-      </div>
-    `;
-  }
-
-  static updateInsight(insight) {
-    const insightEl = document.getElementById('aiInsightText');
-    if (insightEl) {
-      insightEl.textContent = insight;
-    }
-  }
-
-  static updateNextDayPredictions(predictions, currentPrices) {
-    const gridEl = document.getElementById('predictionsGrid');
-    const sectionEl = document.getElementById('nextDayPredictions');
-    
-    if (!gridEl || !sectionEl) return;
-    
-    const predictionTypes = [
-      { key: 'Open', label: 'Open Price', icon: 'fa-door-open' },
-      { key: 'High', label: 'High Price', icon: 'fa-arrow-up' },
-      { key: 'Low', label: 'Low Price', icon: 'fa-arrow-down' },
-      { key: 'Close', label: 'Close Price', icon: 'fa-door-closed' }
-    ];
-    
-    gridEl.innerHTML = '';
-    
-    predictionTypes.forEach(type => {
-      const predData = predictions[type.key];
-      if (!predData) return;
-      
-      const predictedValue = predData.predicted_price || predData.predicted || 0;
-      const currentValue = currentPrices[type.key.toLowerCase()] || currentPrices.close || predictedValue;
-      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
-      
-      const itemEl = document.createElement('div');
-      itemEl.className = 'prediction-type';
-      itemEl.innerHTML = `
-        <div class="prediction-type-label">
-          <i class="fas ${type.icon}"></i> ${type.label}
-        </div>
-        <div class="prediction-type-value">$${predictedValue.toFixed(2)}</div>
-        <div class="prediction-type-change ${change >= 0 ? 'price-up' : 'price-down'}">
-          ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-          Conf: ${predData.confidence ? Math.round(predData.confidence) : '—'}%
-        </div>
-      `;
-      
-      gridEl.appendChild(itemEl);
-    });
-    
-    sectionEl.style.display = 'block';
-  }
-
-  static updateAlgorithmBreakdown(data) {
-    const algorithmSection = document.getElementById('algorithmSection');
-    const algorithmTabs = document.getElementById('algorithmTabs');
-    const algorithmGrid = document.getElementById('algorithmGrid');
-    
-    if (!algorithmSection || !algorithmTabs || !algorithmGrid) return;
-    
-    const algorithmDetails = data.algorithm_details || {};
-    const predictions = data.predictions || {};
-    const currentPrices = data.current_prices || {};
-    
-    // If no algorithm details, hide the section
-    if (Object.keys(algorithmDetails).length === 0) {
-      algorithmSection.style.display = 'none';
-      return;
-    }
-    
-    // Show the section
-    algorithmSection.classList.add('active');
-    algorithmSection.style.display = 'block';
-    
-    // Clear existing content
-    algorithmTabs.innerHTML = '';
-    algorithmGrid.innerHTML = '';
-    
-    // Create "All" tab
-    const allTab = document.createElement('div');
-    allTab.className = 'algorithm-tab active';
-    allTab.textContent = 'All Algorithms';
-    allTab.dataset.target = 'all';
-    allTab.addEventListener('click', () => {
-      this.switchAlgorithmTab('all');
-    });
-    algorithmTabs.appendChild(allTab);
-    
-    // Create tabs for each algorithm
-    const algorithms = ['linear_regression', 'svr', 'random_forest', 'arima'];
-    const algorithmNames = {
-      'linear_regression': 'Linear Regression',
-      'svr': 'Support Vector Regression',
-      'random_forest': 'Random Forest',
-      'arima': 'ARIMA'
-    };
-    
-    algorithms.forEach(algo => {
-      const tab = document.createElement('div');
-      tab.className = 'algorithm-tab';
-      tab.textContent = algorithmNames[algo] || algo;
-      tab.dataset.target = algo;
-      tab.addEventListener('click', () => {
-        this.switchAlgorithmTab(algo);
-      });
-      algorithmTabs.appendChild(tab);
-    });
-    
-    // Create algorithm cards
-    algorithms.forEach(algo => {
-      const algoData = algorithmDetails[algo] || {};
-      
-      // Skip if no data for this algorithm
-      if (Object.keys(algoData).length === 0) return;
-      
-      const algorithmCard = this.createAlgorithmCard(algo, algoData, currentPrices);
-      algorithmGrid.appendChild(algorithmCard);
-    });
-    
-    // Show all algorithms by default
-    this.switchAlgorithmTab('all');
-  }
-
-  static createAlgorithmCard(algorithm, algoData, currentPrices) {
-    const card = document.createElement('div');
-    card.className = 'algorithm-card';
-    card.dataset.algorithm = algorithm;
-    
-    // Get algorithm display name
-    const algorithmNames = {
-      'linear_regression': 'Linear Regression',
-      'svr': 'Support Vector Regression',
-      'random_forest': 'Random Forest',
-      'arima': 'ARIMA'
-    };
-    
-    const algoName = algorithmNames[algorithm] || algorithm;
-    
-    // Calculate average confidence
-    let totalConfidence = 0;
-    let confidenceCount = 0;
-    
-    ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      if (algoData[target] && algoData[target].confidence) {
-        totalConfidence += algoData[target].confidence;
-        confidenceCount++;
-      }
-    });
-    
-    const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 50;
-    let badge = '';
-    if (algorithm === 'random_forest') badge = '🏆 Best Model';
-    if (algorithm === 'arima') badge = '⚠️ Weak Model';
-    
-    // Determine confidence class
-    let confidenceClass = 'low';
-    if (avgConfidence >= 80) confidenceClass = 'high';
-    else if (avgConfidence >= 60) confidenceClass = 'medium';
-    
-    card.innerHTML = `
-      <div class="algorithm-card-header">
-        <div class="algorithm-name">
-          ${algoName}
-          <span style="font-size:11px;color:var(--text-muted);margin-left:6px">
-            ${badge}
-          </span>
-        </div>
-        <div class="algorithm-confidence ${confidenceClass}">
-          ${Math.round(avgConfidence)}%
-        </div>
-      </div>
-      
-      <div class="algorithm-predictions">
-    `;
-    
-    // Add prediction items
-    ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      const targetData = algoData[target] || {};
-      const predictedValue = targetData.predicted || targetData.predicted_price || 0;
-      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || predictedValue;
-      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
-      const confidence = targetData.confidence || 0;
-      
-      const predictionItem = document.createElement('div');
-      predictionItem.className = 'algorithm-prediction-item';
-      predictionItem.innerHTML = `
-        <div class="algorithm-prediction-label">${target}</div>
-        <div class="algorithm-prediction-value">$${predictedValue.toFixed(2)}</div>
-        <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}">
-          ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
-        </div>
-        <div style="font-size:10px;color:var(--text-muted)">
-          Confidence: ${Math.round(confidence)}%
-        </div>
-      `;
-      
-      card.querySelector('.algorithm-predictions').appendChild(predictionItem);
-    });
-    
-    // Close predictions container
-    card.innerHTML += `</div>`;
-    
-    // Add performance metrics
-    const perfAll = AppState.currentPredictions?.historical_performance || {};
-    if (perfAll) {
-      card.innerHTML += `
-        <div class="algorithm-performance">
-          <div class="algorithm-performance-grid">
-            ${['Open','High','Low','Close'].map(t => {
-              const p = perfAll[t]?.[algorithm];
-              if (!p) return '';
-              return `
-                <div class="algorithm-performance-item">
-                  <div class="algorithm-performance-label">${t}</div>
-                  <div class="algorithm-performance-value">
-                    R² ${p.r2.toFixed(2)}<br>
-                    RMSE ${p.rmse.toFixed(2)}<br>
-                    ${p.direction_accuracy.toFixed(1)}%
-                  </div>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #0f172a;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i>AI Stock Predictor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/prediction"><i class="fas fa-brain me-1"></i>Prediction</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/portfolio"><i class="fas fa-chart-pie me-1"></i>Portfolio</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <div class="input-group search-box">
+                        <input type="text" id="stockSearch" class="form-control" placeholder="Search stock (e.g., AAPL)" value="AAPL">
+                        <button class="btn btn-primary" type="button" id="searchBtn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
                 </div>
-              `;
-            }).join('')}
-          </div>
+            </div>
         </div>
-      `;
-    }
-    
-    return card;
-  }
+    </nav>
 
-  static switchAlgorithmTab(algorithm) {
-    AppState.activeAlgorithmTab = algorithm;
-    
-    // Update active tab
-    document.querySelectorAll('.algorithm-tab').forEach(tab => {
-      if (tab.dataset.target === algorithm) {
-        tab.classList.add('active');
-      } else {
-        tab.classList.remove('active');
-      }
-    });
-    
-    // Show/hide algorithm cards
-    document.querySelectorAll('.algorithm-card').forEach(card => {
-      if (algorithm === 'all' || card.dataset.algorithm === algorithm) {
-        card.style.display = 'block';
-      } else {
-        card.style.display = 'none';
-      }
-    });
-  }
-
-  static hideNextDayPredictions() {
-    const sectionEl = document.getElementById('nextDayPredictions');
-    if (sectionEl) {
-      sectionEl.style.display = 'none';
-    }
-  }
-
-  static hideAlgorithmSection() {
-    const sectionEl = document.getElementById('algorithmSection');
-    if (sectionEl) {
-      sectionEl.style.display = 'none';
-      sectionEl.classList.remove('active');
-    }
-  }
-
-  static updatePerformance(performance) {
-    if (!performance || !performance.Close) return;
-    
-    const closePerf = performance.Close;
-    const algorithms = Object.keys(closePerf);
-    
-    if (algorithms.length > 0) {
-      // Take the first algorithm's performance (or average them)
-      const firstAlgo = closePerf[algorithms[0]];
-      
-      document.getElementById('r2Score').textContent = 
-        firstAlgo.r2 ? firstAlgo.r2.toFixed(3) : '—';
-      
-      document.getElementById('directionAccuracy').textContent = 
-        firstAlgo.direction_accuracy ? `${firstAlgo.direction_accuracy.toFixed(1)}%` : '—';
-      
-      document.getElementById('rmseScore').textContent = 
-        firstAlgo.rmse ? firstAlgo.rmse.toFixed(4) : '—';
-      
-      // Calculate simple overfitting ratio
-      if (firstAlgo.train_rmse && firstAlgo.test_rmse) {
-        const overfittingRatio = firstAlgo.test_rmse / firstAlgo.train_rmse;
-        document.getElementById('overfittingRatio').textContent = overfittingRatio.toFixed(2);
-      }
-    }
-  }
-
-  static resetPerformance() {
-    const ids = ['r2Score', 'directionAccuracy', 'rmseScore', 'overfittingRatio'];
-    ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '—';
-    });
-  }
-
-  static updateConfidenceBars(predictions) {
-    const targets = ['Open', 'High', 'Low', 'Close'];
-    const colors = [
-      'var(--accent-blue)',
-      'var(--accent-teal)',
-      'var(--accent-purple)',
-      'var(--up-color)'
-    ];
-    
-    targets.forEach((target, index) => {
-      const predData = predictions[target];
-      if (!predData) return;
-      
-      const confidence = predData.confidence || 50;
-      const barEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-fill`);
-      const valueEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-value`);
-      
-      if (barEl && valueEl) {
-        barEl.style.width = `${confidence}%`;
-        barEl.style.background = colors[index];
-        valueEl.textContent = `${Math.round(confidence)}%`;
-      }
-    });
-  }
-
-  static updateCrisisDetection(data) {
-    const crisisProbability = data.risk_metrics?.volatility ? Math.min(data.risk_metrics.volatility / 50, 1) * 100 : 10;
-    const riskLevel = data.risk_level || "🟢 LOW RISK";
-    
-    // Update crisis card
-    const crisisCard = document.getElementById('crisisCard');
-    const crisisProbabilityEl = document.getElementById('crisisProbability');
-    const crisisDescriptionEl = document.getElementById('crisisDescription');
-    
-    let crisisClass = 'normal';
-    let crisisIcon = 'fa-check-circle';
-    let iconColor = 'var(--normal-green)';
-    let description = 'Market conditions appear stable with normal volatility levels.';
-    
-    if (crisisProbability > 70) {
-      crisisClass = 'critical';
-      crisisIcon = 'fa-exclamation-triangle';
-      iconColor = 'var(--crisis-red)';
-      description = 'High probability of market stress detected. Exercise extreme caution.';
-    } else if (crisisProbability > 40) {
-      crisisClass = 'warning';
-      crisisIcon = 'fa-exclamation-circle';
-      iconColor = 'var(--warning-orange)';
-      description = 'Elevated market risk detected. Monitor positions closely.';
-    }
-    
-    crisisCard.className = `crisis-card ${crisisClass}`;
-    crisisCard.querySelector('.crisis-icon').className = `fas ${crisisIcon} crisis-icon`;
-    crisisCard.querySelector('.crisis-icon').style.color = iconColor;
-    
-    crisisProbabilityEl.textContent = `${crisisProbability.toFixed(1)}%`;
-    crisisDescriptionEl.textContent = description;
-    
-    // Update regime card
-    const regimeCard = document.getElementById('regimeCard');
-    const regimeLevelEl = document.getElementById('regimeLevel');
-    
-    // Determine market regime from risk metrics
-    const volatility = data.risk_metrics?.volatility || 0;
-    const anomalyScore = data.risk_metrics?.anomaly_score || 0;
-    
-    let regime = 'NORMAL';
-    if (volatility > 40) regime = 'HIGH_VOLATILITY';
-    else if (anomalyScore > 30) regime = 'ELEVATED_RISK';
-    
-    regimeLevelEl.textContent = regime;
-    regimeCard.className = `crisis-card ${crisisClass}`;
-    
-    // Update regime indicators
-    this.updateRegimeIndicators(regime, data.risk_metrics || {});
-  }
-
-  static updateRegimeIndicators(regime, riskMetrics) {
-    const indicators = {
-      volatility: document.getElementById('volatilityIndicator'),
-      momentum: document.getElementById('momentumIndicator'),
-      volume: document.getElementById('volumeIndicator'),
-      sentiment: document.getElementById('sentimentIndicator')
-    };
-    
-    const volatilityValue = riskMetrics.volatility || 0;
-    const skewness = riskMetrics.skewness || 0;
-    const positiveDays = riskMetrics.positive_days || 50;
-    
-    // Set indicator text based on metrics
-    if (indicators.volatility) {
-      let volText = 'Volatility: ';
-      if (volatilityValue > 40) volText += 'Very High';
-      else if (volatilityValue > 20) volText += 'High';
-      else if (volatilityValue > 10) volText += 'Moderate';
-      else volText += 'Low';
-      indicators.volatility.textContent = volText;
-    }
-    
-    if (indicators.momentum) {
-      let momText = 'Momentum: ';
-      if (skewness > 0.5) momText += 'Bullish';
-      else if (skewness < -0.5) momText += 'Bearish';
-      else momText += 'Neutral';
-      indicators.momentum.textContent = momText;
-    }
-    
-    if (indicators.volume) {
-      indicators.volume.textContent = 'Volume: Standard';
-    }
-    
-    if (indicators.sentiment) {
-      let sentText = 'Sentiment: ';
-      if (positiveDays > 60) sentText += 'Bullish';
-      else if (positiveDays < 40) sentText += 'Bearish';
-      else sentText += 'Neutral';
-      indicators.sentiment.textContent = sentText;
-    }
-  }
-
-  static resetCrisisDetection() {
-    const crisisCard = document.getElementById('crisisCard');
-    const regimeCard = document.getElementById('regimeCard');
-    
-    if (crisisCard) crisisCard.className = 'crisis-card normal';
-    if (regimeCard) regimeCard.className = 'crisis-card normal';
-    
-    document.getElementById('crisisProbability').textContent = '10%';
-    document.getElementById('regimeLevel').textContent = 'NORMAL';
-    
-    // Reset indicators
-    this.updateRegimeIndicators('NORMAL', {});
-  }
-
-  static updateRiskAlerts(alerts) {
-    const alertListEl = document.getElementById('alertList');
-    const riskAlertsSection = document.getElementById('riskAlerts');
-    
-    if (!alertListEl || !riskAlertsSection) return;
-    
-    if (!alerts || alerts.length === 0) {
-      riskAlertsSection.style.display = 'none';
-      return;
-    }
-    
-    alertListEl.innerHTML = '';
-    
-    alerts.forEach(alert => {
-      const alertItem = document.createElement('div');
-      
-      let alertClass = 'info';
-      let icon = 'fa-info-circle';
-      
-      if (alert.level.includes('🔴') || alert.level.includes('CRITICAL')) {
-        alertClass = 'critical';
-        icon = 'fa-exclamation-triangle';
-      } else if (alert.level.includes('🟡') || alert.level.includes('HIGH')) {
-        alertClass = 'warning';
-        icon = 'fa-exclamation-circle';
-      }
-      
-      alertItem.className = `alert-item ${alertClass}`;
-      alertItem.innerHTML = `
-        <i class="fas ${icon} alert-icon"></i>
-        <div class="alert-content">
-          <div class="alert-level">${alert.level || '⚠️ ALERT'} ${alert.type || 'Risk Alert'}</div>
-          <div class="alert-message">${alert.message || 'Risk condition detected'}</div>
-          <div class="alert-action">${alert.details || 'Monitor closely'}</div>
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="text-center mb-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Analyzing stock data and running AI models...</p>
         </div>
-      `;
-      
-      alertListEl.appendChild(alertItem);
-    });
-    
-    riskAlertsSection.style.display = 'block';
-  }
 
-  static hideRiskAlerts() {
-    const riskAlertsSection = document.getElementById('riskAlerts');
-    if (riskAlertsSection) {
-      riskAlertsSection.style.display = 'none';
-    }
-  }
+        <!-- Prediction Results -->
+        <div id="predictionResults" style="display: none;">
+            <!-- Stock Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card prediction-card">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h2 class="mb-1">
+                                        <span id="stockSymbol" class="stock-symbol">AAPL</span>
+                                        <span id="stockName" class="text-muted">Apple Inc.</span>
+                                    </h2>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span id="currentPrice" class="stock-price me-3">$182.63</span>
+                                        <span id="priceChange" class="price-change-positive">+1.24%</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="badge bg-dark">Market: <span id="marketStatus">Open</span></span>
+                                        <span class="badge bg-secondary">Last Updated: <span id="lastUpdate">Just now</span></span>
+                                        <span class="badge bg-info">Prediction Date: <span id="predictionDate">2024-01-15</span></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div id="recommendation" class="recommendation-badge badge bg-success">STRONG BUY</div>
+                                    <div class="mt-2">
+                                        <span class="text-muted">Overall Confidence:</span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2">
+                                                <div id="confidenceBar" class="progress-bar" style="width: 85%"></div>
+                                            </div>
+                                            <span id="confidenceValue" class="confidence-high">85%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-  static updateMetrics(data) {
-    // Update accuracy metric
-    const performance = data.historical_performance?.Close;
-    if (performance) {
-      const algorithms = Object.keys(performance);
-      let totalAccuracy = 0;
-      algorithms.forEach(algo => {
-        totalAccuracy += performance[algo].direction_accuracy || 0;
-      });
-      const avgAccuracy = algorithms.length > 0 ? totalAccuracy / algorithms.length : 0;
-      document.getElementById('metricAccuracy').textContent = `${avgAccuracy.toFixed(1)}%`;
-    }
-    
-    // Update profitable predictions
-    const positiveDays = data.risk_metrics?.positive_days || 50;
-    document.getElementById('metricProfit').textContent = `${positiveDays.toFixed(1)}%`;
-    
-    // Update latency
-    if (AppState.lastFetchTime) {
-      const now = new Date();
-      const latency = Math.round((now - AppState.lastFetchTime) / 1000);
-      document.getElementById('metricLatency').textContent = `${latency}s`;
-    }
-    
-    // Update history
-    const totalDays = data.data_info?.total_days || 0;
-    document.getElementById('metricHistory').textContent = `${totalDays} days`;
-  }
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs" id="predictionTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button">
+                        <i class="fas fa-chart-bar me-1"></i>Overview
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="models-tab" data-bs-toggle="tab" data-bs-target="#models" type="button">
+                        <i class="fas fa-robot me-1"></i>All Models
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button">
+                        <i class="fas fa-tachometer-alt me-1"></i>Performance
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="risk-tab" data-bs-toggle="tab" data-bs-target="#risk" type="button">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Risk Analysis
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button">
+                        <i class="fas fa-history me-1"></i>History
+                    </button>
+                </li>
+            </ul>
 
-  static resetMetrics() {
-    const metricIds = ['metricAccuracy', 'metricProfit', 'metricLatency', 'metricHistory'];
-    metricIds.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '—';
-    });
-  }
+            <!-- Tab Content -->
+            <div class="tab-content" id="predictionTabsContent">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <div class="row">
+                        <!-- Price Predictions -->
+                        <div class="col-lg-8">
+                            <div class="card prediction-card">
+                                <div class="card-header">
+                                    <i class="fas fa-bullseye me-2"></i>Price Predictions for Tomorrow
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <div class="metric-card">
+                                                <div class="metric-label">OPEN</div>
+                                                <div class="metric-value" id="predOpen">$183.50</div>
+                                                <div id="predOpenChange" class="price-change-positive">+0.48%</div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Confidence:</small>
+                                                    <span id="confOpen" class="confidence-high">88%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="metric-card">
+                                                <div class="metric-label">HIGH</div>
+                                                <div class="metric-value" id="predHigh">$185.20</div>
+                                                <div id="predHighChange" class="price-change-positive">+1.41%</div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Confidence:</small>
+                                                    <span id="confHigh" class="confidence-medium">72%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="metric-card">
+                                                <div class="metric-label">LOW</div>
+                                                <div class="metric-value" id="predLow">$181.80</div>
+                                                <div id="predLowChange" class="price-change-negative">-0.45%</div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Confidence:</small>
+                                                    <span id="confLow" class="confidence-medium">68%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="metric-card">
+                                                <div class="metric-label">CLOSE</div>
+                                                <div class="metric-value" id="predClose">$184.50</div>
+                                                <div id="predCloseChange" class="price-change-positive">+1.02%</div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Confidence:</small>
+                                                    <span id="confClose" class="confidence-high">85%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Prediction Chart -->
+                                    <div class="chart-container">
+                                        <canvas id="predictionChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-  static updateRiskAndRecommendation(data) {
-    const riskLevel = data.risk_level || "🟢 LOW RISK";
-    const recommendation = data.trading_recommendation || "🔄 HOLD";
-    
-    // You can add DOM elements to display these if needed
-    console.log(`Risk Level: ${riskLevel}, Recommendation: ${recommendation}`);
-  }
-}
+                        <!-- Model Summary -->
+                        <div class="col-lg-4">
+                            <div class="card model-card">
+                                <div class="card-header">
+                                    <i class="fas fa-cogs me-2"></i>AI Models Summary
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <h6>Algorithms Used:</h6>
+                                        <div class="d-flex flex-wrap">
+                                            <span class="model-chip model-linear">Linear Regression</span>
+                                            <span class="model-chip model-svr">SVR</span>
+                                            <span class="model-chip model-rf">Random Forest</span>
+                                            <span class="model-chip model-arima">ARIMA</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <h6>Best Performing Models:</h6>
+                                        <div id="bestModelsList">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <h6>Overall Performance:</h6>
+                                        <div class="row text-center">
+                                            <div class="col-6 mb-2">
+                                                <div class="metric-card">
+                                                    <div class="metric-value" id="avgR2">0.82</div>
+                                                    <div class="metric-label">Avg R² Score</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 mb-2">
+                                                <div class="metric-card">
+                                                    <div class="metric-value" id="avgDirection">78%</div>
+                                                    <div class="metric-label">Direction Accuracy</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h6>Model Insights:</h6>
+                                        <p id="modelInsight" class="small">Random Forest performs best for volatile stocks, while Linear Regression excels in stable markets.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-/* Prediction Manager */
-class PredictionManager {
-  static async generate() {
-    if (!AppState.selectedStock) {
-      NotificationManager.show('Please select a stock first', 'error');
-      return;
-    }
-    
-    if (AppState.isGenerating) return;
-    
-    AppState.isGenerating = true;
-    this.updateButtons(true);
-    
-    const symbol = AppState.selectedStock.symbol;
-    
-    try {
-      NotificationManager.show(`Generating predictions for ${symbol}...`, 'success');
-      
-      // Show loading state
-      const chartEl = document.getElementById('predictionChart');
-      if (chartEl) {
-        chartEl.innerHTML = `
-          <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-            <i class="fas fa-spinner fa-spin" style="font-size: 36px; margin-bottom: 16px;"></i>
-            <div>AI is analyzing ${symbol} with 4 algorithms...</div>
-            <div style="font-size: 12px; margin-top: 8px;">This may take a few seconds</div>
-          </div>
-        `;
-      }
-      
-      // Fetch prediction from Flask API
-      const data = await StockAPIService.predict(symbol);
-      
-      // Update display with prediction data
-      PredictionDisplay.update(data);
-      
-      NotificationManager.show(`Predictions ready for ${symbol}`, 'success');
-      
-    } catch (err) {
-      console.error('Prediction generation error:', err);
-      NotificationManager.show(`Prediction failed: ${err.message}`, 'error');
-      
-      // Show error in chart
-      const chartEl = document.getElementById('predictionChart');
-      if (chartEl) {
-        chartEl.innerHTML = `
-          <div style="padding: 40px; text-align: center; color: var(--down-color);">
-            <i class="fas fa-exclamation-triangle" style="font-size: 36px; margin-bottom: 16px;"></i>
-            <div>Prediction failed</div>
-            <div style="font-size: 12px; margin-top: 8px;">${err.message}</div>
-          </div>
-        `;
-      }
-    } finally {
-      AppState.isGenerating = false;
-      this.updateButtons(false);
-    }
-  }
+                <!-- All Models Tab -->
+                <div class="tab-pane fade" id="models" role="tabpanel">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card model-card">
+                                <div class="card-header">
+                                    <i class="fas fa-robot me-2"></i>All Model Predictions & Performance
+                                </div>
+                                <div class="card-body">
+                                    <!-- Model Tabs -->
+                                    <ul class="nav nav-pills mb-3" id="modelTypeTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="by-target-tab" data-bs-toggle="pill" data-bs-target="#by-target">By Price Target</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="by-algorithm-tab" data-bs-toggle="pill" data-bs-target="#by-algorithm">By Algorithm</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="comparison-tab" data-bs-toggle="pill" data-bs-target="#comparison">Model Comparison</button>
+                                        </li>
+                                    </ul>
+                                    
+                                    <div class="tab-content">
+                                        <!-- By Target Tab -->
+                                        <div class="tab-pane fade show active" id="by-target">
+                                            <div class="table-responsive">
+                                                <table class="table algorithm-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Target</th>
+                                                            <th>Linear Regression</th>
+                                                            <th>SVR</th>
+                                                            <th>Random Forest</th>
+                                                            <th>ARIMA</th>
+                                                            <th>Ensemble</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="modelPredictionsTable">
+                                                        <!-- Dynamically populated -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- By Algorithm Tab -->
+                                        <div class="tab-pane fade" id="by-algorithm">
+                                            <div class="row" id="algorithmDetails">
+                                                <!-- Dynamically populated -->
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Comparison Tab -->
+                                        <div class="tab-pane fade" id="comparison">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="chart-container">
+                                                        <canvas id="modelPerformanceChart"></canvas>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="chart-container">
+                                                        <canvas id="modelConfidenceChart"></canvas>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <h6>Model Rankings:</h6>
+                                                <div id="modelRankings">
+                                                    <!-- Dynamically populated -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-  static async trainModels() {
-    if (!AppState.selectedStock) {
-      NotificationManager.show('Please select a stock first', 'error');
-      return;
-    }
-    
-    const symbol = AppState.selectedStock.symbol;
-    
-    try {
-      NotificationManager.show(`Training models for ${symbol}...`, 'success');
-      const result = await StockAPIService.trainModels(symbol);
-      
-      if (result.status === 'success') {
-        NotificationManager.show(`Models trained successfully for ${symbol}`, 'success');
+                <!-- Performance Tab -->
+                <div class="tab-pane fade" id="performance" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card performance-card">
+                                <div class="card-header">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Model Performance Metrics
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table algorithm-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Model</th>
+                                                    <th>R² Score</th>
+                                                    <th>MAPE</th>
+                                                    <th>Direction Accuracy</th>
+                                                    <th>RMSE</th>
+                                                    <th>MAE</th>
+                                                    <th>Bias</th>
+                                                    <th>Samples</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="performanceMetricsTable">
+                                                <!-- Dynamically populated -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="row mt-4">
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <canvas id="accuracyChart"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <canvas id="errorChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="card performance-card">
+                                <div class="card-header">
+                                    <i class="fas fa-medal me-2"></i>Performance Summary
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-4">
+                                        <h6>Top Performing Models:</h6>
+                                        <div id="topModelsList">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <h6>Performance Trends:</h6>
+                                        <div id="performanceTrends">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h6>Recommendations:</h6>
+                                        <div id="modelRecommendations">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Analysis Tab -->
+                <div class="tab-pane fade" id="risk" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card risk-card">
+                                <div class="card-header">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Risk Analysis & Alerts
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="riskLevel">MEDIUM</div>
+                                                <div class="metric-label">Overall Risk Level</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="volatility">24.5%</div>
+                                                <div class="metric-label">Annual Volatility</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6>Risk Metrics:</h6>
+                                    <div class="row mb-4">
+                                        <div class="col-md-3 mb-2">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="var95">-3.2%</div>
+                                                <div class="metric-label">95% VaR</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="maxDrawdown">-15.4%</div>
+                                                <div class="metric-label">Max Drawdown</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="sharpeRatio">1.24</div>
+                                                <div class="metric-label">Sharpe Ratio</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <div class="metric-card">
+                                                <div class="metric-value" id="positiveDays">58%</div>
+                                                <div class="metric-label">Positive Days</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6>Risk Alerts:</h6>
+                                    <div id="riskAlerts">
+                                        <!-- Dynamically populated -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="card risk-card">
+                                <div class="card-header">
+                                    <i class="fas fa-chart-line me-2"></i>Market Regime
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <h6>Current Regime:</h6>
+                                        <div class="alert alert-warning" id="marketRegime">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <strong>HIGH VOLATILITY</strong><br>
+                                            <small>Market showing increased volatility</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <h6>Model Risk Assessment:</h6>
+                                        <div id="modelRiskAssessment">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h6>Trading Advice:</h6>
+                                        <div id="tradingAdvice">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div class="tab-pane fade" id="history" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-history me-2"></i>Prediction History
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container">
+                                        <canvas id="historyChart"></canvas>
+                                    </div>
+                                    
+                                    <div class="table-responsive mt-4">
+                                        <table class="table algorithm-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Predicted</th>
+                                                    <th>Actual</th>
+                                                    <th>Error</th>
+                                                    <th>Model Used</th>
+                                                    <th>Confidence</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="historyTable">
+                                                <!-- Dynamically populated -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-chart-bar me-2"></i>Historical Accuracy
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-4">
+                                        <h6>Accuracy Over Time:</h6>
+                                        <div id="accuracyTrend">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <h6>Model Performance History:</h6>
+                                        <div id="modelHistory">
+                                            <!-- Dynamically populated -->
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <h6>Insights:</h6>
+                                        <p id="historyInsights" class="small">Models have improved accuracy during stable market periods. Consider retraining during high volatility.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let predictionData = null;
+        let charts = {};
         
-        // Refresh predictions after training
-        setTimeout(() => this.generate(), 1000);
-      } else {
-        NotificationManager.show(`Training failed: ${result.message}`, 'error');
-      }
-    } catch (err) {
-      console.error('Training error:', err);
-      NotificationManager.show(`Training failed: ${err.message}`, 'error');
-    }
-  }
-
-  static async refresh() {
-    if (!AppState.selectedStock || AppState.isGenerating) return;
-    await this.generate();
-  }
-
-  static async generateAll() {
-    if (AppState.isGenerating) return;
-    
-    AppState.isGenerating = true;
-    this.updateButtons(true);
-    
-    const generateAllBtn = document.getElementById('generateAllBtn');
-    if (generateAllBtn) {
-      generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating All...';
-    }
-    
-    NotificationManager.show('Generating predictions for all stocks...', 'success');
-    
-    try {
-      // Limit to first 5 stocks to avoid overwhelming the server
-      const stocksToProcess = AppState.allStocks.slice(0, 5);
-      
-      for (const stock of stocksToProcess) {
-        try {
-          AppState.selectedStock = stock;
-          await StockAPIService.predict(stock.symbol);
-          console.log(`Generated prediction for ${stock.symbol}`);
-        } catch (err) {
-          console.warn(`Failed to generate for ${stock.symbol}:`, err);
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Bootstrap components
+            const tabs = document.querySelectorAll('#predictionTabs button[data-bs-toggle="tab"]');
+            tabs.forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function (event) {
+                    // Update charts when tab changes
+                    updateChartsForTab(event.target.getAttribute('data-bs-target'));
+                });
+            });
+            
+            // Search functionality
+            document.getElementById('searchBtn').addEventListener('click', searchStock);
+            document.getElementById('stockSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') searchStock();
+            });
+            
+            // Load default stock
+            searchStock();
+        });
+        
+        // Search for stock predictions
+        async function searchStock() {
+            const symbol = document.getElementById('stockSearch').value.trim().toUpperCase();
+            if (!symbol) return;
+            
+            // Show loading
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('predictionResults').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ symbol: symbol })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Prediction failed');
+                }
+                
+                predictionData = await response.json();
+                
+                // Check if it's fallback
+                if (predictionData.fallback) {
+                    showAlert('warning', 'Using fallback prediction engine due to model unavailability');
+                }
+                
+                // Update UI with prediction data
+                updatePredictionUI();
+                
+                // Hide loading, show results
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('predictionResults').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loadingSpinner').style.display = 'none';
+                showAlert('danger', 'Failed to get predictions. Please try again.');
+            }
         }
         
-        // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      // Restore original selection
-      if (AppState.selectedStock) {
-        await StockAPIService.predict(AppState.selectedStock.symbol);
-      }
-      
-      NotificationManager.show('Batch generation complete', 'success');
-    } catch (err) {
-      console.error('Batch generation error:', err);
-      NotificationManager.show('Batch generation partially failed', 'error');
-    } finally {
-      AppState.isGenerating = false;
-      this.updateButtons(false);
-      
-      if (generateAllBtn) {
-        generateAllBtn.innerHTML = '<i class="fas fa-bolt"></i> Generate All';
-      }
-    }
-  }
-
-  static updateButtons(isLoading) {
-    const buttons = {
-      'predictBtn': '<i class="fas fa-chart-line"></i> Predict',
-      'refreshBtn': '<i class="fas fa-sync-alt"></i> Refresh',
-      'generateAllBtn': '<i class="fas fa-bolt"></i> Generate All',
-      'trainBtn': '<i class="fas fa-brain"></i> Train'
-    };
-    
-    Object.keys(buttons).forEach(id => {
-      const btn = document.getElementById(id);
-      if (btn) {
-        btn.disabled = isLoading;
-        if (isLoading && id === 'predictBtn') {
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Predicting...';
-        } else if (isLoading && id === 'generateAllBtn') {
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-        } else if (isLoading && id === 'trainBtn') {
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training...';
-        } else {
-          btn.innerHTML = buttons[id];
+        // Update UI with prediction data
+        function updatePredictionUI() {
+            if (!predictionData) return;
+            
+            // Basic stock info
+            document.getElementById('stockSymbol').textContent = predictionData.symbol;
+            document.getElementById('currentPrice').textContent = `$${predictionData.current_prices.close.toFixed(2)}`;
+            document.getElementById('marketStatus').textContent = predictionData.market_status;
+            document.getElementById('predictionDate').textContent = predictionData.prediction_date;
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            
+            // Recommendation and confidence
+            document.getElementById('recommendation').textContent = predictionData.trading_recommendation;
+            document.getElementById('recommendation').className = getRecommendationBadgeClass(predictionData.trading_recommendation);
+            
+            const confidence = predictionData.confidence_metrics.overall_confidence;
+            document.getElementById('confidenceValue').textContent = `${confidence.toFixed(1)}%`;
+            document.getElementById('confidenceBar').style.width = `${confidence}%`;
+            document.getElementById('confidenceValue').className = getConfidenceClass(confidence);
+            
+            // Price predictions
+            updatePricePredictions();
+            
+            // Model summary
+            updateModelSummary();
+            
+            // Model predictions table
+            updateModelPredictionsTable();
+            
+            // Performance metrics
+            updatePerformanceMetrics();
+            
+            // Risk analysis
+            updateRiskAnalysis();
+            
+            // Charts
+            updateAllCharts();
         }
-      }
-    });
-  }
-}
-
-/* Theme Manager */
-class ThemeManager {
-  static toggle() {
-    document.body.classList.toggle('light');
-    localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
-  }
-
-  static load() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      document.body.classList.add('light');
-    }
-  }
-}
-
-/* Initialize Application */
-let stockListManager;
-
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Initializing Stock Prediction App...');
-  
-  // Initialize components
-  ThemeManager.load();
-  new MobileMenu();
-  
-  // Initialize stock list manager
-  stockListManager = new StockListManager();
-  await stockListManager.populate();
-  
-  // Set up event listeners
-  this.setupEventListeners();
-  
-  // Auto-refresh stocks periodically
-  this.setupAutoRefresh();
-  
-  console.log('App initialized successfully');
-});
-
-function setupEventListeners() {
-  // Prediction buttons
-  document.getElementById('predictBtn').addEventListener('click', () => PredictionManager.generate());
-  document.getElementById('refreshBtn').addEventListener('click', () => PredictionManager.refresh());
-  document.getElementById('generateAllBtn').addEventListener('click', () => PredictionManager.generateAll());
-  document.getElementById('trainBtn').addEventListener('click', () => PredictionManager.trainModels());
-  
-  // Theme toggle
-  document.getElementById('themeBtn').addEventListener('click', () => ThemeManager.toggle());
-  
-  // Global search
-  const globalSearch = document.getElementById('globalSearch');
-  if (globalSearch) {
-    globalSearch.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase().trim();
-      console.log('Searching for:', query);
-    });
-  }
-  
-  // Stock search with Enter key
-  const stockSearch = document.getElementById('stockSearch');
-  if (stockSearch) {
-    stockSearch.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const query = e.target.value.trim().toUpperCase();
-        const foundStock = AppState.allStocks.find(stock => 
-          stock.symbol.toUpperCase() === query || 
-          stock.name.toUpperCase().includes(query)
-        );
         
-        if (foundStock) {
-          stockListManager.select(foundStock);
-          stockSearch.value = '';
-        } else {
-          NotificationManager.show(`Stock "${query}" not found`, 'error');
+        // Update price predictions
+        function updatePricePredictions() {
+            const predictions = predictionData.predictions;
+            
+            for (const [target, data] of Object.entries(predictions)) {
+                const elem = document.getElementById(`pred${target}`);
+                if (elem) {
+                    elem.textContent = `$${data.predicted_price.toFixed(2)}`;
+                }
+                
+                const changeElem = document.getElementById(`pred${target}Change`);
+                if (changeElem) {
+                    const change = data.expected_change;
+                    changeElem.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+                    changeElem.className = change >= 0 ? 'price-change-positive' : 'price-change-negative';
+                }
+                
+                const confElem = document.getElementById(`conf${target}`);
+                if (confElem) {
+                    const conf = data.confidence;
+                    confElem.textContent = `${conf.toFixed(1)}%`;
+                    confElem.className = getConfidenceClass(conf);
+                }
+            }
         }
-      }
-    });
-  }
-  
-  // History range selector
-  const historyRange = document.getElementById('historyRange');
-  if (historyRange) {
-    historyRange.addEventListener('change', (e) => {
-      console.log('History range changed to:', e.target.value);
-    });
-  }
-  
-  // Confidence filter
-  const confidenceFilter = document.getElementById('confidenceFilter');
-  if (confidenceFilter) {
-    confidenceFilter.addEventListener('change', (e) => {
-      console.log('Confidence filter changed to:', e.target.value);
-    });
-  }
-}
-
-function setupAutoRefresh() {
-  // Refresh stock list every 5 minutes
-  setInterval(async () => {
-    if (!AppState.isGenerating) {
-      const previousCount = AppState.allStocks.length;
-      AppState.allStocks = await StockAPIService.fetchStocks();
-      stockListManager.render();
-      
-      if (AppState.allStocks.length !== previousCount) {
-        console.log(`Stock list refreshed: ${AppState.allStocks.length} stocks`);
-      }
-    }
-  }, CONFIG.STOCK_REFRESH_INTERVAL);
-}
-
-/* Global error handler */
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error || event.message);
-  NotificationManager.show('An unexpected error occurred', 'error');
-});
-
-/* Unhandled promise rejection handler */
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
-  NotificationManager.show('A background operation failed', 'error');
-});
-</script>
+        
+        // Update model summary
+        function updateModelSummary() {
+            const summary = predictionData.performance_summary || {};
+            
+            // Best models
+            const bestModelsList = document.getElementById('bestModelsList');
+            if (bestModelsList && summary.best_models) {
+                bestModelsList.innerHTML = summary.best_models.map(model => `
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span>${model.target}:</span>
+                        <span class="badge bg-info">${model.algorithm.replace('_', ' ').toUpperCase()}</span>
+                    </div>
+                `).join('');
+            }
+            
+            // Performance metrics
+            const avgMetrics = summary.avg_metrics || {};
+            if (avgMetrics.avg_r2) {
+                document.getElementById('avgR2').textContent = avgMetrics.avg_r2.toFixed(2);
+            }
+            if (avgMetrics.avg_direction_accuracy) {
+                document.getElementById('avgDirection').textContent = `${avgMetrics.avg_direction_accuracy.toFixed(0)}%`;
+            }
+            
+            // Model insight
+            const insight = document.getElementById('modelInsight');
+            if (insight && predictionData.insight) {
+                insight.textContent = predictionData.insight;
+            }
+        }
+        
+        // Update model predictions table
+        function updateModelPredictionsTable() {
+            const table = document.getElementById('modelPredictionsTable');
+            if (!table || !predictionData.algorithm_predictions) return;
+            
+            let html = '';
+            const algorithms = ['linear_regression', 'svr', 'random_forest', 'arima'];
+            
+            for (const [target, data] of Object.entries(predictionData.algorithm_predictions)) {
+                if (!data.individual) continue;
+                
+                html += `
+                    <tr>
+                        <td><strong>${target}</strong></td>
+                        ${algorithms.map(algo => {
+                            const pred = data.individual[algo];
+                            const conf = data.confidences ? data.confidences[algo] : 0;
+                            return pred ? `
+                                <td>
+                                    <div>$${pred.toFixed(2)}</div>
+                                    <small class="${getConfidenceClass(conf)}">${conf.toFixed(0)}%</small>
+                                </td>
+                            ` : `<td class="text-muted">N/A</td>`;
+                        }).join('')}
+                        <td>
+                            <div><strong>$${data.ensemble.toFixed(2)}</strong></div>
+                            <small class="${getConfidenceClass(data.ensemble_confidence)}">${data.ensemble_confidence.toFixed(0)}%</small>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            table.innerHTML = html;
+            
+            // Update algorithm details
+            updateAlgorithmDetails();
+        }
+        
+        // Update algorithm details
+        function updateAlgorithmDetails() {
+            const container = document.getElementById('algorithmDetails');
+            if (!container || !predictionData.algorithm_full_details) return;
+            
+            const algorithms = {};
+            
+            // Group by algorithm
+            for (const [key, data] of Object.entries(predictionData.algorithm_full_details)) {
+                const algo = data.algorithm;
+                if (!algorithms[algo]) {
+                    algorithms[algo] = {
+                        info: data.model_info,
+                        predictions: []
+                    };
+                }
+                algorithms[algo].predictions.push(data);
+            }
+            
+            let html = '';
+            for (const [algo, data] of Object.entries(algorithms)) {
+                const avgConfidence = data.predictions.reduce((sum, p) => sum + p.confidence, 0) / data.predictions.length;
+                
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span class="model-chip model-${algo.split('_')[0]}">
+                                    ${data.info?.name || algo.replace('_', ' ').toUpperCase()}
+                                </span>
+                                <span class="${getConfidenceClass(avgConfidence)}">${avgConfidence.toFixed(0)}%</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="small">${data.info?.description || ''}</p>
+                                
+                                <h6>Predictions:</h6>
+                                ${data.predictions.map(p => `
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>${p.target}:</span>
+                                        <span>$${p.prediction.toFixed(2)}</span>
+                                    </div>
+                                `).join('')}
+                                
+                                <div class="mt-3">
+                                    <h6>Strengths:</h6>
+                                    <div class="d-flex flex-wrap">
+                                        ${(data.info?.strengths || []).map(s => `
+                                            <span class="badge bg-success me-1 mb-1">${s}</span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // Update performance metrics
+        function updatePerformanceMetrics() {
+            const table = document.getElementById('performanceMetricsTable');
+            if (!table || !predictionData.historical_performance) return;
+            
+            let html = '';
+            const algorithms = ['linear_regression', 'svr', 'random_forest', 'arima'];
+            
+            for (const [target, models] of Object.entries(predictionData.historical_performance)) {
+                for (const [algo, metrics] of Object.entries(models)) {
+                    html += `
+                        <tr>
+                            <td>
+                                <span class="model-chip model-${algo.split('_')[0]}">
+                                    ${algo.replace('_', ' ').toUpperCase()}
+                                </span>
+                                <small class="text-muted">(${target})</small>
+                            </td>
+                            <td>${metrics.r2 ? metrics.r2.toFixed(3) : 'N/A'}</td>
+                            <td>${metrics.mape ? `${metrics.mape.toFixed(2)}%` : 'N/A'}</td>
+                            <td>${metrics.direction_accuracy ? `${metrics.direction_accuracy.toFixed(1)}%` : 'N/A'}</td>
+                            <td>${metrics.rmse ? metrics.rmse.toFixed(2) : 'N/A'}</td>
+                            <td>${metrics.mae ? metrics.mae.toFixed(2) : 'N/A'}</td>
+                            <td>${metrics.bias ? metrics.bias.toFixed(3) : 'N/A'}</td>
+                            <td>${metrics.sample_size || 'N/A'}</td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            table.innerHTML = html;
+            
+            // Update top models list
+            updateTopModelsList();
+        }
+        
+        // Update top models list
+        function updateTopModelsList() {
+            const container = document.getElementById('topModelsList');
+            if (!container || !predictionData.historical_performance) return;
+            
+            // Find top models by R² score
+            const topModels = [];
+            for (const [target, models] of Object.entries(predictionData.historical_performance)) {
+                for (const [algo, metrics] of Object.entries(models)) {
+                    if (metrics.r2) {
+                        topModels.push({
+                            target,
+                            algorithm: algo,
+                            r2: metrics.r2,
+                            direction: metrics.direction_accuracy
+                        });
+                    }
+                }
+            }
+            
+            topModels.sort((a, b) => b.r2 - a.r2);
+            const top5 = topModels.slice(0, 5);
+            
+            let html = '';
+            top5.forEach((model, index) => {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <span class="badge bg-dark me-2">#${index + 1}</span>
+                            <span class="model-chip model-${model.algorithm.split('_')[0]}">
+                                ${model.algorithm.replace('_', ' ').toUpperCase()}
+                            </span>
+                            <small class="text-muted">(${model.target})</small>
+                        </div>
+                        <div>
+                            <span class="me-2">R²: ${model.r2.toFixed(3)}</span>
+                            <span>Acc: ${model.direction ? `${model.direction.toFixed(1)}%` : 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<p class="text-muted">No performance data available</p>';
+        }
+        
+        // Update risk analysis
+        function updateRiskAnalysis() {
+            const riskMetrics = predictionData.risk_metrics || {};
+            
+            // Risk level
+            document.getElementById('riskLevel').textContent = predictionData.risk_level || 'UNKNOWN';
+            document.getElementById('riskLevel').style.color = getRiskColor(predictionData.risk_level);
+            
+            // Risk metrics
+            if (riskMetrics.volatility) {
+                document.getElementById('volatility').textContent = `${riskMetrics.volatility.toFixed(1)}%`;
+            }
+            if (riskMetrics.var_95) {
+                document.getElementById('var95').textContent = `${riskMetrics.var_95.toFixed(1)}%`;
+            }
+            if (riskMetrics.max_drawdown) {
+                document.getElementById('maxDrawdown').textContent = `${riskMetrics.max_drawdown.toFixed(1)}%`;
+            }
+            if (riskMetrics.sharpe_ratio) {
+                document.getElementById('sharpeRatio').textContent = riskMetrics.sharpe_ratio.toFixed(2);
+            }
+            if (riskMetrics.positive_days) {
+                document.getElementById('positiveDays').textContent = `${riskMetrics.positive_days.toFixed(0)}%`;
+            }
+            
+            // Risk alerts
+            updateRiskAlerts();
+            
+            // Market regime
+            updateMarketRegime();
+        }
+        
+        // Update risk alerts
+        function updateRiskAlerts() {
+            const container = document.getElementById('riskAlerts');
+            if (!container || !predictionData.risk_alerts) return;
+            
+            let html = '';
+            predictionData.risk_alerts.forEach(alert => {
+                const alertClass = getAlertClass(alert.level);
+                html += `
+                    <div class="alert ${alertClass} mb-2">
+                        <div class="d-flex">
+                            <div class="me-2">${alert.level}</div>
+                            <div>
+                                <strong>${alert.type}:</strong> ${alert.message}
+                                ${alert.details ? `<div class="small mt-1">${alert.details}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<p class="text-muted">No risk alerts</p>';
+        }
+        
+        // Update market regime
+        function updateMarketRegime() {
+            // This would be populated from prediction data
+            // For now, using sample data
+            const regime = document.getElementById('marketRegime');
+            if (regime) {
+                regime.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>NORMAL MARKET</strong><br>
+                    <small>Standard market conditions</small>
+                `;
+            }
+        }
+        
+        // Update all charts
+        function updateAllCharts() {
+            // Destroy existing charts
+            Object.values(charts).forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            charts = {};
+            
+            // Create new charts
+            createPredictionChart();
+            createPerformanceChart();
+            createConfidenceChart();
+            createAccuracyChart();
+            createErrorChart();
+            createHistoryChart();
+        }
+        
+        // Create prediction chart
+        function createPredictionChart() {
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            const predictions = predictionData.predictions;
+            const currentPrices = predictionData.current_prices;
+            
+            const labels = ['Current', 'Predicted'];
+            const openData = [currentPrices.open, predictions.Open.predicted_price];
+            const highData = [currentPrices.high, predictions.High.predicted_price];
+            const lowData = [currentPrices.low, predictions.Low.predicted_price];
+            const closeData = [currentPrices.close, predictions.Close.predicted_price];
+            
+            charts.prediction = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Open',
+                            data: openData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'High',
+                            data: highData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: 'rgb(16, 185, 129)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Low',
+                            data: lowData,
+                            backgroundColor: 'rgba(245, 158, 11, 0.5)',
+                            borderColor: 'rgb(245, 158, 11)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Close',
+                            data: closeData,
+                            backgroundColor: 'rgba(139, 92, 246, 0.5)',
+                            borderColor: 'rgb(139, 92, 246)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Current vs Predicted Prices'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: $${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create performance chart
+        function createPerformanceChart() {
+            const ctx = document.getElementById('modelPerformanceChart').getContext('2d');
+            
+            // Sample data - replace with actual performance data
+            const labels = ['Linear Regression', 'SVR', 'Random Forest', 'ARIMA'];
+            const r2Data = [0.82, 0.78, 0.85, 0.72];
+            const directionData = [76, 72, 81, 68];
+            
+            charts.performance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['R² Score', 'Direction Accuracy', 'Precision', 'Speed', 'Stability'],
+                    datasets: [
+                        {
+                            label: 'Linear Regression',
+                            data: [0.82, 76, 85, 95, 88],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)'
+                        },
+                        {
+                            label: 'SVR',
+                            data: [0.78, 72, 82, 70, 85],
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.2)'
+                        },
+                        {
+                            label: 'Random Forest',
+                            data: [0.85, 81, 88, 75, 82],
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)'
+                        },
+                        {
+                            label: 'ARIMA',
+                            data: [0.72, 68, 78, 85, 79],
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Model Performance Comparison'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create confidence chart
+        function createConfidenceChart() {
+            const ctx = document.getElementById('modelConfidenceChart').getContext('2d');
+            
+            // Sample data - replace with actual confidence data
+            const labels = ['Open', 'High', 'Low', 'Close'];
+            const linearData = [88, 72, 68, 85];
+            const svrData = [82, 75, 70, 80];
+            const rfData = [85, 78, 72, 82];
+            const arimaData = [75, 68, 65, 74];
+            
+            charts.confidence = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Linear Regression',
+                            data: linearData,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'SVR',
+                            data: svrData,
+                            borderColor: 'rgb(139, 92, 246)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Random Forest',
+                            data: rfData,
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'ARIMA',
+                            data: arimaData,
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Model Confidence by Price Target'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create accuracy chart
+        function createAccuracyChart() {
+            const ctx = document.getElementById('accuracyChart').getContext('2d');
+            
+            charts.accuracy = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Linear', 'SVR', 'RF', 'ARIMA'],
+                    datasets: [
+                        {
+                            label: 'R² Score',
+                            data: [0.82, 0.78, 0.85, 0.72],
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)'
+                        },
+                        {
+                            label: 'Direction Accuracy',
+                            data: [76, 72, 81, 68],
+                            backgroundColor: 'rgba(16, 185, 129, 0.5)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value <= 1) return value.toFixed(2);
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Model Accuracy Metrics'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.dataset.label === 'Direction Accuracy') {
+                                        label += context.parsed.y + '%';
+                                    } else {
+                                        label += context.parsed.y.toFixed(3);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create error chart
+        function createErrorChart() {
+            const ctx = document.getElementById('errorChart').getContext('2d');
+            
+            charts.error = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Linear', 'SVR', 'RF', 'ARIMA'],
+                    datasets: [
+                        {
+                            label: 'MAPE (%)',
+                            data: [3.2, 3.8, 2.9, 4.5],
+                            backgroundColor: 'rgba(245, 158, 11, 0.5)'
+                        },
+                        {
+                            label: 'RMSE',
+                            data: [2.1, 2.4, 1.8, 2.8],
+                            backgroundColor: 'rgba(239, 68, 68, 0.5)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Model Error Metrics (Lower is Better)'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Create history chart
+        function createHistoryChart() {
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            
+            // Sample historical data
+            const dates = [];
+            for (let i = 14; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            }
+            
+            charts.history = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Predicted Close',
+                            data: Array(15).fill(0).map(() => 180 + Math.random() * 10),
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Actual Close',
+                            data: Array(15).fill(0).map(() => 180 + Math.random() * 10),
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Historical Predictions vs Actual'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update charts for active tab
+        function updateChartsForTab(tabId) {
+            // Charts are already created, just ensure they're properly sized
+            Object.values(charts).forEach(chart => {
+                if (chart) chart.resize();
+            });
+        }
+        
+        // Helper functions
+        function getConfidenceClass(confidence) {
+            if (confidence >= 80) return 'confidence-high';
+            if (confidence >= 60) return 'confidence-medium';
+            return 'confidence-low';
+        }
+        
+        function getRecommendationBadgeClass(recommendation) {
+            const lower = recommendation.toLowerCase();
+            if (lower.includes('strong buy') || lower.includes('buy')) return 'recommendation-badge badge bg-success';
+            if (lower.includes('strong sell') || lower.includes('sell')) return 'recommendation-badge badge bg-danger';
+            if (lower.includes('hold')) return 'recommendation-badge badge bg-warning';
+            return 'recommendation-badge badge bg-secondary';
+        }
+        
+        function getRiskColor(riskLevel) {
+            const lower = riskLevel.toLowerCase();
+            if (lower.includes('extreme')) return '#ef4444';
+            if (lower.includes('high')) return '#f59e0b';
+            if (lower.includes('medium')) return '#3b82f6';
+            return '#10b981';
+        }
+        
+        function getAlertClass(level) {
+            if (level.includes('CRITICAL')) return 'alert-danger';
+            if (level.includes('HIGH')) return 'alert-warning';
+            return 'alert-success';
+        }
+        
+        function showAlert(type, message) {
+            const alertClass = `alert-${type}`;
+            const alert = document.createElement('div');
+            alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+            alert.style.zIndex = '1050';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alert);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 5000);
+        }
+    </script>
 </body>
 </html>
