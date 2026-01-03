@@ -420,16 +420,14 @@ class OCHLPredictor:
         """Load trained models and history"""
         try:
             loaded_models = {target: {} for target in self.targets}
-            # Load feature scaler ONCE
-            if not hasattr(self.feature_scaler, "mean_"):
-                self.feature_scaler = model_data.get('feature_scaler', StandardScaler())
-
-            # Load target scaler
-            if target not in self.scalers:
-                self.scalers[target] = model_data.get('target_scaler', StandardScaler())
+            loaded_scalers = {}
+            
             algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
             
             models_loaded = False
+            
+            # Track which target we load scalers from (first valid one)
+            first_valid_model = None
             
             for target in self.targets:
                 for algo in algorithms:
@@ -439,13 +437,20 @@ class OCHLPredictor:
                             model_data = joblib.load(path)
                             loaded_models[target][algo] = model_data['model']
                             
-                            # Load scaler for this target
-                            if target not in self.scalers:
-                                self.scalers[target] = model_data.get('scaler', StandardScaler())
+                            # Load feature scaler (once)
+                            if not hasattr(self.feature_scaler, "mean_"):
+                                self.feature_scaler = model_data.get('feature_scaler', StandardScaler())
                             
-                            # Load feature columns
+                            # Load target scaler for this target
+                            if target not in loaded_scalers:
+                                loaded_scalers[target] = model_data.get('target_scaler', StandardScaler())
+                            
+                            # Load feature columns (once)
                             if not self.feature_columns:
                                 self.feature_columns = model_data.get('features', [])
+                            
+                            if first_valid_model is None:
+                                first_valid_model = target
                             
                             models_loaded = True
                             print(f"Loaded {target}-{algo} model for {symbol}")
@@ -455,26 +460,33 @@ class OCHLPredictor:
                     else:
                         loaded_models[target][algo] = None
             
-            # Load historical data
-            history_path = self.get_history_path(symbol)
-            if os.path.exists(history_path):
-                try:
-                    with open(history_path, 'r') as f:
-                        history_data = json.load(f)
-                    
-                    self.historical_performance = history_data.get('historical_performance', {})
-                    self.prediction_history = history_data.get('prediction_history', {})
-                    self.risk_metrics = history_data.get('risk_metrics', {})
-                    self.last_training_date = history_data.get('last_training_date')
-                    self.feature_columns = history_data.get('feature_columns', [])
-                    self.is_fitted = models_loaded
-                    print(f"Loaded history for {symbol}")
-                except Exception as e:
-                    print(f"Error loading history: {e}")
-            
-            self.models = loaded_models
-            return models_loaded
-            
+            if models_loaded:
+                self.models = loaded_models
+                self.scalers = loaded_scalers
+                
+                # Load historical data
+                history_path = self.get_history_path(symbol)
+                if os.path.exists(history_path):
+                    try:
+                        with open(history_path, 'r') as f:
+                            history_data = json.load(f)
+                        
+                        self.historical_performance = history_data.get('historical_performance', {})
+                        self.prediction_history = history_data.get('prediction_history', {})
+                        self.risk_metrics = history_data.get('risk_metrics', {})
+                        self.last_training_date = history_data.get('last_training_date')
+                        self.feature_columns = history_data.get('feature_columns', self.feature_columns)
+                        self.is_fitted = True
+                        print(f"Loaded history for {symbol}")
+                    except Exception as e:
+                        print(f"Error loading history: {e}")
+                
+                print(f"Successfully loaded models for {symbol}")
+                return True
+            else:
+                print(f"No models found for {symbol}")
+                return False
+                
         except Exception as e:
             print(f"Error loading models: {e}")
             return False
@@ -504,10 +516,21 @@ class OCHLPredictor:
             if not self.feature_columns:
                 if len(feature_candidates) > 30:
                     variances = data_with_features[feature_candidates].var()
+                    # Handle NaN variances
+                    variances = variances.fillna(0)
                     self.feature_columns = variances.nlargest(30).index.tolist()
                 else:
                     self.feature_columns = feature_candidates
-
+            
+            # If still no features, use defaults
+            if not self.feature_columns:
+                default_features = ['Return', 'Volatility', 'Volume_Ratio', 'RSI', 'High_Low_Range', 
+                                   'MA_5', 'MA_10', 'MA_20', 'BB_Position', 'Momentum_5']
+                self.feature_columns = [f for f in default_features if f in data_with_features.columns]
+                if not self.feature_columns:
+                    self.feature_columns = list(data_with_features.columns[:10])
+            
+            print(f"Using {len(self.feature_columns)} features: {self.feature_columns[:5]}...")
             
             # Prepare X (features) for each target
             X_data = {}
@@ -531,6 +554,13 @@ class OCHLPredictor:
                     print(f"Warning: Not enough data for window size {window_size}")
                     continue
                 
+                # Ensure all feature columns exist
+                missing_features = [f for f in self.feature_columns if f not in data_with_features.columns]
+                if missing_features:
+                    print(f"Warning: Missing features {missing_features}, filling with zeros")
+                    for f in missing_features:
+                        data_with_features[f] = 0
+                
                 for i in range(window_size, len(data_with_features) - 1):
                     # Features from window
                     features = data_with_features[self.feature_columns].iloc[i-window_size:i]
@@ -544,11 +574,9 @@ class OCHLPredictor:
                     features_flat = features_array.flatten()
 
                     expected_dim = len(self.feature_columns) * window_size
-                    if features_flat.shape[0] !=expected_dim:
-                        print(f"Skipping index {i}: feature shape mismatch"
-                              f"({features_flat.shape[0]} != {expected_dim})")
+                    if features_flat.shape[0] != expected_dim:
+                        print(f"Skipping index {i}: feature shape mismatch ({features_flat.shape[0]} != {expected_dim})")
                         continue
-                    
                     
                     # Target is next day's value
                     target_value = data_with_features[target].iloc[i+1]
@@ -682,6 +710,19 @@ class OCHLPredictor:
             
             print(f"Training OCHL models for {symbol}...")
             
+            # Fit feature scaler first with all available data
+            all_features = []
+            for target in self.targets:
+                if target in X_data and X_data[target] is not None:
+                    all_features.append(X_data[target])
+            
+            if all_features:
+                all_features_array = np.vstack(all_features)
+                self.feature_scaler.fit(all_features_array)
+                print(f"Fitted feature scaler with {all_features_array.shape[0]} samples")
+            else:
+                print("Warning: No features available for scaling")
+            
             targets_trained = 0
             
             for target in self.targets:
@@ -699,15 +740,11 @@ class OCHLPredictor:
                     print(f"    Skipping {target}: Insufficient samples ({len(X)})")
                     continue
                 
-                # Scale features and target
+                # Scale features
                 try:
-                    if not hasattr(self.feature_scaler, "mean_"):
-                        X_scaled = self.feature_scaler.fit_transform(X)
-                    else:
-                        X_scaled = self.feature_scaler.transform(X)
-
-                except:
-                    print(f"    Warning: Feature scaling failed for {target}")
+                    X_scaled = self.feature_scaler.transform(X)
+                except Exception as e:
+                    print(f"    Warning: Feature scaling failed for {target}: {e}")
                     X_scaled = X  # Use unscaled features
                 
                 # Scale target
@@ -715,8 +752,8 @@ class OCHLPredictor:
                     target_scaler = StandardScaler()
                     y_scaled = target_scaler.fit_transform(y.reshape(-1, 1)).flatten()
                     self.scalers[target] = target_scaler
-                except:
-                    print(f"    Warning: Target scaling failed for {target}")
+                except Exception as e:
+                    print(f"    Warning: Target scaling failed for {target}: {e}")
                     y_scaled = y
                     self.scalers[target] = StandardScaler()
                 
@@ -780,13 +817,13 @@ class OCHLPredictor:
                     continue
                 
                 # Scale features
-                if not hasattr(self.feature_scaler, "mean_"):
-                    X_train_scaled = self.feature_scaler.fit_transform(X_train)
+                try:
+                    X_train_scaled = self.feature_scaler.transform(X_train)
                     X_test_scaled = self.feature_scaler.transform(X_test)
-                else:
-                   X_train_scaled = self.feature_scaler.transform(X_train)
-                   X_test_scaled = self.feature_scaler.transform(X_test)
-
+                except:
+                    X_train_scaled = X_train
+                    X_test_scaled = X_test
+                
                 # Scale target
                 target_scaler = self.scalers.get(target, StandardScaler())
                 try:
@@ -999,9 +1036,6 @@ class OCHLPredictor:
                     confidence_scores[target] = 50
                     continue
             
-                    
-            
-                
                 X = X_data[target]
                 if len(X) == 0:
                     print(f"    Skipping {target}: Empty data")
@@ -1014,22 +1048,28 @@ class OCHLPredictor:
 
                 expected_dim = len(self.feature_columns) * 30
                 if latest_features.shape[1] != expected_dim:
-                    print(f" Feature mismatch during prediction"
-                          f"({latest_features.shape[1]} != {expected_dim})")
-                     #fallback to last known values
-                    fallback_value = data_with_features[target].iloc[-1]\
-                     if target in data_with_features.columns else data_with_features["Close"].iloc[-1]
+                    print(f"Feature mismatch during prediction ({latest_features.shape[1]} != {expected_dim})")
+                    #fallback to last known values
+                    fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features["Close"].iloc[-1]
                     
                     predictions[target] = float(fallback_value)
                     confidence_scores[target] = 50.0
                     continue
+                
                 #scale features safely
                 if not hasattr(self.feature_scaler, "mean_"):
                    print("Feature scaler not fitted — using fallback")
                    predictions[target] = float(data_with_features[target].iloc[-1])
                    confidence_scores[target] = 50.0
                    continue
-                latest_scaled = self.feature_scaler.transform(latest_features)    
+                
+                try:
+                    latest_scaled = self.feature_scaler.transform(latest_features)
+                except Exception as e:
+                    print(f"Feature scaling failed: {e}")
+                    predictions[target] = float(data_with_features[target].iloc[-1])
+                    confidence_scores[target] = 50.0
+                    continue
                 
                 target_predictions = {}
                 target_confidences = {}
@@ -1155,6 +1195,7 @@ class OCHLPredictor:
                     fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
                     predictions[target] = float(fallback_value)
                     confidence_scores[target] = 50.0
+            
             # 🔽 POST-PROCESSING: enforce OHLC constraints
             pred_open = predictions["Open"]
             pred_close = predictions["Close"]
