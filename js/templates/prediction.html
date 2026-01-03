@@ -1266,68 +1266,84 @@ class PredictionDisplay {
     });
     
     const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 50;
-    
+    let badge = '';
+    if (algorithm === 'random_forest') badge = '🏆 Best Model';
+    if (algorithm === 'arima') badge = '⚠️ Weak Model';
+
     // Determine confidence class
-    let confidenceClass = 'low';
-    if (avgConfidence >= 80) confidenceClass = 'high';
-    else if (avgConfidence >= 60) confidenceClass = 'medium';
-    
-    card.innerHTML = `
-      <div class="algorithm-card-header">
-        <div class="algorithm-name">${algoName}</div>
-        <div class="algorithm-confidence ${confidenceClass}">${Math.round(avgConfidence)}%</div>
+let confidenceClass = 'low';
+if (avgConfidence >= 80) confidenceClass = 'high';
+else if (avgConfidence >= 60) confidenceClass = 'medium';
+
+// 1️⃣ Header + OPEN predictions container
+card.innerHTML = `
+  <div class="algorithm-card-header">
+    <div class="algorithm-name">
+      ${algoName}
+      <span style="font-size:11px;color:var(--text-muted);margin-left:6px">
+        ${badge}
+      </span>
+    </div>
+    <div class="algorithm-confidence ${confidenceClass}">
+      ${Math.round(avgConfidence)}%
+    </div>
+  </div>
+
+  <div class="algorithm-predictions">
+`;
+
+// 2️⃣ ADD prediction items (NOW it works)
+['Open', 'High', 'Low', 'Close'].forEach(target => {
+  const targetData = algoData[target] || {};
+  const predictedValue = targetData.predicted || targetData.predicted_price || 0;
+  const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || predictedValue;
+  const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
+  const confidence = targetData.confidence || 0;
+
+  const predictionItem = document.createElement('div');
+  predictionItem.className = 'algorithm-prediction-item';
+  predictionItem.innerHTML = `
+    <div class="algorithm-prediction-label">${target}</div>
+    <div class="algorithm-prediction-value">$${predictedValue.toFixed(2)}</div>
+    <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}">
+      ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+    </div>
+    <div style="font-size:10px;color:var(--text-muted)">
+      Confidence: ${Math.round(confidence)}%
+    </div>
+  `;
+
+  card.querySelector('.algorithm-predictions').appendChild(predictionItem);
+});
+
+// 3️⃣ NOW close predictions container ✅
+card.innerHTML += `</div>`;
+
+// 4️⃣ Add performance metrics
+const perfAll = AppState.currentPredictions?.historical_performance || {};
+if (perfAll) {
+  card.innerHTML += `
+    <div class="algorithm-performance">
+      <div class="algorithm-performance-grid">
+        ${['Open','High','Low','Close'].map(t => {
+          const p = perfAll[t]?.[algorithm];
+          if (!p) return '';
+          return `
+            <div class="algorithm-performance-item">
+              <div class="algorithm-performance-label">${t}</div>
+              <div class="algorithm-performance-value">
+                R² ${p.r2.toFixed(2)}<br>
+                RMSE ${p.rmse.toFixed(2)}<br>
+                ${p.direction_accuracy.toFixed(1)}%
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
-      
-      <div class="algorithm-predictions">
-    `;
-    
-    // Add prediction items for each target
-    ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      const targetData = algoData[target] || {};
-      const predictedValue = targetData.predicted || targetData.predicted_price || 0;
-      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || predictedValue;
-      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
-      const confidence = targetData.confidence || 0;
-      
-      const predictionItem = document.createElement('div');
-      predictionItem.className = 'algorithm-prediction-item';
-      predictionItem.innerHTML = `
-        <div class="algorithm-prediction-label">${target}</div>
-        <div class="algorithm-prediction-value">$${predictedValue.toFixed(2)}</div>
-        <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}" style="font-size: 11px;">
-          ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
-        </div>
-        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
-          Confidence: ${Math.round(confidence)}%
-        </div>
-      `;
-      
-      card.querySelector('.algorithm-predictions').appendChild(predictionItem);
-    });
-    
-    // Add performance metrics if available
-    const performance = AppState.currentPredictions?.historical_performance?.Close?.[algorithm];
-    if (performance) {
-      card.innerHTML += `
-        <div class="algorithm-performance">
-          <div class="algorithm-performance-grid">
-            <div class="algorithm-performance-item">
-              <div class="algorithm-performance-label">R²</div>
-              <div class="algorithm-performance-value">${performance.r2 ? performance.r2.toFixed(3) : '—'}</div>
-            </div>
-            <div class="algorithm-performance-item">
-              <div class="algorithm-performance-label">RMSE</div>
-              <div class="algorithm-performance-value">${performance.rmse ? performance.rmse.toFixed(4) : '—'}</div>
-            </div>
-            <div class="algorithm-performance-item">
-              <div class="algorithm-performance-label">Accuracy</div>
-              <div class="algorithm-performance-value">${performance.direction_accuracy ? performance.direction_accuracy.toFixed(1) + '%' : '—'}</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    
+    </div>
+  `;
+}
+
     card.innerHTML += `</div>`;
     return card;
   }
