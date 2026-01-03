@@ -1654,7 +1654,6 @@ def predict_stock():
         confidence_scores = prediction_result['confidence_scores']
         confidence_metrics = prediction_result['confidence_metrics']
         risk_alerts = prediction_result['risk_alerts']
-        algorithm_details = prediction_result.get('algorithm_details', {})
         
         # Calculate expected changes
         expected_changes = {}
@@ -1671,84 +1670,6 @@ def predict_stock():
         
         # Get risk level
         risk_level = get_risk_level_from_metrics(predictor.risk_metrics)
-        
-        # ====== ENHANCED ALGORITHM PREDICTIONS BREAKDOWN ======
-        algorithm_predictions_breakdown = {}
-        algorithms = ['linear_regression', 'svr', 'random_forest', 'arima']
-        algorithm_names = {
-            'linear_regression': 'Linear Regression',
-            'svr': 'Support Vector Regression',
-            'random_forest': 'Random Forest',
-            'arima': 'ARIMA'
-        }
-        
-        # Process algorithm predictions for each target
-        for target in ['Open', 'High', 'Low', 'Close']:
-            algorithm_predictions_breakdown[target] = {}
-            current_price_val = current_prices.get(target.lower(), current_prices['close'])
-            
-            # Check if we have algorithm details for this target
-            if target in algorithm_details:
-                target_details = algorithm_details[target]
-                individual_predictions = target_details.get('individual', {})
-                individual_confidences = target_details.get('confidences', {})
-                
-                for algo in algorithms:
-                    if algo in individual_predictions:
-                        pred_price = individual_predictions[algo]
-                        pred_confidence = individual_confidences.get(algo, 70)
-                        change_pct = ((pred_price - current_price_val) / current_price_val * 100) if current_price_val != 0 else 0
-                        
-                        algorithm_predictions_breakdown[target][algo] = {
-                            'prediction': round(pred_price, 2),
-                            'current': round(current_price_val, 2),
-                            'change': round(change_pct, 2),
-                            'confidence': round(pred_confidence, 1),
-                            'algorithm_name': algorithm_names.get(algo, algo.replace('_', ' ').title())
-                        }
-                    else:
-                        # Provide fallback values if algorithm prediction is missing
-                        algorithm_predictions_breakdown[target][algo] = {
-                            'prediction': round(predictions.get(target, current_price_val), 2),
-                            'current': round(current_price_val, 2),
-                            'change': round(expected_changes.get(target, 0), 2),
-                            'confidence': 70.0,
-                            'algorithm_name': algorithm_names.get(algo, algo.replace('_', ' ').title())
-                        }
-            else:
-                # If no algorithm details, create default values
-                for algo in algorithms:
-                    algorithm_predictions_breakdown[target][algo] = {
-                        'prediction': round(predictions.get(target, current_price_val), 2),
-                        'current': round(current_price_val, 2),
-                        'change': round(expected_changes.get(target, 0), 2),
-                        'confidence': 70.0,
-                        'algorithm_name': algorithm_names.get(algo, algo.replace('_', ' ').title())
-                    }
-        
-        # ====== ENHANCED HISTORICAL PERFORMANCE METRICS ======
-        enhanced_performance = {}
-        if predictor.historical_performance:
-            for target, perf_data in predictor.historical_performance.items():
-                enhanced_performance[target] = {}
-                for algo, metrics in perf_data.items():
-                    enhanced_performance[target][algo] = {
-                        'rmse': round(metrics.get('rmse', 0), 4),
-                        'mae': round(metrics.get('mae', 0), 4),
-                        'r2': round(metrics.get('r2', 0), 4),
-                        'mape': round(metrics.get('mape', 0), 2),
-                        'direction_accuracy': round(metrics.get('direction_accuracy', 0), 1),
-                        'sample_size': metrics.get('sample_size', 0),
-                        'algorithm_name': algorithm_names.get(algo, algo.replace('_', ' ').title())
-                    }
-        
-        # Calculate overall performance scores
-        overall_performance = {
-            'model_ip_score': round(random.uniform(0.3, 0.7), 3) if not predictor.historical_performance else 0.392,
-            'rmse': round(random.uniform(15, 35), 2) if not predictor.historical_performance else 26.77,
-            'direction_accuracy': round(random.uniform(45, 65), 1) if not predictor.historical_performance else 55.7,
-            'overfitting_ratio': round(random.uniform(5, 15), 1)
-        }
         
         response = {
             "symbol": symbol,
@@ -1771,25 +1692,14 @@ def predict_stock():
                 for target in ['Open', 'High', 'Low', 'Close']
             },
             
-            # ====== ENHANCED ALGORITHM DETAILS ======
-            "algorithm_predictions": algorithm_predictions_breakdown,
-            
-            # ====== ENHANCED HISTORICAL PERFORMANCE ======
-            "historical_performance": enhanced_performance,
-            "overall_performance": overall_performance,
-            
-            # Algorithm rankings (which performed best for each target)
-            "algorithm_rankings": {
-                target: sorted(
-                    algorithm_predictions_breakdown[target].items(),
-                    key=lambda x: x[1]['confidence'],
-                    reverse=True
-                )[:3]  # Top 3 algorithms for each target
-                for target in ['Open', 'High', 'Low', 'Close']
-            },
+            # Algorithm details
+            "algorithm_details": prediction_result.get('algorithm_details', {}),
             
             # Confidence metrics
             "confidence_metrics": confidence_metrics,
+            
+            # Historical performance
+            "historical_performance": predictor.historical_performance,
             
             # Risk metrics
             "risk_metrics": predictor.risk_metrics,
@@ -1810,13 +1720,7 @@ def predict_stock():
                 "is_fitted": predictor.is_fitted,
                 "targets_trained": list(predictor.models.keys()),
                 "feature_count": len(predictor.feature_columns),
-                "algorithms_used": ["Linear Regression", "Support Vector Regression", "Random Forest", "ARIMA"],
-                "algorithms_descriptions": {
-                    "Linear Regression": "Simple linear model for trend prediction",
-                    "Support Vector Regression": "Advanced non-linear regression model",
-                    "Random Forest": "Ensemble of decision trees for robust predictions",
-                    "ARIMA": "Time series forecasting model"
-                }
+                "algorithms_used": ["linear_regression", "svr", "random_forest", "arima"]
             },
             
             # Data info
@@ -1829,27 +1733,13 @@ def predict_stock():
             },
             
             # Summary insight
-            "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%",
-            
-            # ====== ADDITIONAL METRICS FOR UI ======
-            "prediction_accuracy": round(random.uniform(60, 72), 1),  # For dashboard display
-            "profitable_predictions": round(random.uniform(50, 60), 1),  # For dashboard display
-            "avg_processing_time": "0.2s",  # For dashboard display
-            "historical_data_days": len(historical_data),  # For dashboard display
-            
-            # Market regime detection
-            "market_regime": predictor.detect_market_regime(historical_data) if len(historical_data) > 20 else "NORMAL",
-            "market_volatility": "High" if predictor.risk_metrics.get('volatility', 0) > 30 else "Standard",
-            "market_volume": "Standard",
-            "momentum": "Neutral",
-            "sentiment": "Neutral"
+            "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%"
         }
         
         print(f"=== PREDICTION COMPLETE FOR {symbol} ===")
         print(f"Predicted Close: ${predictions.get('Close', 0):.2f} ({expected_changes.get('Close', 0):+.1f}%)")
         print(f"Confidence: {overall_confidence:.1f}%")
         print(f"Recommendation: {recommendation}")
-        print(f"Algorithm predictions generated for {len(algorithm_predictions_breakdown)} targets")
         
         return jsonify(response)
         
@@ -1862,7 +1752,7 @@ def predict_stock():
             "fallback": True,
             "symbol": symbol if 'symbol' in locals() else 'UNKNOWN'
         }), 500
-    
+
 @server.route('/api/train', methods=['POST'])
 @rate_limiter
 def train_models():
