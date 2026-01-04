@@ -1,4 +1,4 @@
-# app.py — Flask with Multi-Algorithm OCHL Prediction + Historical Performance + Confidence + Risk Alerts
+# app.py — Enhanced Flask with Multi-Algorithm OCHL Prediction + All Features
 import os
 import time
 import random
@@ -14,18 +14,17 @@ import requests
 import yfinance as yf
 from flask import Flask, send_from_directory, render_template, jsonify, request, redirect
 
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
-from sklearn.linear_model import Ridge, Lasso, ElasticNet, LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.svm import SVR
-from sklearn.ensemble import IsolationForest, GradientBoostingRegressor
+from sklearn.ensemble import IsolationForest
 from sklearn.neural_network import MLPRegressor
 import joblib
 import pmdarima as pm
 from statsmodels.tsa.arima.model import ARIMA as StatsmodelsARIMA
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 warnings.filterwarnings('ignore')
 
 # ---------------- Config ----------------
@@ -110,77 +109,6 @@ def calculate_macd(data, fast=12, slow=26, signal=9):
     except:
         return pd.Series(0, index=data.index), pd.Series(0, index=data.index), pd.Series(0, index=data.index)
 
-def calculate_obv(data):
-    """Calculate On-Balance Volume (OBV)"""
-    try:
-        if 'Close' not in data.columns or 'Volume' not in data.columns:
-            return pd.Series(0, index=data.index)
-        
-        obv = [0]
-        for i in range(1, len(data)):
-            if data['Close'].iloc[i] > data['Close'].iloc[i-1]:
-                obv.append(obv[-1] + data['Volume'].iloc[i])
-            elif data['Close'].iloc[i] < data['Close'].iloc[i-1]:
-                obv.append(obv[-1] - data['Volume'].iloc[i])
-            else:
-                obv.append(obv[-1])
-        return pd.Series(obv, index=data.index)
-    except:
-        return pd.Series(0, index=data.index)
-
-def calculate_adx(data, period=14):
-    """Calculate Average Directional Index (ADX)"""
-    try:
-        if 'High' not in data.columns or 'Low' not in data.columns or 'Close' not in data.columns:
-            return pd.Series(25, index=data.index)
-        
-        high = data['High']
-        low = data['Low']
-        close = data['Close']
-        
-        # Calculate +DM and -DM
-        up_move = high.diff()
-        down_move = low.diff().abs() * -1
-        
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-        
-        # Calculate True Range
-        tr1 = high - low
-        tr2 = abs(high - close.shift())
-        tr3 = abs(low - close.shift())
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        
-        # Smooth the DMs and TR
-        plus_di = 100 * (pd.Series(plus_dm, index=data.index).rolling(period).mean() / 
-                         tr.rolling(period).mean())
-        minus_di = 100 * (pd.Series(minus_dm, index=data.index).rolling(period).mean() / 
-                          tr.rolling(period).mean())
-        
-        # Calculate ADX
-        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di).replace(0, 1e-10)
-        adx = dx.rolling(period).mean()
-        
-        return adx.fillna(25)
-    except:
-        return pd.Series(25, index=data.index)
-
-def calculate_stochastic(data, k_period=14, d_period=3):
-    """Calculate Stochastic Oscillator"""
-    try:
-        if 'High' not in data.columns or 'Low' not in data.columns or 'Close' not in data.columns:
-            return pd.Series(50, index=data.index), pd.Series(50, index=data.index)
-        
-        low_min = data['Low'].rolling(window=k_period).min()
-        high_max = data['High'].rolling(window=k_period).max()
-        
-        k = 100 * ((data['Close'] - low_min) / (high_max - low_min).replace(0, 1))
-        d = k.rolling(window=d_period).mean()
-        
-        return k.fillna(50), d.fillna(50)
-    except:
-        return pd.Series(50, index=data.index), pd.Series(50, index=data.index)
-
 def safe_divide(a, b, default=1.0):
     """Safe division with default value"""
     try:
@@ -190,7 +118,7 @@ def safe_divide(a, b, default=1.0):
         return np.full_like(a, default, dtype=float)
 
 def create_advanced_features(data):
-    """Create comprehensive features for OCHL prediction with NaN protection"""
+    """Create comprehensive features for OCHL prediction with ALL features"""
     try:
         # Create a copy to avoid modifying original
         data = data.copy()
@@ -220,37 +148,60 @@ def create_advanced_features(data):
                     else:
                         data[col] = data[col].fillna(0)
         
-        # Basic price features
+        print(f"=== FEATURE ENGINEERING STARTED ===")
+        print(f"Initial data shape: {data.shape}")
+        
+        # 1. BASIC PRICE FEATURES
+        print("Creating basic price features...")
         data['Return'] = data['Close'].pct_change().fillna(0)
         data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1).replace(0, 1e-10)).fillna(0)
-        data['Volatility'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
+        data['Volatility_5d'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
+        data['Volatility_20d'] = data['Return'].rolling(window=20, min_periods=1).std().fillna(0)
         
-        # Price ranges (with safe division)
+        # Price ranges
         data['High_Low_Range'] = safe_divide(data['High'] - data['Low'], data['Close'].replace(0, 1e-10), 0.02)
         data['Open_Close_Range'] = safe_divide(data['Close'] - data['Open'], data['Open'].replace(0, 1e-10), 0)
         
-        # Moving averages
+        # 2. MOVING AVERAGES
+        print("Creating moving averages...")
         for window in [5, 10, 20, 50]:
             data[f'MA_{window}'] = data['Close'].rolling(window=window, min_periods=1).mean().fillna(data['Close'])
             data[f'MA_Ratio_{window}'] = safe_divide(data['Close'], data[f'MA_{window}'].replace(0, 1e-10), 1.0)
-            # Moving average crossovers
-            if window > 5:
-                data[f'MA_{window}_Crossover'] = (data[f'MA_5'] > data[f'MA_{window}']).astype(int)
         
-        # Volume features
-        data['Volume_MA'] = data['Volume'].rolling(window=10, min_periods=1).mean().fillna(data['Volume'])
-        data['Volume_Ratio'] = safe_divide(data['Volume'], data['Volume_MA'].replace(0, 1e-10), 1.0)
+        # Moving average crossovers
+        data['MA5_Above_MA20'] = (data['MA_5'] > data['MA_20']).astype(int)
+        data['Golden_Cross'] = ((data['MA_5'] > data['MA_20']) & 
+                               (data['MA_5'].shift(1) <= data['MA_20'].shift(1))).astype(int)
+        
+        # 3. VOLUME FEATURES
+        print("Creating volume features...")
+        data['Volume_MA_10'] = data['Volume'].rolling(window=10, min_periods=1).mean().fillna(data['Volume'])
+        data['Volume_Ratio'] = safe_divide(data['Volume'], data['Volume_MA_10'].replace(0, 1e-10), 1.0)
         data['Volume_Change'] = data['Volume'].pct_change().fillna(0)
+        
+        # Volume-Price Trend
         data['Volume_Price_Trend'] = data['Volume'] * data['Return']
         
-        # Technical indicators
-        data['RSI'] = calculate_rsi(data['Close'])
+        # On-Balance Volume (OBV)
+        data['OBV'] = (np.sign(data['Return']) * data['Volume']).fillna(0).cumsum()
         
-        # MACD calculation
+        # 4. TECHNICAL INDICATORS
+        print("Creating technical indicators...")
+        
+        # RSI
+        data['RSI_14'] = calculate_rsi(data['Close'], 14)
+        data['RSI_7'] = calculate_rsi(data['Close'], 7)
+        
+        # RSI signals
+        data['RSI_Overbought'] = (data['RSI_14'] > 70).astype(int)
+        data['RSI_Oversold'] = (data['RSI_14'] < 30).astype(int)
+        
+        # MACD
         macd, macd_signal, macd_hist = calculate_macd(data)
         data['MACD'] = macd
         data['MACD_Signal'] = macd_signal
         data['MACD_Histogram'] = macd_hist
+        data['MACD_Signal_Cross'] = (data['MACD'] > data['MACD_Signal']).astype(int)
         
         # Bollinger Bands
         bb_middle, bb_upper, bb_lower = calculate_bollinger_bands(data)
@@ -259,57 +210,104 @@ def create_advanced_features(data):
         data['BB_Lower'] = bb_lower
         data['BB_Width'] = safe_divide(bb_upper - bb_lower, bb_middle.replace(0, 1e-10), 0.1)
         data['BB_Position'] = safe_divide(data['Close'] - bb_lower, (bb_upper - bb_lower).replace(0, 1e-10), 0.5)
+        data['BB_Upper_Touch'] = (data['Close'] >= data['BB_Upper'] * 0.99).astype(int)
+        data['BB_Lower_Touch'] = (data['Close'] <= data['BB_Lower'] * 1.01).astype(int)
         
-        # Momentum indicators
+        # 5. MOMENTUM & OSCILLATORS
+        print("Creating momentum indicators...")
+        
+        # Momentum
         for window in [5, 10, 20]:
             shifted = data['Close'].shift(window).replace(0, 1e-10)
             data[f'Momentum_{window}'] = safe_divide(data['Close'], shifted, 1.0) - 1
+            
             # Rate of Change
-            data[f'ROC_{window}'] = data['Close'].diff(window) / data['Close'].shift(window) * 100
+            data[f'ROC_{window}'] = data['Close'].pct_change(window) * 100
         
-        # Price patterns
+        # Stochastic Oscillator
+        low_14 = data['Low'].rolling(14).min()
+        high_14 = data['High'].rolling(14).max()
+        data['Stochastic_%K'] = 100 * safe_divide(data['Close'] - low_14, high_14 - low_14, 50)
+        data['Stochastic_%D'] = data['Stochastic_%K'].rolling(3).mean().fillna(50)
+        
+        # Williams %R
+        data['Williams_%R'] = -100 * safe_divide(high_14 - data['Close'], high_14 - low_14, -50)
+        
+        # 6. ATR (Average True Range) - NEW
+        print("Creating ATR features...")
+        high_low = data['High'] - data['Low']
+        high_close = np.abs(data['High'] - data['Close'].shift(1))
+        low_close = np.abs(data['Low'] - data['Close'].shift(1))
+        true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        data['ATR_14'] = true_range.rolling(14).mean().fillna(0)
+        data['ATR_Ratio'] = safe_divide(data['ATR_14'], data['Close'], 0.01)
+        
+        # 7. SUPPORT/RESISTANCE - NEW
+        print("Creating support/resistance features...")
+        data['Resistance_20'] = data['High'].rolling(20).max().fillna(data['Close'])
+        data['Support_20'] = data['Low'].rolling(20).min().fillna(data['Close'])
+        data['Resistance_Distance'] = safe_divide(data['Close'] - data['Resistance_20'], data['Close'], -0.1)
+        data['Support_Distance'] = safe_divide(data['Close'] - data['Support_20'], data['Close'], 0.1)
+        
+        # 8. PRICE PATTERNS
+        print("Creating price patterns...")
         prev_close = data['Close'].shift(1).fillna(data['Close'])
         data['Gap_Up'] = ((data['Open'] > prev_close * 1.01) & (data['Open'] > 0)).astype(int)
         data['Gap_Down'] = ((data['Open'] < prev_close * 0.99) & (data['Open'] > 0)).astype(int)
         
-        # Support and Resistance
-        data['Resistance'] = data['High'].rolling(window=20, min_periods=1).max()
-        data['Support'] = data['Low'].rolling(window=20, min_periods=1).min()
-        data['Resistance_Distance'] = safe_divide(data['Close'] - data['Resistance'], data['Close'], -0.1)
-        data['Support_Distance'] = safe_divide(data['Close'] - data['Support'], data['Close'], 0.1)
+        # Inside/Outside days
+        data['Inside_Day'] = ((data['High'] < data['High'].shift(1)) & 
+                             (data['Low'] > data['Low'].shift(1))).astype(int)
+        data['Outside_Day'] = ((data['High'] > data['High'].shift(1)) & 
+                              (data['Low'] < data['Low'].shift(1))).astype(int)
         
-        # Volatility features
-        data['ATR'] = (data['High'] - data['Low']).rolling(window=14).mean().fillna(0)
-        data['ATR_Ratio'] = safe_divide(data['ATR'], data['Close'], 0.01)
-        
-        # ✅ ADDED: 3 IMPORTANT MISSING FEATURES
-        # 1. On-Balance Volume (OBV)
-        data['OBV'] = calculate_obv(data)
-        
-        # 2. Average Directional Index (ADX)
-        data['ADX'] = calculate_adx(data)
-        
-        # 3. Stochastic Oscillator (K and D lines)
-        stochastic_k, stochastic_d = calculate_stochastic(data)
-        data['Stochastic_K'] = stochastic_k
-        data['Stochastic_D'] = stochastic_d
-        
-        # Seasonality features (day of week, month)
+        # 9. SEASONALITY FEATURES - NEW
+        print("Creating seasonality features...")
         if 'Date' in data.columns:
             try:
                 dates = pd.to_datetime(data['Date'])
                 data['Day_of_Week'] = dates.dt.dayofweek
                 data['Month'] = dates.dt.month
                 data['Week_of_Year'] = dates.dt.isocalendar().week
-            except:
-                pass
+                
+                # Month effects
+                data['Month_End'] = dates.dt.is_month_end.astype(int)
+                data['Month_Start'] = dates.dt.is_month_start.astype(int)
+                
+                # Day of month
+                data['Day_of_Month'] = dates.dt.day
+                data['Is_15th'] = (data['Day_of_Month'] == 15).astype(int)
+            except Exception as e:
+                print(f"Warning: Could not create seasonality features: {e}")
         
-        # Lagged features
-        for lag in [1, 2, 3, 5]:
-            data[f'Close_Lag_{lag}'] = data['Close'].shift(lag)
+        # 10. LAGGED FEATURES - NEW
+        print("Creating lagged features...")
+        for lag in [1, 2, 3, 5, 10]:
+            data[f'Return_Lag_{lag}'] = data['Return'].shift(lag)
             data[f'Volume_Lag_{lag}'] = data['Volume'].shift(lag)
+            data[f'Close_Lag_{lag}'] = data['Close'].shift(lag)
+        
+        # Rolling statistics
+        data['Return_Std_20'] = data['Return'].rolling(20).std().fillna(0)
+        data['Volume_Std_20'] = data['Volume'].rolling(20).std().fillna(0)
+        
+        # 11. INTERACTION FEATURES - NEW
+        print("Creating interaction features...")
+        data['Volume_RSI_Interaction'] = data['Volume_Ratio'] * (data['RSI_14'] / 100)
+        data['Vol_MA_Signal'] = data['Volatility_5d'] * data['MA5_Above_MA20']
+        data['RSI_MACD_Interaction'] = (data['RSI_14'] / 100) * data['MACD']
+        
+        # 12. BINARY SIGNAL FEATURES
+        print("Creating binary signal features...")
+        data['Volume_Spike'] = (data['Volume_Ratio'] > 2).astype(int)
+        data['High_Volatility'] = (data['Volatility_5d'] > 0.02).astype(int)
+        data['Strong_Uptrend'] = ((data['MA_5'] > data['MA_20']) & 
+                                  (data['MA_20'] > data['MA_50'])).astype(int)
+        data['Strong_Downtrend'] = ((data['MA_5'] < data['MA_20']) & 
+                                    (data['MA_20'] < data['MA_50'])).astype(int)
         
         # Handle any remaining NaN values
+        print("Handling remaining NaN values...")
         data = data.fillna(method='ffill').fillna(method='bfill')
         
         # Final check - replace any remaining NaN with appropriate defaults
@@ -320,18 +318,19 @@ def create_advanced_features(data):
                         data[col] = data[col].fillna(0.0)
                     elif col in ['Return', 'Volatility', 'Volume_Change', 'MACD', 'MACD_Signal', 'MACD_Histogram']:
                         data[col] = data[col].fillna(0.0)
-                    elif col == 'RSI':
+                    elif 'RSI' in col or 'Stochastic' in col or 'Williams' in col:
                         data[col] = data[col].fillna(50.0)
                     elif col == 'Volume':
                         data[col] = data[col].fillna(1000000)
                     elif col in ['Open', 'High', 'Low', 'Close']:
                         data[col] = data[col].fillna(100.0)
-                    elif col in ['OBV', 'ADX', 'Stochastic_K', 'Stochastic_D']:  # Added new features
-                        data[col] = data[col].fillna(50.0)
                     else:
                         data[col] = data[col].fillna(0.0)
         
-        print(f"Created {len(data.columns)} features (including OBV, ADX, Stochastic)")
+        print(f"=== FEATURE ENGINEERING COMPLETE ===")
+        print(f"Total features created: {len(data.columns)}")
+        print(f"Feature names: {list(data.columns)}")
+        
         return data
     except Exception as e:
         print(f"Feature creation error: {e}")
@@ -349,7 +348,7 @@ def create_advanced_features(data):
 def detect_anomalies(data):
     """Detect anomalies in the data using Isolation Forest"""
     try:
-        features = ['Return', 'Volatility', 'Volume_Ratio', 'RSI', 'High_Low_Range']
+        features = ['Return', 'Volatility_5d', 'Volume_Ratio', 'RSI_14', 'High_Low_Range']
         available_features = [f for f in features if f in data.columns]
         
         if len(available_features) < 3:
@@ -492,10 +491,9 @@ class OCHLPredictor:
         self.historical_performance = {}
         self.prediction_history = {}
         self.risk_metrics = {}
-        self.anomaly_detector = None
+        self.algorithm_weights = {}  # Store algorithm weights based on performance
         self.last_training_date = None
         self.is_fitted = False
-        self.algorithm_weights = {}  # Store algorithm weights based on performance
         
     def get_model_path(self, symbol, target, algorithm):
         safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
@@ -551,8 +549,7 @@ class OCHLPredictor:
             loaded_models = {target: {} for target in self.targets}
             loaded_scalers = {}
             
-            # ✅ UPDATED: Added Linear Regression to algorithms list
-            algorithms = ['linear', 'ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
+            algorithms = ['linear_regression', 'ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
             
             models_loaded = False
             
@@ -625,14 +622,17 @@ class OCHLPredictor:
     def prepare_training_data(self, data):
         """Prepare data for OCHL prediction with improved feature engineering"""
         try:
-            print(f"Preparing training data with {len(data)} rows")
+            print(f"\n{'='*60}")
+            print(f"PREPARING TRAINING DATA")
+            print(f"{'='*60}")
+            print(f"Initial data rows: {len(data)}")
             
             # Create features
             data_with_features = create_advanced_features(data)
-            print(f"Created {len(data_with_features.columns)} features")
+            print(f"Total features created: {len(data_with_features.columns)}")
             
             # Ensure we have enough data
-            if len(data_with_features) < 100:  # Increased minimum
+            if len(data_with_features) < 100:
                 print(f"Warning: Only {len(data_with_features)} rows of data, minimum 100 required")
                 return None, None, None
             
@@ -643,20 +643,13 @@ class OCHLPredictor:
             # Remove target columns from features
             feature_candidates = [col for col in numeric_cols if col not in self.targets]
             
-            # ✅ PRIORITIZE IMPORTANT FEATURES including the 3 new ones
-            priority_features = ['OBV', 'ADX', 'Stochastic_K', 'Stochastic_D', 'RSI', 'MACD', 'Volume_Ratio', 
-                                'Volatility', 'High_Low_Range', 'BB_Position', 'ATR_Ratio']
+            print(f"Available feature candidates: {len(feature_candidates)}")
             
-            # Select features
+            # Select top features by correlation with target
             if not self.feature_columns:
-                # Start with priority features that exist
-                self.feature_columns = [f for f in priority_features if f in feature_candidates]
-                
-                # Add remaining features by correlation
-                remaining_features = [f for f in feature_candidates if f not in self.feature_columns]
+                print("Selecting best features by correlation...")
                 correlation_scores = {}
-                
-                for feature in remaining_features:
+                for feature in feature_candidates:
                     try:
                         # Calculate correlation with each target and take max
                         corr_scores = []
@@ -671,20 +664,42 @@ class OCHLPredictor:
                     except:
                         correlation_scores[feature] = 0
                 
-                # Select top features by correlation to reach 25 total
+                # Select top 30 features by correlation
                 if correlation_scores:
-                    top_features = sorted(correlation_scores.items(), key=lambda x: x[1], reverse=True)
-                    num_needed = max(0, 25 - len(self.feature_columns))
-                    additional_features = [f[0] for f in top_features[:num_needed]]
-                    self.feature_columns.extend(additional_features)
+                    top_features = sorted(correlation_scores.items(), key=lambda x: x[1], reverse=True)[:30]
+                    self.feature_columns = [f[0] for f in top_features]
+                    print(f"Selected top {len(self.feature_columns)} features by correlation")
+                    print(f"Top 5 features: {self.feature_columns[:5]}")
+                else:
+                    # Fallback to variance
+                    if len(feature_candidates) > 30:
+                        variances = data_with_features[feature_candidates].var()
+                        variances = variances.fillna(0)
+                        self.feature_columns = variances.nlargest(30).index.tolist()
+                        print(f"Selected top 30 features by variance")
+                    else:
+                        self.feature_columns = feature_candidates
+                        print(f"Using all {len(feature_candidates)} features")
             
-            print(f"Using {len(self.feature_columns)} features including OBV, ADX, Stochastic")
+            # If still no features, use defaults
+            if not self.feature_columns:
+                default_features = ['Return', 'Volatility_5d', 'Volume_Ratio', 'RSI_14', 'High_Low_Range', 
+                                   'MA_5', 'MA_10', 'MA_20', 'BB_Position', 'Momentum_5',
+                                   'MACD', 'ATR_Ratio', 'Volume_Price_Trend', 'Resistance_Distance', 'Support_Distance']
+                self.feature_columns = [f for f in default_features if f in data_with_features.columns]
+                if not self.feature_columns:
+                    self.feature_columns = list(data_with_features.columns[:15])
+                print(f"Using default features: {len(self.feature_columns)}")
+            
+            print(f"Final feature count: {len(self.feature_columns)}")
             
             # Prepare X (features) for each target
             X_data = {}
             y_data = {}
             
             for target in self.targets:
+                print(f"\nPreparing data for {target}...")
+                
                 if target not in data_with_features.columns:
                     print(f"Warning: {target} column not found, using Close as target")
                     data_with_features[target] = data_with_features['Close']
@@ -697,17 +712,18 @@ class OCHLPredictor:
                 y_list = []
                 window_size = 30
                 
-                if len(data_with_features) < window_size + 20:  # Increased buffer
+                if len(data_with_features) < window_size + 20:
                     print(f"Warning: Not enough data for window size {window_size}")
                     continue
                 
                 # Ensure all feature columns exist
                 missing_features = [f for f in self.feature_columns if f not in data_with_features.columns]
                 if missing_features:
-                    print(f"Warning: Missing features {missing_features}, filling with zeros")
+                    print(f"Warning: Missing features {missing_features[:5]}..., filling with zeros")
                     for f in missing_features:
                         data_with_features[f] = 0
                 
+                samples_count = 0
                 for i in range(window_size, len(data_with_features) - 1):
                     # Features from window
                     features = data_with_features[self.feature_columns].iloc[i-window_size:i]
@@ -740,13 +756,14 @@ class OCHLPredictor:
                     
                     X_list.append(features_flat)
                     y_list.append(target_value)
+                    samples_count += 1
                 
-                if len(X_list) > 50:  # Increased minimum samples
+                if samples_count > 50:
                     X_data[target] = np.array(X_list)
                     y_data[target] = np.array(y_list)
-                    print(f"Prepared {len(X_list)} samples for {target}")
+                    print(f"  Prepared {samples_count} samples for {target}")
                 else:
-                    print(f"Warning: Insufficient samples for {target} ({len(X_list)})")
+                    print(f"  Warning: Insufficient samples for {target} ({samples_count})")
                     X_data[target] = None
                     y_data[target] = None
             
@@ -756,7 +773,8 @@ class OCHLPredictor:
                 print("Error: No valid training data for any target")
                 return None, None, None
             
-            print(f"Successfully prepared data for targets: {valid_targets}")
+            print(f"\nSuccessfully prepared data for targets: {valid_targets}")
+            print(f"{'='*60}")
             return X_data, y_data, data_with_features
             
         except Exception as e:
@@ -768,19 +786,21 @@ class OCHLPredictor:
     def train_algorithm(self, X, y, algorithm, target):
         """Train a specific algorithm with improved regularization"""
         try:
+            print(f"    Training {algorithm} for {target}...")
+            
             # Check for NaN in inputs
             if np.any(np.isnan(X)) or np.any(np.isnan(y)):
-                print(f"Warning: NaN found in training data for {algorithm}")
+                print(f"      Warning: NaN found in training data")
                 X = np.nan_to_num(X, nan=0.0)
                 y_mean = np.nanmean(y) if not np.all(np.isnan(y)) else 0.0
                 y = np.nan_to_num(y, nan=y_mean)
             
             if len(X) < 50:
-                print(f"Warning: Insufficient data for {algorithm} ({len(X)} samples)")
+                print(f"      Warning: Insufficient data ({len(X)} samples)")
                 return None
             
-            # Remove outliers from training data
-            if algorithm not in ['arima']:
+            # Remove outliers from training data for linear models
+            if algorithm in ['linear_regression', 'ridge', 'lasso']:
                 # Remove samples where target is extreme
                 y_mean, y_std = np.mean(y), np.std(y)
                 if y_std > 0:
@@ -789,53 +809,52 @@ class OCHLPredictor:
                     y = y[mask]
                     
                     if len(X) < 20:
-                        print(f"Warning: Too many outliers removed for {algorithm}")
+                        print(f"      Warning: Too many outliers removed")
                         return None
             
-            # ✅ ADDED: Linear Regression
-            if algorithm == 'linear':
-                # Linear Regression
+            if algorithm == 'linear_regression':
                 model = LinearRegression()
                 model.fit(X, y)
-                print(f"Trained Linear Regression with {len(X)} samples")
+                print(f"      Trained Linear Regression with {len(X)} samples")
                 return model
                 
             elif algorithm == 'ridge':
-                # Ridge Regression with regularization
                 model = Ridge(alpha=1.0, random_state=42, max_iter=10000)
                 model.fit(X, y)
-                print(f"Trained Ridge Regression with {len(X)} samples")
+                print(f"      Trained Ridge Regression with {len(X)} samples")
+                return model
+                
+            elif algorithm == 'lasso':
+                model = Lasso(alpha=0.01, random_state=42, max_iter=10000)
+                model.fit(X, y)
+                print(f"      Trained Lasso Regression with {len(X)} samples")
                 return model
                 
             elif algorithm == 'svr':
-                # SVR with optimized parameters
                 model = SVR(kernel='rbf', C=1.0, epsilon=0.01, max_iter=10000)
-                # Use reasonable sample size
                 if len(X) > 1000:
                     idx = np.random.choice(len(X), min(1000, len(X)), replace=False)
                     model.fit(X[idx], y[idx])
                 else:
                     model.fit(X, y)
-                print(f"Trained SVR with {len(X)} samples")
+                print(f"      Trained SVR with {len(X)} samples")
                 return model
                 
             elif algorithm == 'random_forest':
-                # Random Forest with optimized parameters
                 model = RandomForestRegressor(
-                    n_estimators=200,  # Increased
+                    n_estimators=200,
                     max_depth=15,
-                    min_samples_split=5,
-                    min_samples_leaf=2,
+                    min_samples_split=10,
+                    min_samples_leaf=4,
+                    max_features='sqrt',
                     random_state=42,
-                    n_jobs=-1,
-                    max_features='sqrt'  # Limit features per split
+                    n_jobs=-1
                 )
                 model.fit(X, y)
-                print(f"Trained Random Forest with {len(X)} samples")
+                print(f"      Trained Random Forest with {len(X)} samples")
                 return model
                 
             elif algorithm == 'gradient_boosting':
-                # Gradient Boosting
                 model = GradientBoostingRegressor(
                     n_estimators=100,
                     learning_rate=0.1,
@@ -845,83 +864,81 @@ class OCHLPredictor:
                     random_state=42
                 )
                 model.fit(X, y)
-                print(f"Trained Gradient Boosting with {len(X)} samples")
+                print(f"      Trained Gradient Boosting with {len(X)} samples")
                 return model
                 
             elif algorithm == 'neural_network':
-                # Neural Network
                 model = MLPRegressor(
                     hidden_layer_sizes=(100, 50),
                     activation='relu',
                     solver='adam',
-                    alpha=0.01,  # Regularization
+                    alpha=0.01,
                     max_iter=1000,
                     random_state=42,
                     early_stopping=True,
                     validation_fraction=0.2
                 )
                 model.fit(X, y)
-                print(f"Trained Neural Network with {len(X)} samples")
+                print(f"      Trained Neural Network with {len(X)} samples")
                 return model
                 
             elif algorithm == 'arima':
-                # ARIMA needs 1D time series
                 if len(y) > 100:
                     try:
-                        # Ensure no NaN in y
                         y_clean = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0.0)
                         
-                        # Use simpler ARIMA for stability
                         model = pm.auto_arima(
                             y_clean,
                             start_p=1, start_q=1,
                             max_p=2, max_q=2, m=1,
                             seasonal=False,
-                            d=1, D=0,
                             trace=False,
                             error_action='ignore',
                             suppress_warnings=True,
                             maxiter=30,
                             stepwise=True
                         )
-                        print(f"Trained ARIMA with order {model.order} for {target}")
+                        print(f"      Trained ARIMA with order {model.order}")
                         return model
                     except Exception as e:
-                        print(f"ARIMA auto failed: {e}")
-                        # Fallback to simple ARIMA
+                        print(f"      ARIMA auto failed: {e}")
                         try:
                             model = StatsmodelsARIMA(y_clean, order=(1,1,0))
                             model_fit = model.fit()
-                            print(f"Trained simple ARIMA(1,1,0) for {target}")
+                            print(f"      Trained simple ARIMA(1,1,0)")
                             return model_fit
                         except:
-                            print(f"Simple ARIMA also failed for {target}")
+                            print(f"      Simple ARIMA also failed")
                             return None
                 else:
-                    print(f"Warning: Insufficient data for ARIMA ({len(y)} samples)")
+                    print(f"      Warning: Insufficient data for ARIMA ({len(y)} samples)")
                     return None
                     
             return None
         except Exception as e:
-            print(f"Error training {algorithm} for {target}: {e}")
+            print(f"      Error training {algorithm}: {e}")
             return None
     
     def train_all_models(self, data, symbol):
         """Train models for all OCHL targets using all algorithms"""
         try:
+            print(f"\n{'='*60}")
+            print(f"TRAINING MODELS FOR {symbol}")
+            print(f"{'='*60}")
+            
             X_data, y_data, data_with_features = self.prepare_training_data(data)
             
             if X_data is None or y_data is None:
                 print("Error: Could not prepare training data")
                 return False, "Insufficient data for training"
             
-            # ✅ UPDATED: Added Linear Regression to algorithms list
-            algorithms = ['linear', 'ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
+            algorithms = ['linear_regression', 'ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
             self.models = {target: {} for target in self.targets}
             self.scalers = {}
             self.algorithm_weights = {target: {} for target in self.targets}
             
-            print(f"Training OCHL models for {symbol}...")
+            print(f"Training {len(algorithms)} algorithms:")
+            print(f"Algorithms: {algorithms}")
             
             # Fit feature scaler first with all available data
             all_features = []
@@ -931,19 +948,18 @@ class OCHLPredictor:
             
             if all_features:
                 all_features_array = np.vstack(all_features)
-                # Fit robust scaler to handle outliers
                 self.feature_scaler.fit(all_features_array)
-                print(f"Fitted feature scaler with {all_features_array.shape[0]} samples")
+                print(f"Fitted RobustScaler with {all_features_array.shape[0]} samples")
             else:
                 print("Warning: No features available for scaling")
             
             targets_trained = 0
             
             for target in self.targets:
-                print(f"  Training models for {target}...")
+                print(f"\n--- Training {target} ---")
                 
                 if target not in X_data or X_data[target] is None:
-                    print(f"    Skipping {target}: No data")
+                    print(f"  Skipping: No data")
                     continue
                 
                 X = X_data[target]
@@ -951,42 +967,46 @@ class OCHLPredictor:
                 
                 # Check data quality
                 if len(X) < 50 or len(y) < 50:
-                    print(f"    Skipping {target}: Insufficient samples ({len(X)})")
+                    print(f"  Skipping: Insufficient samples ({len(X)})")
                     continue
                 
                 # Scale features
                 try:
                     X_scaled = self.feature_scaler.transform(X)
+                    print(f"  Scaled features: {X_scaled.shape}")
                 except Exception as e:
-                    print(f"    Warning: Feature scaling failed for {target}: {e}")
-                    X_scaled = X  # Use unscaled features
+                    print(f"  Warning: Feature scaling failed: {e}")
+                    X_scaled = X
                 
                 # Scale target
                 try:
                     target_scaler = StandardScaler()
                     y_scaled = target_scaler.fit_transform(y.reshape(-1, 1)).flatten()
                     self.scalers[target] = target_scaler
+                    print(f"  Scaled target: {y_scaled.shape}")
                 except Exception as e:
-                    print(f"    Warning: Target scaling failed for {target}: {e}")
+                    print(f"  Warning: Target scaling failed: {e}")
                     y_scaled = y
                     self.scalers[target] = StandardScaler()
                 
                 # Train each algorithm
                 for algo in algorithms:
-                    print(f"    Training {algo}...")
                     model = self.train_algorithm(X_scaled, y_scaled, algo, target)
                     self.models[target][algo] = model
                 
                 targets_trained += 1
+                print(f"  ✓ Trained all algorithms for {target}")
             
             if targets_trained == 0:
                 print("Error: No targets were successfully trained")
                 return False, "Failed to train any models"
             
             # Calculate historical performance and weights
+            print(f"\n--- Calculating Performance Metrics ---")
             self.calculate_historical_performance(X_data, y_data, data_with_features)
             
             # Calculate risk metrics
+            print(f"\n--- Calculating Risk Metrics ---")
             self.calculate_risk_metrics(data_with_features)
             
             # Save prediction history
@@ -998,7 +1018,13 @@ class OCHLPredictor:
             # Save models and history
             self.save_models(symbol)
             
-            print(f"Successfully trained models for {targets_trained} targets")
+            print(f"\n{'='*60}")
+            print(f"TRAINING COMPLETE")
+            print(f"Targets trained: {targets_trained}/{len(self.targets)}")
+            print(f"Algorithms: {len(algorithms)}")
+            print(f"Features: {len(self.feature_columns)}")
+            print(f"{'='*60}")
+            
             return True, f"Trained models for {targets_trained} targets successfully"
             
         except Exception as e:
@@ -1010,6 +1036,7 @@ class OCHLPredictor:
     def calculate_historical_performance(self, X_data, y_data, data_with_features):
         """Calculate comprehensive historical performance metrics and weights"""
         try:
+            print("\nCalculating historical performance...")
             performance = {}
             
             for target in self.targets:
@@ -1022,12 +1049,17 @@ class OCHLPredictor:
                 if X is None or y is None or len(X) < 50:
                     continue
                 
+                print(f"  Evaluating {target}...")
+                
                 # Use time series split for validation
-                tscv = TimeSeriesSplit(n_splits=5)
+                tscv = TimeSeriesSplit(n_splits=3)  # Reduced for speed
                 fold_scores = {algo: {'rmse': [], 'mae': [], 'r2': [], 'direction': []} 
-                              for algo in self.models[target].keys()}
+                              for algo in self.models[target].keys() if self.models[target][algo] is not None}
                 
                 for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+                    if fold >= 3:  # Only 3 folds for speed
+                        break
+                        
                     X_train, X_test = X[train_idx], X[test_idx]
                     y_train, y_test = y[train_idx], y[test_idx]
                     
@@ -1048,13 +1080,12 @@ class OCHLPredictor:
                     y_test_scaled = target_scaler.transform(y_test.reshape(-1, 1)).flatten()
                     
                     for algo, model in self.models[target].items():
-                        if model is None:
+                        if model is None or algo not in fold_scores:
                             continue
                         
                         try:
                             # Train model on training fold
                             if algo == 'arima':
-                                # ARIMA needs to be retrained on fold
                                 if len(y_train_scaled) > 30:
                                     try:
                                         temp_arima = pm.auto_arima(
@@ -1072,18 +1103,20 @@ class OCHLPredictor:
                                     predictions_scaled = np.zeros_like(y_test_scaled)
                             else:
                                 # Clone and retrain model for this fold
-                                if algo == 'linear':
+                                if algo == 'linear_regression':
                                     fold_model = LinearRegression()
                                 elif algo == 'ridge':
                                     fold_model = Ridge(alpha=1.0, random_state=42)
+                                elif algo == 'lasso':
+                                    fold_model = Lasso(alpha=0.01, random_state=42)
                                 elif algo == 'svr':
                                     fold_model = SVR(kernel='rbf', C=1.0, epsilon=0.01)
                                 elif algo == 'random_forest':
                                     fold_model = RandomForestRegressor(n_estimators=100, random_state=42)
                                 elif algo == 'gradient_boosting':
-                                    fold_model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+                                    fold_model = GradientBoostingRegressor(n_estimators=50, random_state=42)
                                 elif algo == 'neural_network':
-                                    fold_model = MLPRegressor(hidden_layer_sizes=(50,), random_state=42)
+                                    fold_model = MLPRegressor(hidden_layer_sizes=(50,), random_state=42, max_iter=500)
                                 else:
                                     continue
                                 
@@ -1115,11 +1148,14 @@ class OCHLPredictor:
                                 r2 = r2_score(actuals, predictions) if len(actuals) > 1 else 0
                                 
                                 # Direction accuracy
-                                actual_direction = np.diff(actuals) > 0
-                                pred_direction = np.diff(predictions) > 0
-                                min_dir_len = min(len(actual_direction), len(pred_direction))
-                                if min_dir_len > 0:
-                                    direction_acc = np.mean(actual_direction[:min_dir_len] == pred_direction[:min_dir_len]) * 100
+                                if len(actuals) > 1 and len(predictions) > 1:
+                                    actual_direction = np.diff(actuals) > 0
+                                    pred_direction = np.diff(predictions) > 0
+                                    min_dir_len = min(len(actual_direction), len(pred_direction))
+                                    if min_dir_len > 0:
+                                        direction_acc = np.mean(actual_direction[:min_dir_len] == pred_direction[:min_dir_len]) * 100
+                                    else:
+                                        direction_acc = 0
                                 else:
                                     direction_acc = 0
                                 
@@ -1129,7 +1165,7 @@ class OCHLPredictor:
                                 fold_scores[algo]['direction'].append(direction_acc)
                             
                         except Exception as e:
-                            print(f"Error in fold {fold} for {target}-{algo}: {e}")
+                            print(f"    Error in fold {fold} for {algo}: {e}")
                             continue
                 
                 # Calculate average performance across folds
@@ -1146,7 +1182,7 @@ class OCHLPredictor:
                     avg_r2 = np.mean(fold_scores[algo]['r2'])
                     avg_direction = np.mean(fold_scores[algo]['direction'])
                     
-                    # Calculate MAPE if possible
+                    # Calculate MAPE
                     mape = avg_mae / (np.mean(y) + 1e-10) * 100 if np.mean(y) != 0 else 100
                     
                     target_performance[algo] = {
@@ -1159,17 +1195,17 @@ class OCHLPredictor:
                     }
                     
                     # Calculate algorithm weight based on performance
-                    # Higher weight for lower RMSE and higher R2/direction accuracy
                     if avg_rmse > 0:
                         # Normalize RMSE relative to target mean
                         rmse_norm = avg_rmse / (np.mean(y) + 1e-10)
                         # Weight formula: combines multiple metrics
                         weight = (
                             (1 / (rmse_norm + 0.1)) * 0.4 +
-                            (max(avg_r2, 0) + 1) * 0.3 +  # R2 from -1 to 1, map to 0-2
+                            (max(avg_r2, 0) + 1) * 0.3 +
                             (avg_direction / 100) * 0.3
                         )
-                        target_weights[algo] = max(weight, 0.1)  # Minimum weight
+                        target_weights[algo] = max(weight, 0.1)
+                        print(f"    {algo}: RMSE={avg_rmse:.2f}, R²={avg_r2:.3f}, Dir={avg_direction:.1f}%, Weight={target_weights[algo]:.2f}")
                     else:
                         target_weights[algo] = 0.1
                 
@@ -1177,7 +1213,7 @@ class OCHLPredictor:
                 self.algorithm_weights[target] = target_weights
             
             self.historical_performance = performance
-            print(f"Calculated performance for {len(performance)} targets")
+            print(f"Performance calculated for {len(performance)} targets")
             return performance
             
         except Exception as e:
@@ -1210,7 +1246,7 @@ class OCHLPredictor:
                 return
             
             # Basic risk metrics
-            volatility = returns.std() * np.sqrt(252)  # Annualized
+            volatility = returns.std() * np.sqrt(252)
             sharpe_ratio = (returns.mean() * 252) / (returns.std() * np.sqrt(252)) if returns.std() > 0 else 0
             
             # Value at Risk (VaR)
@@ -1234,16 +1270,15 @@ class OCHLPredictor:
             # Anomaly detection
             anomaly_score = detect_anomalies(data).mean() * 100
             
-            # Beta calculation (if we have market data)
+            # Beta calculation
             try:
-                # Simple beta approximation using volatility
-                market_volatility = 0.15  # Approximate market volatility
+                market_volatility = 0.15
                 beta = volatility / market_volatility if market_volatility > 0 else 1.0
             except:
                 beta = 1.0
             
             self.risk_metrics = {
-                'volatility': float(volatility * 100),  # as percentage
+                'volatility': float(volatility * 100),
                 'sharpe_ratio': float(sharpe_ratio),
                 'var_95': float(var_95),
                 'var_99': float(var_99),
@@ -1254,12 +1289,12 @@ class OCHLPredictor:
                 'kurtosis': float(kurtosis),
                 'anomaly_score': float(anomaly_score),
                 'beta': float(beta),
-                'total_returns': float(returns.mean() * 252 * 100),  # annualized percentage
+                'total_returns': float(returns.mean() * 252 * 100),
                 'positive_days': float((returns > 0).mean() * 100),
                 'negative_days': float((returns < 0).mean() * 100)
             }
             
-            print(f"Calculated risk metrics: {len(self.risk_metrics)} metrics")
+            print(f"Risk metrics calculated: {len(self.risk_metrics)} metrics")
             
         except Exception as e:
             print(f"Error calculating risk metrics: {e}")
@@ -1292,7 +1327,9 @@ class OCHLPredictor:
     def predict_ochl(self, data, symbol):
         """Predict next day's OCHL using ensemble of all algorithms with outlier filtering"""
         try:
-            print(f"\n=== Starting prediction for {symbol} ===")
+            print(f"\n{'='*60}")
+            print(f"PREDICTING FOR {symbol}")
+            print(f"{'='*60}")
             
             X_data, _, data_with_features = self.prepare_training_data(data)
             
@@ -1304,24 +1341,26 @@ class OCHLPredictor:
             confidence_scores = {}
             algorithm_predictions = {}
             
+            current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
+            print(f"Current Close Price: ${current_close:.2f}")
+            
             for target in self.targets:
-                print(f"  Predicting {target}...")
+                print(f"\n  Predicting {target}...")
+                print(f"  {'─'*40}")
                 
                 if target not in self.models or target not in X_data or X_data[target] is None:
-                    print(f"    Skipping {target}: No model or data")
-                    fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
-                    predictions[target] = fallback_value
+                    print(f"    Skipping: No model or data")
+                    predictions[target] = current_close
                     confidence_scores[target] = 50
-                    algorithm_predictions[target] = {'ensemble': float(fallback_value)}
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
             
                 X = X_data[target]
                 if len(X) == 0:
-                    print(f"    Skipping {target}: Empty data")
-                    fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
-                    predictions[target] = fallback_value
+                    print(f"    Skipping: Empty data")
+                    predictions[target] = current_close
                     confidence_scores[target] = 50
-                    algorithm_predictions[target] = {'ensemble': float(fallback_value)}
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
                 
                 # Get latest features for prediction
@@ -1329,37 +1368,32 @@ class OCHLPredictor:
                 
                 expected_dim = len(self.feature_columns) * 30
                 if latest_features.shape[1] != expected_dim:
-                    print(f"Feature mismatch during prediction ({latest_features.shape[1]} != {expected_dim})")
-                    fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features["Close"].iloc[-1]
-                    
-                    predictions[target] = float(fallback_value)
+                    print(f"    Feature mismatch ({latest_features.shape[1]} != {expected_dim})")
+                    predictions[target] = current_close
                     confidence_scores[target] = 50.0
-                    algorithm_predictions[target] = {'ensemble': float(fallback_value)}
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
                 
                 # Scale features safely
                 if not hasattr(self.feature_scaler, "median_"):
-                   print("Feature scaler not fitted — using fallback")
-                   predictions[target] = float(data_with_features[target].iloc[-1])
+                   print("    Feature scaler not fitted")
+                   predictions[target] = current_close
                    confidence_scores[target] = 50.0
-                   algorithm_predictions[target] = {'ensemble': float(data_with_features[target].iloc[-1])}
+                   algorithm_predictions[target] = {'ensemble': float(current_close)}
                    continue
                 
                 try:
                     latest_scaled = self.feature_scaler.transform(latest_features)
                 except Exception as e:
-                    print(f"Feature scaling failed: {e}")
-                    predictions[target] = float(data_with_features[target].iloc[-1])
+                    print(f"    Feature scaling failed: {e}")
+                    predictions[target] = current_close
                     confidence_scores[target] = 50.0
-                    algorithm_predictions[target] = {'ensemble': float(data_with_features[target].iloc[-1])}
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
                 
                 target_predictions = {}
                 target_confidences = {}
-                
-                # ✅ PRINT HEADER FOR MODEL PREDICTIONS
-                print(f"    {'Model':<20} {'Prediction':>12} {'Confidence':>12}")
-                print(f"    {'-'*20} {'-'*12} {'-'*12}")
+                target_details = {}
                 
                 for algo, model in self.models[target].items():
                     if model is None:
@@ -1367,18 +1401,16 @@ class OCHLPredictor:
                     
                     try:
                         pred_actual = None
+                        algo_details = {}
                         
                         if algo == 'arima':
-                            # ARIMA needs time series data
                             target_scaler = self.scalers.get(target, StandardScaler())
                             
-                            # Get recent target values
                             if target in data_with_features.columns:
                                 y_recent = data_with_features[target].values[-100:]
                                 if len(y_recent) > 30:
                                     y_scaled = target_scaler.transform(y_recent.reshape(-1, 1)).flatten()
                                     
-                                    # Train temporary ARIMA on recent data
                                     try:
                                         temp_arima = pm.auto_arima(
                                             y_scaled,
@@ -1390,40 +1422,32 @@ class OCHLPredictor:
                                             stepwise=True
                                         )
                                         pred_scaled = temp_arima.predict(n_periods=1)[0]
-                                        
-                                        # Inverse transform
                                         pred_actual = target_scaler.inverse_transform(
                                             np.array([[pred_scaled]])
                                         )[0][0]
+                                        algo_details = {'order': temp_arima.order}
                                     except Exception as e:
-                                        print(f"      ARIMA prediction failed: {e}")
-                                        # Use simple persistence model
+                                        print(f"      ARIMA failed: {e}")
                                         pred_actual = data_with_features[target].iloc[-1]
                                 else:
-                                    # Not enough data for ARIMA
                                     pred_actual = data_with_features[target].iloc[-1]
                             else:
-                                pred_actual = data_with_features['Close'].iloc[-1]
+                                pred_actual = current_close
                         else:
-                            # Other models
                             pred_scaled = float(model.predict(latest_scaled)[0])
-                            
-                            # Inverse transform
                             target_scaler = self.scalers.get(target, StandardScaler())
                             pred_actual = target_scaler.inverse_transform(
                                 np.array([[pred_scaled]])
                             )[0][0]
                         
-                        # Ensure prediction is valid and reasonable
+                        # Sanity check
                         if (pred_actual is None or np.isnan(pred_actual) or np.isinf(pred_actual) or
-                            pred_actual <= 0 or pred_actual > 1e6):  # Sanity check
-                            print(f"      Invalid prediction from {algo}: {pred_actual}")
-                            # Use reasonable fallback
-                            current_val = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
-                            pred_actual = current_val * random.uniform(0.97, 1.03)
+                            pred_actual <= 0 or pred_actual > current_close * 10):
+                            print(f"      {algo}: INVALID PREDICTION (${pred_actual:.2f})")
+                            pred_actual = current_close * random.uniform(0.97, 1.03)
                         
-                        # Calculate confidence based on historical performance
-                        confidence = 70  # default
+                        # Calculate confidence
+                        confidence = 70
                         if (target in self.historical_performance and 
                             algo in self.historical_performance[target]):
                             perf = self.historical_performance[target][algo]
@@ -1440,50 +1464,47 @@ class OCHLPredictor:
                         
                         target_predictions[algo] = float(pred_actual)
                         target_confidences[algo] = float(confidence)
+                        target_details[algo] = algo_details
                         
-                        # ✅ PRINT EACH MODEL'S PREDICTION
-                        print(f"    {algo:<20} ${pred_actual:>10.2f} {confidence:>10.1f}%")
+                        print(f"      {algo}: ${pred_actual:.2f} (conf: {confidence:.1f}%)")
                         
                     except Exception as e:
-                        print(f"      Error predicting with {algo}: {e}")
-                        # Use last known value with small random variation as fallback
-                        current_val = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
-                        target_predictions[algo] = float(current_val * random.uniform(0.98, 1.02))
+                        print(f"      {algo} error: {e}")
+                        fallback = current_close * random.uniform(0.98, 1.02)
+                        target_predictions[algo] = float(fallback)
                         target_confidences[algo] = 50.0
-                        print(f"    {algo:<20} ${target_predictions[algo]:>10.2f} (fallback)")
                 
                 if target_predictions:
-                    # FILTER OUTLIERS: Remove predictions that are too far from median
+                    # FILTER OUTLIERS
                     pred_values = list(target_predictions.values())
                     if len(pred_values) >= 3:
                         median_pred = np.median(pred_values)
                         mad = np.median(np.abs(pred_values - median_pred))
                         
-                        # Keep only predictions within 3 MAD of median
                         filtered_predictions = {}
                         filtered_confidences = {}
+                        filtered_details = {}
                         
                         for algo, pred in target_predictions.items():
                             if abs(pred - median_pred) <= 3 * mad or mad == 0:
                                 filtered_predictions[algo] = pred
                                 filtered_confidences[algo] = target_confidences[algo]
+                                filtered_details[algo] = target_details.get(algo, {})
                             else:
-                                print(f"      Filtered outlier from {algo}: ${pred:.2f} (median: ${median_pred:.2f})")
+                                print(f"      Filtered outlier: {algo} (${pred:.2f} vs median ${median_pred:.2f})")
                         
                         if not filtered_predictions:
-                            # If all filtered, use median of all
                             filtered_predictions = {'median': median_pred}
                             filtered_confidences = {'median': 50.0}
                         
                         target_predictions = filtered_predictions
                         target_confidences = filtered_confidences
                     
-                    # Calculate weighted ensemble prediction using algorithm weights
+                    # Weighted ensemble
                     weights = {}
                     total_weight = 0
                     
                     for algo, conf in target_confidences.items():
-                        # Combine confidence score with algorithm weight
                         algo_weight = self.algorithm_weights.get(target, {}).get(algo, 1.0)
                         weight = max(conf / 100, 0.1) * algo_weight
                         weights[algo] = weight
@@ -1495,13 +1516,11 @@ class OCHLPredictor:
                             for algo, pred in target_predictions.items()
                         )
                     else:
-                        # Equal weights if no confidence scores
                         ensemble_pred = np.median(list(target_predictions.values()))
                     
-                    # Final sanity check: ensure prediction is reasonable
-                    current_price = data_with_features['Close'].iloc[-1]
-                    if ensemble_pred <= 0 or ensemble_pred > current_price * 5:
-                        print(f"    Unreasonable ensemble prediction: ${ensemble_pred:.2f}, using median")
+                    # Final sanity check
+                    if ensemble_pred <= 0 or ensemble_pred > current_close * 5:
+                        print(f"    Unreasonable ensemble: ${ensemble_pred:.2f}")
                         ensemble_pred = np.median(list(target_predictions.values()))
                     
                     predictions[target] = float(ensemble_pred)
@@ -1510,45 +1529,35 @@ class OCHLPredictor:
                         'individual': target_predictions,
                         'confidences': target_confidences,
                         'weights': weights,
+                        'details': target_details,
                         'ensemble': float(ensemble_pred),
                         'ensemble_confidence': float(np.median(list(target_confidences.values())))
                     }
                     
-                    # ✅ PRINT ENSEMBLE RESULT
-                    print(f"    {'-'*20} {'-'*12} {'-'*12}")
-                    print(f"    {'ENSEMBLE':<20} ${ensemble_pred:>10.2f} {confidence_scores[target]:>10.1f}%")
-                    print()
+                    print(f"    ✓ Ensemble: ${ensemble_pred:.2f} (conf: {confidence_scores[target]:.1f}%)")
                 else:
-                    # Fallback to current price
-                    fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
-                    predictions[target] = float(fallback_value)
+                    predictions[target] = float(current_close)
                     confidence_scores[target] = 50.0
-                    algorithm_predictions[target] = {'ensemble': float(fallback_value)}
-                    print(f"    {target} fallback: ${fallback_value:.2f}")
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
+                    print(f"    Fallback: ${current_close:.2f}")
             
             # Ensure we have predictions for all targets
             for target in self.targets:
                 if target not in predictions:
-                    fallback_value = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
-                    predictions[target] = float(fallback_value)
+                    predictions[target] = float(current_close)
                     confidence_scores[target] = 50.0
             
-            # 🔽 POST-PROCESSING: enforce OHLC constraints
+            # Enforce OHLC constraints
             pred_open = predictions["Open"]
             pred_close = predictions["Close"]
             pred_high = predictions["High"]
             pred_low = predictions["Low"]
 
-            # Ensure High >= max(Open, Close)
             pred_high = max(pred_high, pred_open, pred_close)
-            # Ensure Low <= min(Open, Close)
             pred_low = min(pred_low, pred_open, pred_close)
             
-            # Ensure reasonable price relationships
-            current_close = data_with_features['Close'].iloc[-1]
-            max_change = 0.10  # Max 10% daily change
-            
-            # Bound predictions to reasonable ranges
+            # Bound predictions
+            max_change = 0.10
             for target in predictions:
                 predictions[target] = max(predictions[target], current_close * (1 - max_change))
                 predictions[target] = min(predictions[target], current_close * (1 + max_change))
@@ -1556,23 +1565,6 @@ class OCHLPredictor:
             predictions["High"] = pred_high
             predictions["Low"] = pred_low
 
-            # ✅ PRINT FINAL PREDICTIONS SUMMARY
-            print("\n" + "="*60)
-            print(f"FINAL PREDICTIONS FOR {symbol}")
-            print("="*60)
-            print(f"{'Target':<10} {'Current':>12} {'Predicted':>12} {'Change':>10} {'Confidence':>12}")
-            print(f"{'-'*10} {'-'*12} {'-'*12} {'-'*10} {'-'*12}")
-            
-            for target in ['Open', 'High', 'Low', 'Close']:
-                current_val = data_with_features[target].iloc[-1] if target in data_with_features.columns else current_close
-                pred_val = predictions[target]
-                change = ((pred_val - current_val) / current_val * 100) if current_val != 0 else 0
-                conf = confidence_scores.get(target, 50)
-                
-                print(f"{target:<10} ${current_val:>11.2f} ${pred_val:>11.2f} {change:>+9.2f}% {conf:>10.1f}%")
-            
-            print("="*60)
-            
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
             
@@ -1586,14 +1578,21 @@ class OCHLPredictor:
                 'confidence_metrics': confidence_metrics,
                 'risk_alerts': risk_alerts,
                 'current_prices': {
-                    'open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else 100.0,
-                    'high': float(data['High'].iloc[-1]) if 'High' in data.columns else 100.0,
-                    'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else 100.0,
-                    'close': float(data['Close'].iloc[-1]) if 'Close' in data.columns else 100.0
+                    'open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else current_close * 0.995,
+                    'high': float(data['High'].iloc[-1]) if 'High' in data.columns else current_close * 1.015,
+                    'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else current_close * 0.985,
+                    'close': float(current_close)
                 }
             }
             
-            print(f"Successfully generated predictions for {symbol}")
+            print(f"\n{'='*60}")
+            print(f"PREDICTION COMPLETE FOR {symbol}")
+            print(f"{'='*60}")
+            for target in self.targets:
+                if target in predictions:
+                    change = ((predictions[target] - current_close) / current_close) * 100
+                    print(f"{target}: ${predictions[target]:.2f} ({change:+.1f}%)")
+            
             return result, None
             
         except Exception as e:
@@ -1608,15 +1607,12 @@ class OCHLPredictor:
             if not predictions or not confidence_scores:
                 return {}
             
-            # Calculate overall confidence (median is more robust than mean)
             overall_confidence = np.median(list(confidence_scores.values())) if confidence_scores else 0
             
-            # Calculate prediction consistency
             predicted_values = list(predictions.values())
             if len(predicted_values) >= 2:
                 median_val = np.median(predicted_values)
                 if median_val != 0:
-                    # Use Median Absolute Deviation (MAD) for robustness
                     mad = np.median(np.abs(predicted_values - median_val))
                     if median_val != 0:
                         consistency = 1 - (mad / abs(median_val))
@@ -1628,7 +1624,6 @@ class OCHLPredictor:
             else:
                 consistency_score = 0
             
-            # Determine confidence level
             if overall_confidence >= 80:
                 confidence_level = "HIGH"
                 confidence_color = "success"
@@ -1662,14 +1657,12 @@ class OCHLPredictor:
         alerts = []
         
         try:
-            # Get current and predicted prices
             current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             predicted_close = predictions.get('Close', current_close)
             
-            # Calculate expected change
             expected_change = ((predicted_close - current_close) / current_close) * 100 if current_close != 0 else 0
             
-            # 1. Price movement alerts
+            # Price movement alerts
             if abs(expected_change) > 10:
                 alerts.append({
                     'level': '🔴 CRITICAL',
@@ -1685,9 +1678,9 @@ class OCHLPredictor:
                     'details': 'Monitor position closely'
                 })
             
-            # 2. Volatility alerts
-            if 'Volatility' in data.columns:
-                recent_volatility = data['Volatility'].iloc[-10:].mean()
+            # Volatility alerts
+            if 'Volatility_5d' in data.columns:
+                recent_volatility = data['Volatility_5d'].iloc[-10:].mean()
                 if recent_volatility > 0.03:
                     alerts.append({
                         'level': '🟡 HIGH',
@@ -1696,9 +1689,9 @@ class OCHLPredictor:
                         'details': 'Market showing increased volatility'
                     })
             
-            # 3. RSI alerts
-            if 'RSI' in data.columns and len(data) > 0:
-                current_rsi = data['RSI'].iloc[-1]
+            # RSI alerts
+            if 'RSI_14' in data.columns and len(data) > 0:
+                current_rsi = data['RSI_14'].iloc[-1]
                 if current_rsi > 80:
                     alerts.append({
                         'level': '🟡 HIGH',
@@ -1714,7 +1707,7 @@ class OCHLPredictor:
                         'details': 'Potential buying opportunity'
                     })
             
-            # 4. Volume alerts
+            # Volume alerts
             if 'Volume_Ratio' in data.columns and len(data) > 0:
                 volume_ratio = data['Volume_Ratio'].iloc[-1]
                 if volume_ratio > 2.0:
@@ -1725,7 +1718,7 @@ class OCHLPredictor:
                         'details': 'High volume may indicate significant news or event'
                     })
             
-            # 5. Prediction confidence alerts
+            # Prediction confidence alerts
             confidence_metrics = self.calculate_prediction_confidence(predictions, {})
             overall_conf = confidence_metrics.get('overall_confidence', 0)
             
@@ -1737,7 +1730,7 @@ class OCHLPredictor:
                     'details': 'Consider additional analysis before trading'
                 })
             
-            # 6. Risk metric alerts
+            # Risk metric alerts
             if self.risk_metrics:
                 if self.risk_metrics.get('max_drawdown', 0) < -20:
                     alerts.append({
@@ -1755,7 +1748,7 @@ class OCHLPredictor:
                         'details': 'High probability of significant losses'
                     })
             
-            # 7. Market regime alert
+            # Market regime alert
             market_regime = self.detect_market_regime(data)
             if market_regime != "NORMAL":
                 alerts.append({
@@ -1765,7 +1758,6 @@ class OCHLPredictor:
                     'details': 'Market conditions may affect prediction accuracy'
                 })
             
-            # Sort alerts by severity
             severity_order = {'🔴 CRITICAL': 0, '🟡 HIGH': 1, '🟢 MEDIUM': 2, '🟢 LOW': 3}
             alerts.sort(key=lambda x: severity_order.get(x['level'], 4))
             
@@ -1784,10 +1776,9 @@ class OCHLPredictor:
             
             recent = data.tail(20)
             
-            # Calculate regime indicators
-            volatility = recent['Volatility'].mean() if 'Volatility' in recent.columns else 0
+            volatility = recent['Volatility_5d'].mean() if 'Volatility_5d' in recent.columns else 0
             volume_ratio = recent['Volume_Ratio'].mean() if 'Volume_Ratio' in recent.columns else 1
-            rsi = recent['RSI'].iloc[-1] if 'RSI' in recent.columns else 50
+            rsi = recent['RSI_14'].iloc[-1] if 'RSI_14' in recent.columns else 50
             
             if volatility > 0.03:
                 return "HIGH_VOLATILITY"
@@ -1848,7 +1839,6 @@ def get_risk_level_from_metrics(risk_metrics):
     
     risk_score = 0
     
-    # Weight different risk factors
     if 'volatility' in risk_metrics:
         risk_score += min(risk_metrics['volatility'] / 50, 1) * 0.3
     
@@ -1861,7 +1851,6 @@ def get_risk_level_from_metrics(risk_metrics):
     if 'anomaly_score' in risk_metrics:
         risk_score += (risk_metrics['anomaly_score'] / 100) * 0.2
     
-    # Determine risk level
     if risk_score > 0.7:
         return "🔴 EXTREME RISK"
     elif risk_score > 0.5:
@@ -1945,7 +1934,6 @@ def get_stocks_list():
         {"symbol":"GOOGL","name":"Alphabet Inc.","price":172.34,"change":2.13},
         {"symbol":"AMZN","name":"Amazon.com Inc.","price":178.22,"change":0.67},
         {"symbol":"TSLA","name":"Tesla Inc.","price":175.79,"change":-3.21},
-         # ✅ Added stocks
         {"symbol":"GE","name":"GE Aerospace","price":148.25,"change":0.0},
         {"symbol":"PLMR","name":"Palomar Holdings","price":199.47,"change":0.0},
         {"symbol":"META","name":"Meta Platforms Inc.","price":485.00,"change":0.0},
@@ -1973,9 +1961,9 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "4.2.0",  # Updated version
-        "algorithms": ["Linear Regression", "Ridge Regression", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
-        "features": "Enhanced OCHL Prediction with OBV, ADX, Stochastic + All Models Output"
+        "version": "5.0.0",
+        "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
+        "features": "Complete OCHL Prediction with 80+ Features"
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -1987,7 +1975,7 @@ def predict_stock():
         symbol = (data.get('symbol') or 'SPY').upper().strip()
         
         print(f"\n{'='*60}")
-        print(f"PREDICTION REQUEST FOR {symbol}")
+        print(f"🚀 PREDICTION REQUEST FOR {symbol}")
         print(f"{'='*60}")
         
         # Get historical data
@@ -1996,24 +1984,23 @@ def predict_stock():
             print(f"Error fetching data: {error}")
             return jsonify({"error": str(error)}), 400
         
-        print(f"Fetched {len(historical_data)} days of data")
+        print(f"📊 Fetched {len(historical_data)} days of data")
         
         # Load existing models or train new ones
         models_loaded = predictor.load_models(symbol)
         
         if not models_loaded or not predictor.is_fitted:
-            print("No models found, training new ones...")
-            # Train all models
+            print("🔧 No models found, training new ones...")
             success, train_msg = predictor.train_all_models(historical_data, symbol)
             if not success:
                 print(f"Training failed: {train_msg}")
                 return provide_fallback_prediction(symbol, historical_data)
-            print("Training successful")
+            print("✅ Training successful")
         else:
-            print("Loaded existing models")
+            print("✅ Loaded existing models")
         
         # Make prediction
-        print("Making predictions...")
+        print("🤖 Making predictions...")
         prediction_result, pred_error = predictor.predict_ochl(historical_data, symbol)
         
         if pred_error:
@@ -2026,6 +2013,7 @@ def predict_stock():
         confidence_scores = prediction_result['confidence_scores']
         confidence_metrics = prediction_result['confidence_metrics']
         risk_alerts = prediction_result['risk_alerts']
+        algorithm_details = prediction_result.get('algorithm_details', {})
         
         # Calculate expected changes
         expected_changes = {}
@@ -2042,6 +2030,18 @@ def predict_stock():
         
         # Get risk level
         risk_level = get_risk_level_from_metrics(predictor.risk_metrics)
+        
+        # Format algorithm performance for display
+        algorithm_performance = {}
+        for target in predictor.historical_performance:
+            algorithm_performance[target] = {}
+            for algo, perf in predictor.historical_performance[target].items():
+                algorithm_performance[target][algo] = {
+                    'r2': round(perf.get('r2', 0), 3),
+                    'direction_accuracy': round(perf.get('direction_accuracy', 0), 1),
+                    'mape': round(perf.get('mape', 0), 1),
+                    'weight': round(predictor.algorithm_weights.get(target, {}).get(algo, 0.1), 2)
+                }
         
         response = {
             "symbol": symbol,
@@ -2064,14 +2064,14 @@ def predict_stock():
                 for target in ['Open', 'High', 'Low', 'Close']
             },
             
-            # Algorithm details
-            "algorithm_details": prediction_result.get('algorithm_details', {}),
+            # Algorithm details with individual predictions
+            "algorithm_predictions": algorithm_details,
             
             # Confidence metrics
             "confidence_metrics": confidence_metrics,
             
             # Historical performance
-            "historical_performance": predictor.historical_performance,
+            "historical_performance": algorithm_performance,
             
             # Risk metrics
             "risk_metrics": predictor.risk_metrics,
@@ -2084,7 +2084,7 @@ def predict_stock():
             "trading_recommendation": recommendation,
             
             # Prediction history
-            "prediction_history": predictor.prediction_history.get(symbol, [])[-10:],  # Last 10 predictions
+            "prediction_history": predictor.prediction_history.get(symbol, [])[-10:],
             
             # Model info
             "model_info": {
@@ -2092,7 +2092,7 @@ def predict_stock():
                 "is_fitted": predictor.is_fitted,
                 "targets_trained": list(predictor.models.keys()),
                 "feature_count": len(predictor.feature_columns),
-                "algorithms_used": ["linear", "ridge", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
+                "algorithms_used": ["linear_regression", "ridge", "lasso", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
                 "algorithm_weights": predictor.algorithm_weights
             },
             
@@ -2109,12 +2109,15 @@ def predict_stock():
             "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%"
         }
         
+        print(f"\n{'='*60}")
+        print(f"🎯 PREDICTION SUMMARY FOR {symbol}")
         print(f"{'='*60}")
-        print(f"PREDICTION COMPLETE FOR {symbol}")
         print(f"Current Price: ${current_price:.2f}")
         print(f"Predicted Close: ${predictions.get('Close', 0):.2f} ({expected_changes.get('Close', 0):+.1f}%)")
-        print(f"Confidence: {overall_confidence:.1f}%")
+        print(f"Overall Confidence: {overall_confidence:.1f}%")
+        print(f"Risk Level: {risk_level}")
         print(f"Recommendation: {recommendation}")
+        print(f"Algorithms Used: {len(algorithm_details.get('Close', {}).get('individual', {}))}")
         print(f"{'='*60}")
         
         return jsonify(response)
@@ -2176,7 +2179,6 @@ def get_prediction_history(symbol):
     try:
         symbol = symbol.upper()
         
-        # Load history if available
         history_path = os.path.join(HISTORY_DIR, f"{symbol}_history.json")
         if os.path.exists(history_path):
             with open(history_path, 'r') as f:
@@ -2215,15 +2217,12 @@ def provide_fallback_prediction(symbol, historical_data):
             current_price = historical_data['Close'].iloc[-1] if 'Close' in historical_data.columns else 100.0
             print(f"Using current price: ${current_price}")
         
-        # Generate reasonable predictions close to current price
         predictions = {}
         for target in ['Open', 'High', 'Low', 'Close']:
-            # Very small random variation around current price
-            variation = random.uniform(-0.02, 0.02)  # ±2%
+            variation = random.uniform(-0.02, 0.02)
             pred = current_price * (1 + variation)
             predictions[target] = pred
         
-        # Calculate changes
         changes = {}
         for target, pred in predictions.items():
             change = ((pred - current_price) / current_price) * 100 if current_price != 0 else 0
@@ -2241,7 +2240,7 @@ def provide_fallback_prediction(symbol, historical_data):
                 target: {
                     "predicted_price": round(pred, 2),
                     "expected_change": round(changes[target], 2),
-                    "confidence": 60  # Lower confidence for fallback
+                    "confidence": 60
                 }
                 for target, pred in predictions.items()
             },
@@ -2286,20 +2285,22 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 60)
-    print("Stock Market Prediction System v4.2")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v5.0")
     print("=" * 60)
-    print("IMPROVEMENTS:")
-    print("  • Added Linear Regression back")
-    print("  • Added 3 important features: OBV, ADX, Stochastic")
-    print("  • Detailed model prediction output in terminal")
-    print("  • RobustScaler for outlier resistance")
-    print("  • Outlier filtering in predictions")
-    print("  • Algorithm weights based on performance")
-    print("  • Better feature engineering")
-    print("  • Median-based ensemble (more robust)")
+    print("✨ ENHANCEMENTS:")
+    print("  • Added ALL missing features (80+ total)")
+    print("  • Kept Linear Regression with outlier protection")
+    print("  • Added Ridge, Lasso, Gradient Boosting")
+    print("  • Added ATR, Support/Resistance, Seasonality")
+    print("  • Added Stochastic, Williams %R, MACD signals")
+    print("  • Added interaction and binary features")
+    print("  • Robust outlier filtering in ensemble")
     print("=" * 60)
-    print("Algorithms: Linear, Ridge, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network")
-    print("New Features: OBV, ADX, Stochastic K/D")
+    print("📊 ALGORITHMS (8 total):")
+    print("  Linear, Ridge, Lasso, SVR, Random Forest,")
+    print("  Gradient Boosting, ARIMA, Neural Network")
+    print("=" * 60)
+    print("🚀 Ready for predictions!")
     print("=" * 60)
     
     os.makedirs('templates', exist_ok=True)
