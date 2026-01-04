@@ -18,7 +18,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
-from sklearn.linear_model import Ridge, Lasso, ElasticNet
+from sklearn.linear_model import Ridge, Lasso, ElasticNet, LinearRegression
 from sklearn.svm import SVR
 from sklearn.ensemble import IsolationForest, GradientBoostingRegressor
 from sklearn.neural_network import MLPRegressor
@@ -109,6 +109,77 @@ def calculate_macd(data, fast=12, slow=26, signal=9):
         return macd, signal_line, histogram
     except:
         return pd.Series(0, index=data.index), pd.Series(0, index=data.index), pd.Series(0, index=data.index)
+
+def calculate_obv(data):
+    """Calculate On-Balance Volume (OBV)"""
+    try:
+        if 'Close' not in data.columns or 'Volume' not in data.columns:
+            return pd.Series(0, index=data.index)
+        
+        obv = [0]
+        for i in range(1, len(data)):
+            if data['Close'].iloc[i] > data['Close'].iloc[i-1]:
+                obv.append(obv[-1] + data['Volume'].iloc[i])
+            elif data['Close'].iloc[i] < data['Close'].iloc[i-1]:
+                obv.append(obv[-1] - data['Volume'].iloc[i])
+            else:
+                obv.append(obv[-1])
+        return pd.Series(obv, index=data.index)
+    except:
+        return pd.Series(0, index=data.index)
+
+def calculate_adx(data, period=14):
+    """Calculate Average Directional Index (ADX)"""
+    try:
+        if 'High' not in data.columns or 'Low' not in data.columns or 'Close' not in data.columns:
+            return pd.Series(25, index=data.index)
+        
+        high = data['High']
+        low = data['Low']
+        close = data['Close']
+        
+        # Calculate +DM and -DM
+        up_move = high.diff()
+        down_move = low.diff().abs() * -1
+        
+        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+        
+        # Calculate True Range
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        
+        # Smooth the DMs and TR
+        plus_di = 100 * (pd.Series(plus_dm, index=data.index).rolling(period).mean() / 
+                         tr.rolling(period).mean())
+        minus_di = 100 * (pd.Series(minus_dm, index=data.index).rolling(period).mean() / 
+                          tr.rolling(period).mean())
+        
+        # Calculate ADX
+        dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di).replace(0, 1e-10)
+        adx = dx.rolling(period).mean()
+        
+        return adx.fillna(25)
+    except:
+        return pd.Series(25, index=data.index)
+
+def calculate_stochastic(data, k_period=14, d_period=3):
+    """Calculate Stochastic Oscillator"""
+    try:
+        if 'High' not in data.columns or 'Low' not in data.columns or 'Close' not in data.columns:
+            return pd.Series(50, index=data.index), pd.Series(50, index=data.index)
+        
+        low_min = data['Low'].rolling(window=k_period).min()
+        high_max = data['High'].rolling(window=k_period).max()
+        
+        k = 100 * ((data['Close'] - low_min) / (high_max - low_min).replace(0, 1))
+        d = k.rolling(window=d_period).mean()
+        
+        return k.fillna(50), d.fillna(50)
+    except:
+        return pd.Series(50, index=data.index), pd.Series(50, index=data.index)
 
 def safe_divide(a, b, default=1.0):
     """Safe division with default value"""
@@ -211,6 +282,18 @@ def create_advanced_features(data):
         data['ATR'] = (data['High'] - data['Low']).rolling(window=14).mean().fillna(0)
         data['ATR_Ratio'] = safe_divide(data['ATR'], data['Close'], 0.01)
         
+        # ✅ ADDED: 3 IMPORTANT MISSING FEATURES
+        # 1. On-Balance Volume (OBV)
+        data['OBV'] = calculate_obv(data)
+        
+        # 2. Average Directional Index (ADX)
+        data['ADX'] = calculate_adx(data)
+        
+        # 3. Stochastic Oscillator (K and D lines)
+        stochastic_k, stochastic_d = calculate_stochastic(data)
+        data['Stochastic_K'] = stochastic_k
+        data['Stochastic_D'] = stochastic_d
+        
         # Seasonality features (day of week, month)
         if 'Date' in data.columns:
             try:
@@ -243,10 +326,12 @@ def create_advanced_features(data):
                         data[col] = data[col].fillna(1000000)
                     elif col in ['Open', 'High', 'Low', 'Close']:
                         data[col] = data[col].fillna(100.0)
+                    elif col in ['OBV', 'ADX', 'Stochastic_K', 'Stochastic_D']:  # Added new features
+                        data[col] = data[col].fillna(50.0)
                     else:
                         data[col] = data[col].fillna(0.0)
         
-        print(f"Created {len(data.columns)} features")
+        print(f"Created {len(data.columns)} features (including OBV, ADX, Stochastic)")
         return data
     except Exception as e:
         print(f"Feature creation error: {e}")
@@ -466,7 +551,8 @@ class OCHLPredictor:
             loaded_models = {target: {} for target in self.targets}
             loaded_scalers = {}
             
-            algorithms = ['ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
+            # ✅ UPDATED: Added Linear Regression to algorithms list
+            algorithms = ['linear', 'ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
             
             models_loaded = False
             
@@ -557,10 +643,20 @@ class OCHLPredictor:
             # Remove target columns from features
             feature_candidates = [col for col in numeric_cols if col not in self.targets]
             
-            # Select top features by correlation with target
+            # ✅ PRIORITIZE IMPORTANT FEATURES including the 3 new ones
+            priority_features = ['OBV', 'ADX', 'Stochastic_K', 'Stochastic_D', 'RSI', 'MACD', 'Volume_Ratio', 
+                                'Volatility', 'High_Low_Range', 'BB_Position', 'ATR_Ratio']
+            
+            # Select features
             if not self.feature_columns:
+                # Start with priority features that exist
+                self.feature_columns = [f for f in priority_features if f in feature_candidates]
+                
+                # Add remaining features by correlation
+                remaining_features = [f for f in feature_candidates if f not in self.feature_columns]
                 correlation_scores = {}
-                for feature in feature_candidates:
+                
+                for feature in remaining_features:
                     try:
                         # Calculate correlation with each target and take max
                         corr_scores = []
@@ -575,29 +671,14 @@ class OCHLPredictor:
                     except:
                         correlation_scores[feature] = 0
                 
-                # Select top 25 features by correlation
+                # Select top features by correlation to reach 25 total
                 if correlation_scores:
-                    top_features = sorted(correlation_scores.items(), key=lambda x: x[1], reverse=True)[:25]
-                    self.feature_columns = [f[0] for f in top_features]
-                else:
-                    # Fallback to variance
-                    if len(feature_candidates) > 25:
-                        variances = data_with_features[feature_candidates].var()
-                        variances = variances.fillna(0)
-                        self.feature_columns = variances.nlargest(25).index.tolist()
-                    else:
-                        self.feature_columns = feature_candidates
+                    top_features = sorted(correlation_scores.items(), key=lambda x: x[1], reverse=True)
+                    num_needed = max(0, 25 - len(self.feature_columns))
+                    additional_features = [f[0] for f in top_features[:num_needed]]
+                    self.feature_columns.extend(additional_features)
             
-            # If still no features, use defaults
-            if not self.feature_columns:
-                default_features = ['Return', 'Volatility', 'Volume_Ratio', 'RSI', 'High_Low_Range', 
-                                   'MA_5', 'MA_10', 'MA_20', 'BB_Position', 'Momentum_5',
-                                   'MACD', 'ATR_Ratio', 'Volume_Price_Trend', 'Resistance_Distance', 'Support_Distance']
-                self.feature_columns = [f for f in default_features if f in data_with_features.columns]
-                if not self.feature_columns:
-                    self.feature_columns = list(data_with_features.columns[:15])
-            
-            print(f"Using {len(self.feature_columns)} features")
+            print(f"Using {len(self.feature_columns)} features including OBV, ADX, Stochastic")
             
             # Prepare X (features) for each target
             X_data = {}
@@ -711,7 +792,15 @@ class OCHLPredictor:
                         print(f"Warning: Too many outliers removed for {algorithm}")
                         return None
             
-            if algorithm == 'ridge':
+            # ✅ ADDED: Linear Regression
+            if algorithm == 'linear':
+                # Linear Regression
+                model = LinearRegression()
+                model.fit(X, y)
+                print(f"Trained Linear Regression with {len(X)} samples")
+                return model
+                
+            elif algorithm == 'ridge':
                 # Ridge Regression with regularization
                 model = Ridge(alpha=1.0, random_state=42, max_iter=10000)
                 model.fit(X, y)
@@ -826,7 +915,8 @@ class OCHLPredictor:
                 print("Error: Could not prepare training data")
                 return False, "Insufficient data for training"
             
-            algorithms = ['ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
+            # ✅ UPDATED: Added Linear Regression to algorithms list
+            algorithms = ['linear', 'ridge', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
             self.models = {target: {} for target in self.targets}
             self.scalers = {}
             self.algorithm_weights = {target: {} for target in self.targets}
@@ -982,7 +1072,9 @@ class OCHLPredictor:
                                     predictions_scaled = np.zeros_like(y_test_scaled)
                             else:
                                 # Clone and retrain model for this fold
-                                if algo == 'ridge':
+                                if algo == 'linear':
+                                    fold_model = LinearRegression()
+                                elif algo == 'ridge':
                                     fold_model = Ridge(alpha=1.0, random_state=42)
                                 elif algo == 'svr':
                                     fold_model = SVR(kernel='rbf', C=1.0, epsilon=0.01)
@@ -1265,6 +1357,10 @@ class OCHLPredictor:
                 target_predictions = {}
                 target_confidences = {}
                 
+                # ✅ PRINT HEADER FOR MODEL PREDICTIONS
+                print(f"    {'Model':<20} {'Prediction':>12} {'Confidence':>12}")
+                print(f"    {'-'*20} {'-'*12} {'-'*12}")
+                
                 for algo, model in self.models[target].items():
                     if model is None:
                         continue
@@ -1345,7 +1441,8 @@ class OCHLPredictor:
                         target_predictions[algo] = float(pred_actual)
                         target_confidences[algo] = float(confidence)
                         
-                        print(f"      {algo}: ${pred_actual:.2f} (conf: {confidence:.1f}%)")
+                        # ✅ PRINT EACH MODEL'S PREDICTION
+                        print(f"    {algo:<20} ${pred_actual:>10.2f} {confidence:>10.1f}%")
                         
                     except Exception as e:
                         print(f"      Error predicting with {algo}: {e}")
@@ -1353,6 +1450,7 @@ class OCHLPredictor:
                         current_val = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
                         target_predictions[algo] = float(current_val * random.uniform(0.98, 1.02))
                         target_confidences[algo] = 50.0
+                        print(f"    {algo:<20} ${target_predictions[algo]:>10.2f} (fallback)")
                 
                 if target_predictions:
                     # FILTER OUTLIERS: Remove predictions that are too far from median
@@ -1416,7 +1514,10 @@ class OCHLPredictor:
                         'ensemble_confidence': float(np.median(list(target_confidences.values())))
                     }
                     
-                    print(f"    {target} ensemble: ${ensemble_pred:.2f} (conf: {confidence_scores[target]:.1f}%)")
+                    # ✅ PRINT ENSEMBLE RESULT
+                    print(f"    {'-'*20} {'-'*12} {'-'*12}")
+                    print(f"    {'ENSEMBLE':<20} ${ensemble_pred:>10.2f} {confidence_scores[target]:>10.1f}%")
+                    print()
                 else:
                     # Fallback to current price
                     fallback_value = data_with_features[target].iloc[-1] if target in data_with_features.columns else data_with_features['Close'].iloc[-1]
@@ -1455,6 +1556,23 @@ class OCHLPredictor:
             predictions["High"] = pred_high
             predictions["Low"] = pred_low
 
+            # ✅ PRINT FINAL PREDICTIONS SUMMARY
+            print("\n" + "="*60)
+            print(f"FINAL PREDICTIONS FOR {symbol}")
+            print("="*60)
+            print(f"{'Target':<10} {'Current':>12} {'Predicted':>12} {'Change':>10} {'Confidence':>12}")
+            print(f"{'-'*10} {'-'*12} {'-'*12} {'-'*10} {'-'*12}")
+            
+            for target in ['Open', 'High', 'Low', 'Close']:
+                current_val = data_with_features[target].iloc[-1] if target in data_with_features.columns else current_close
+                pred_val = predictions[target]
+                change = ((pred_val - current_val) / current_val * 100) if current_val != 0 else 0
+                conf = confidence_scores.get(target, 50)
+                
+                print(f"{target:<10} ${current_val:>11.2f} ${pred_val:>11.2f} {change:>+9.2f}% {conf:>10.1f}%")
+            
+            print("="*60)
+            
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
             
@@ -1855,9 +1973,9 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "4.1.0",  # Updated version
-        "algorithms": ["Ridge Regression", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
-        "features": "Enhanced OCHL Prediction with Outlier Filtering"
+        "version": "4.2.0",  # Updated version
+        "algorithms": ["Linear Regression", "Ridge Regression", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
+        "features": "Enhanced OCHL Prediction with OBV, ADX, Stochastic + All Models Output"
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -1974,7 +2092,7 @@ def predict_stock():
                 "is_fitted": predictor.is_fitted,
                 "targets_trained": list(predictor.models.keys()),
                 "feature_count": len(predictor.feature_columns),
-                "algorithms_used": ["ridge", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
+                "algorithms_used": ["linear", "ridge", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
                 "algorithm_weights": predictor.algorithm_weights
             },
             
@@ -2168,18 +2286,20 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 60)
-    print("Stock Market Prediction System v4.1")
+    print("Stock Market Prediction System v4.2")
     print("=" * 60)
     print("IMPROVEMENTS:")
-    print("  • Replaced Linear Regression with Ridge Regression")
-    print("  • Added Gradient Boosting and Neural Network")
-    print("  • RobustScaler instead of StandardScaler")
+    print("  • Added Linear Regression back")
+    print("  • Added 3 important features: OBV, ADX, Stochastic")
+    print("  • Detailed model prediction output in terminal")
+    print("  • RobustScaler for outlier resistance")
     print("  • Outlier filtering in predictions")
     print("  • Algorithm weights based on performance")
     print("  • Better feature engineering")
     print("  • Median-based ensemble (more robust)")
     print("=" * 60)
-    print("Algorithms: Ridge, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network")
+    print("Algorithms: Linear, Ridge, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network")
+    print("New Features: OBV, ADX, Stochastic K/D")
     print("=" * 60)
     
     os.makedirs('templates', exist_ok=True)
