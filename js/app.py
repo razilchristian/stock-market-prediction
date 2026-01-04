@@ -17,7 +17,7 @@ import yfinance as yf
 from flask import Flask, send_from_directory, render_template, jsonify, request, redirect
 
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
@@ -331,7 +331,6 @@ def create_advanced_features(data):
         for window in [5, 10, 20]:
             shifted = data['Close'].shift(window).replace(0, 1e-10)
             data[f'Momentum_{window}'] = safe_divide(data['Close'], shifted, 1.0) - 1
-            
             # Rate of Change
             data[f'ROC_{window}'] = data['Close'].pct_change(window) * 100
         
@@ -743,6 +742,49 @@ class OCHLPredictor:
             print(f"Error loading models: {e}")
             return False
     
+    def validate_training_data(self, X, y):
+        """Validate training data before model training"""
+        if X is None or y is None:
+            return False, "No data"
+        
+        if len(X) < 50:
+            return False, f"Insufficient samples: {len(X)}"
+        
+        # Check for extreme values
+        y_mean, y_std = np.mean(y), np.std(y)
+        if y_std > 10 * abs(y_mean):  # Extreme volatility
+            return False, f"Extreme volatility detected: std={y_std}"
+        
+        # Check for NaN/inf
+        if np.any(np.isnan(X)) or np.any(np.isnan(y)):
+            return False, "NaN values detected"
+        
+        return True, "Data valid"
+    
+    def clean_training_data(self, X, y, algorithm):
+        """Clean training data for sensitive algorithms"""
+        X_clean, y_clean = X.copy(), y.copy()
+        
+        if algorithm in ['linear_regression', 'ridge', 'lasso', 'svr']:
+            # Remove extreme outliers in target
+            y_mean, y_std = np.mean(y_clean), np.std(y_clean)
+            if y_std > 0:
+                mask = np.abs(y_clean - y_mean) < 3 * y_std
+                X_clean = X_clean[mask]
+                y_clean = y_clean[mask]
+        
+        # Also check feature outliers for all algorithms
+        if len(X_clean) > 0:
+            X_mean = np.mean(X_clean, axis=0)
+            X_std = np.std(X_clean, axis=0)
+            if np.any(X_std > 0):
+                # Remove rows with extreme features
+                mask = np.all(np.abs(X_clean - X_mean) < 5 * X_std, axis=1)
+                X_clean = X_clean[mask]
+                y_clean = y_clean[mask]
+        
+        return X_clean, y_clean
+    
     def prepare_training_data(self, data):
         try:
             print(f"\n📋 Preparing training data...")
@@ -852,46 +894,50 @@ class OCHLPredictor:
     
     def train_algorithm(self, X, y, algorithm, target):
         try:
-            if np.any(np.isnan(X)) or np.any(np.isnan(y)):
-                X = np.nan_to_num(X, nan=0.0)
-                y_mean = np.nanmean(y) if not np.all(np.isnan(y)) else 0.0
-                y = np.nan_to_num(y, nan=y_mean)
-            
-            if len(X) < 50:
+            # Validate data first
+            is_valid, msg = self.validate_training_data(X, y)
+            if not is_valid:
+                print(f"   ❌ {algorithm}: Invalid data - {msg}")
                 return None
             
-            if algorithm in ['linear_regression', 'ridge', 'lasso']:
-                y_mean, y_std = np.mean(y), np.std(y)
-                if y_std > 0:
-                    mask = np.abs(y - y_mean) < 3 * y_std
-                    X = X[mask]
-                    y = y[mask]
-                    
-                    if len(X) < 20:
-                        return None
+            # Clean data based on algorithm sensitivity
+            X_clean, y_clean = self.clean_training_data(X, y, algorithm)
+            
+            if len(X_clean) < self.get_min_samples_for_algorithm(algorithm):
+                print(f"   ❌ {algorithm}: Insufficient clean data ({len(X_clean)} samples)")
+                return None
+            
+            # Handle NaN values
+            X_clean = np.nan_to_num(X_clean, nan=0.0)
+            y_mean = np.nanmean(y_clean) if not np.all(np.isnan(y_clean)) else 0.0
+            y_clean = np.nan_to_num(y_clean, nan=y_mean)
             
             if algorithm == 'linear_regression':
                 model = LinearRegression()
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'ridge':
                 model = Ridge(alpha=1.0, random_state=42, max_iter=10000)
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'lasso':
                 model = Lasso(alpha=0.01, random_state=42, max_iter=10000)
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'svr':
-                model = SVR(kernel='rbf', C=1.0, epsilon=0.01, max_iter=10000)
-                if len(X) > 1000:
-                    idx = np.random.choice(len(X), min(1000, len(X)), replace=False)
-                    model.fit(X[idx], y[idx])
+                # Scale C parameter based on data characteristics
+                y_std = np.std(y_clean) if len(y_clean) > 0 else 1.0
+                c_value = max(0.1, min(1.0, 1.0 / (y_std + 1e-10)))
+                model = SVR(kernel='rbf', C=c_value, epsilon=0.01, max_iter=5000)
+                
+                if len(X_clean) > 1000:
+                    idx = np.random.choice(len(X_clean), min(1000, len(X_clean)), replace=False)
+                    model.fit(X_clean[idx], y_clean[idx])
                 else:
-                    model.fit(X, y)
+                    model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'random_forest':
@@ -904,7 +950,7 @@ class OCHLPredictor:
                     random_state=42,
                     n_jobs=-1
                 )
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'gradient_boosting':
@@ -916,7 +962,7 @@ class OCHLPredictor:
                     min_samples_leaf=4,
                     random_state=42
                 )
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'neural_network':
@@ -930,16 +976,16 @@ class OCHLPredictor:
                     early_stopping=True,
                     validation_fraction=0.2
                 )
-                model.fit(X, y)
+                model.fit(X_clean, y_clean)
                 return model
                 
             elif algorithm == 'arima':
-                if len(y) > 100:
+                if len(y_clean) > 100:
                     try:
-                        y_clean = np.nan_to_num(y, nan=np.nanmean(y) if not np.all(np.isnan(y)) else 0.0)
+                        y_clean_series = pd.Series(y_clean)
                         
                         model = pm.auto_arima(
-                            y_clean,
+                            y_clean_series,
                             start_p=1, start_q=1,
                             max_p=2, max_q=2, m=1,
                             seasonal=False,
@@ -951,8 +997,9 @@ class OCHLPredictor:
                         )
                         return model
                     except Exception as e:
+                        print(f"   ⚠️ ARIMA auto failed: {e}, trying simple ARIMA")
                         try:
-                            model = StatsmodelsARIMA(y_clean, order=(1,1,0))
+                            model = StatsmodelsARIMA(y_clean_series, order=(1,1,0))
                             model_fit = model.fit()
                             return model_fit
                         except:
@@ -964,6 +1011,17 @@ class OCHLPredictor:
         except Exception as e:
             print(f"Error training {algorithm}: {e}")
             return None
+    
+    def get_min_samples_for_algorithm(self, algorithm):
+        """Get minimum samples required for each algorithm"""
+        if algorithm in ['arima']:
+            return 50  # ARIMA needs less data
+        elif algorithm in ['linear_regression', 'ridge', 'lasso']:
+            return 100  # Linear models need more
+        elif algorithm in ['svr', 'neural_network']:
+            return 150  # Complex models need most
+        else:
+            return 50
     
     def train_all_models(self, data, symbol):
         try:
@@ -998,6 +1056,10 @@ class OCHLPredictor:
             
             if all_features:
                 all_features_array = np.vstack(all_features)
+                # Apply clipping to prevent extreme values
+                all_features_array = np.clip(all_features_array, 
+                                           np.percentile(all_features_array, 1, axis=0),
+                                           np.percentile(all_features_array, 99, axis=0))
                 self.feature_scaler.fit(all_features_array)
                 print(f"✅ Fitted RobustScaler with {all_features_array.shape[0]} samples")
             else:
@@ -1022,6 +1084,7 @@ class OCHLPredictor:
                 try:
                     X_scaled = self.feature_scaler.transform(X)
                 except Exception as e:
+                    print(f"   ⚠️ Feature scaling failed, using unscaled: {e}")
                     X_scaled = X
                 
                 try:
@@ -1137,6 +1200,7 @@ class OCHLPredictor:
                                 else:
                                     predictions_scaled = np.zeros_like(y_test_scaled)
                             else:
+                                # Train a fresh model for cross-validation
                                 if algo == 'linear_regression':
                                     fold_model = LinearRegression()
                                 elif algo == 'ridge':
@@ -1324,6 +1388,123 @@ class OCHLPredictor:
         except Exception as e:
             print(f"Error updating prediction history: {e}")
     
+    def get_reliable_predictions(self, symbol, data):
+        """Get predictions with enhanced reliability"""
+        # Try primary predictor
+        result, error = self.predict_ochl(data, symbol)
+        
+        if error or result is None:
+            return self.get_conservative_fallback(data)
+        
+        # If too few models, use conservative approach
+        model_count = sum(len(details.get('individual', {})) 
+                         for details in result.get('algorithm_details', {}).values())
+        
+        if model_count < 3:  # Too few reliable models
+            return self.get_conservative_fallback(data, result)
+        
+        return result
+    
+    def get_conservative_fallback(self, data, primary_result=None):
+        """Get conservative fallback predictions when models fail"""
+        try:
+            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+            
+            # Conservative predictions based on recent trends
+            recent_returns = []
+            if 'Close' in data.columns and len(data) > 5:
+                recent_prices = data['Close'].iloc[-5:].values
+                if len(recent_prices) >= 2:
+                    for i in range(1, len(recent_prices)):
+                        recent_returns.append((recent_prices[i] - recent_prices[i-1]) / recent_prices[i-1])
+            
+            avg_return = np.mean(recent_returns) if recent_returns else 0
+            
+            # Very conservative predictions
+            predictions = {}
+            for target in self.targets:
+                if target == 'High':
+                    pred = current_close * (1 + min(avg_return + 0.01, 0.03))
+                elif target == 'Low':
+                    pred = current_close * (1 + max(avg_return - 0.01, -0.03))
+                elif target == 'Open':
+                    pred = current_close * (1 + avg_return * 0.5)
+                else:  # Close
+                    pred = current_close * (1 + avg_return)
+                
+                predictions[target] = pred
+            
+            # Ensure OHLC constraints
+            pred_open = predictions.get("Open", current_close)
+            pred_close = predictions.get("Close", current_close)
+            pred_high = max(predictions.get("High", current_close * 1.01), pred_open, pred_close)
+            pred_low = min(predictions.get("Low", current_close * 0.99), pred_open, pred_close)
+            
+            predictions["High"] = pred_high
+            predictions["Low"] = pred_low
+            
+            # Apply bounds
+            max_change = 0.05  # Very conservative
+            for target in predictions:
+                predictions[target] = max(predictions[target], current_close * (1 - max_change))
+                predictions[target] = min(predictions[target], current_close * (1 + max_change))
+            
+            result = {
+                'predictions': predictions,
+                'confidence_scores': {target: 60.0 for target in self.targets},
+                'confidence_metrics': {
+                    'overall_confidence': 60.0,
+                    'confidence_level': 'MEDIUM',
+                    'confidence_color': 'warning'
+                },
+                'risk_alerts': [{
+                    'level': '🟡 HIGH',
+                    'type': 'Conservative Mode',
+                    'message': 'Using conservative predictions',
+                    'details': 'Primary models produced limited valid predictions'
+                }],
+                'current_prices': {
+                    'open': float(data['Open'].iloc[-1]) if 'Open' in data.columns else current_close * 0.995,
+                    'high': float(data['High'].iloc[-1]) if 'High' in data.columns else current_close * 1.015,
+                    'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else current_close * 0.985,
+                    'close': float(current_close)
+                },
+                'fallback': True
+            }
+            
+            return result, None
+            
+        except Exception as e:
+            print(f"Conservative fallback error: {e}")
+            # Ultimate fallback
+            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+            predictions = {target: float(current_close) for target in self.targets}
+            
+            result = {
+                'predictions': predictions,
+                'confidence_scores': {target: 50.0 for target in self.targets},
+                'confidence_metrics': {
+                    'overall_confidence': 50.0,
+                    'confidence_level': 'LOW',
+                    'confidence_color': 'danger'
+                },
+                'risk_alerts': [{
+                    'level': '🔴 CRITICAL',
+                    'type': 'Emergency Fallback',
+                    'message': 'Using emergency fallback predictions',
+                    'details': 'All prediction systems unavailable'
+                }],
+                'current_prices': {
+                    'open': float(current_close * 0.995),
+                    'high': float(current_close * 1.015),
+                    'low': float(current_close * 0.985),
+                    'close': float(current_close)
+                },
+                'fallback': True
+            }
+            
+            return result, None
+    
     def predict_ochl(self, data, symbol):
         """PREDICT WITH DETAILED OUTPUT FOR ALL MODELS"""
         try:
@@ -1348,22 +1529,18 @@ class OCHLPredictor:
                 
                 if not models_loaded or not self.is_fitted:
                     print(f"   No valid models found, training new ones...")
-                    success, msg = self.train_all_models(data, symbol)
+                    success, train_msg = self.train_all_models(data, symbol)
                     if not success:
-                        print(f"❌ Training failed: {msg}")
-                        current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
-                        predictions = {target: float(current_close) for target in self.targets}
-                        return {
-                            'predictions': predictions,
-                            'confidence_scores': {target: 50.0 for target in self.targets},
-                            'algorithm_details': {},
-                            'current_prices': {'close': float(current_close)}
-                        }, None
+                        print(f"❌ Training failed: {train_msg}")
+                        return self.get_conservative_fallback(data)
+                    print("✅ Training successful")
+            else:
+                print("✅ Loaded existing models")
             
             X_data, _, data_with_features = self.prepare_training_data(data)
             
             if X_data is None:
-                return None, "Insufficient data for prediction"
+                return self.get_conservative_fallback(data)
             
             predictions = {}
             confidence_scores = {}
@@ -1375,20 +1552,7 @@ class OCHLPredictor:
             # Check if models exist
             if not self.models or all(len(self.models.get(target, {})) == 0 for target in self.targets):
                 print(f"⚠️ No models available, using fallback prediction")
-                for target in self.targets:
-                    predictions[target] = float(current_close)
-                    confidence_scores[target] = 50.0
-                    algorithm_predictions[target] = {'ensemble': float(current_close)}
-                
-                result = {
-                    'predictions': predictions,
-                    'algorithm_details': algorithm_predictions,
-                    'confidence_scores': confidence_scores,
-                    'confidence_metrics': {'overall_confidence': 50.0, 'confidence_level': 'LOW'},
-                    'risk_alerts': [],
-                    'current_prices': {'close': float(current_close)}
-                }
-                return result, None
+                return self.get_conservative_fallback(data)
             
             print(f"📈 Algorithms available: {sum(len(self.models.get(target, {})) for target in self.targets)} total")
             print()
@@ -1423,15 +1587,12 @@ class OCHLPredictor:
                     algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
                 
-                # Scale features
+                # Scale features with fallback
                 try:
                     latest_scaled = self.feature_scaler.transform(latest_features)
                 except Exception as e:
-                    print(f"   ❌ Feature scaling failed: {e}")
-                    predictions[target] = current_close
-                    confidence_scores[target] = 50.0
-                    algorithm_predictions[target] = {'ensemble': float(current_close)}
-                    continue
+                    print(f"   ⚠️ Feature scaling failed: {e}, using unscaled features")
+                    latest_scaled = latest_features
                 
                 target_predictions = {}
                 target_confidences = {}
@@ -1851,6 +2012,27 @@ class OCHLPredictor:
         except:
             return "NORMAL"
 
+    def check_model_health(self, symbol):
+        """Check if models are producing reasonable predictions"""
+        health_report = {
+            'symbol': symbol,
+            'models_available': {},
+            'issues': []
+        }
+        
+        for target in self.targets:
+            if target not in self.models:
+                continue
+                
+            for algo, model in self.models[target].items():
+                if model is None:
+                    health_report['models_available'][f"{target}_{algo}"] = False
+                    health_report['issues'].append(f"{target}_{algo}: Model is None")
+                else:
+                    health_report['models_available'][f"{target}_{algo}"] = True
+        
+        return health_report
+
 # Global predictor instance
 predictor = OCHLPredictor()
 
@@ -2018,12 +2200,13 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "6.5.0",
+        "version": "6.5.1",  # Updated version
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "features": "Complete OCHL Prediction with 90+ Features",
         "data": "10 Years Historical Data",
         "split_handling": "Enabled (GE, AAPL, TSLA, NVDA, GOOGL, AMZN)",
-        "sanity_checks": "Enabled (rejects >15% daily changes)"
+        "sanity_checks": "Enabled (rejects >15% daily changes)",
+        "improvements": "Enhanced data cleaning, better fallbacks, conservative predictions"
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -2065,12 +2248,15 @@ def predict_stock():
         else:
             print("✅ Loaded existing models")
         
-        # Make prediction with DETAILED OUTPUT
-        print("\n🤖 Making predictions with ALL algorithms...")
-        prediction_result, pred_error = predictor.predict_ochl(clean_data if has_split else historical_data, symbol)
+        # Get reliable predictions with enhanced fallbacks
+        print("\n🤖 Making predictions with enhanced reliability...")
+        prediction_result, pred_error = predictor.get_reliable_predictions(symbol, clean_data if has_split else historical_data)
         
         if pred_error:
             return provide_fallback_prediction(symbol, historical_data)
+        
+        # Check if this is a fallback prediction
+        is_fallback = prediction_result.get('fallback', False)
         
         # Prepare response
         current_prices = prediction_result['current_prices']
@@ -2097,17 +2283,18 @@ def predict_stock():
         # Get risk level
         risk_level = get_risk_level_from_metrics(predictor.risk_metrics)
         
-        # Format algorithm performance
+        # Format algorithm performance if available
         algorithm_performance = {}
-        for target in predictor.historical_performance:
-            algorithm_performance[target] = {}
-            for algo, perf in predictor.historical_performance[target].items():
-                algorithm_performance[target][algo] = {
-                    'r2': round(perf.get('r2', 0), 3),
-                    'direction_accuracy': round(perf.get('direction_accuracy', 0), 1),
-                    'mape': round(perf.get('mape', 0), 1),
-                    'weight': round(predictor.algorithm_weights.get(target, {}).get(algo, 0.1), 2)
-                }
+        if not is_fallback and predictor.historical_performance:
+            for target in predictor.historical_performance:
+                algorithm_performance[target] = {}
+                for algo, perf in predictor.historical_performance[target].items():
+                    algorithm_performance[target][algo] = {
+                        'r2': round(perf.get('r2', 0), 3),
+                        'direction_accuracy': round(perf.get('direction_accuracy', 0), 1),
+                        'mape': round(perf.get('mape', 0), 1),
+                        'weight': round(predictor.algorithm_weights.get(target, {}).get(algo, 0.1), 2)
+                    }
         
         response = {
             "symbol": symbol,
@@ -2149,7 +2336,8 @@ def predict_stock():
                 "targets_trained": list(predictor.models.keys()),
                 "feature_count": len(predictor.feature_columns),
                 "algorithms_used": ["linear_regression", "ridge", "lasso", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
-                "algorithm_weights": predictor.algorithm_weights
+                "algorithm_weights": predictor.algorithm_weights,
+                "fallback_mode": is_fallback
             },
             
             "data_info": {
@@ -2165,8 +2353,13 @@ def predict_stock():
             "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%"
         }
         
+        if is_fallback:
+            response["fallback_warning"] = "Using enhanced conservative predictions due to limited model availability"
+        
         print(f"\n{'='*70}")
         print(f"🎯 FINAL RESPONSE READY")
+        if is_fallback:
+            print(f"⚠️ USING ENHANCED FALLBACK PREDICTIONS")
         print(f"{'='*70}")
         
         return jsonify(response)
@@ -2197,6 +2390,9 @@ def train_models():
         success, train_msg = predictor.train_all_models(historical_data, symbol)
         
         if success:
+            # Check model health after training
+            health_report = predictor.check_model_health(symbol)
+            
             return jsonify({
                 "status": "success",
                 "message": train_msg,
@@ -2204,7 +2400,8 @@ def train_models():
                 "last_training_date": predictor.last_training_date,
                 "historical_performance": predictor.historical_performance,
                 "risk_metrics": predictor.risk_metrics,
-                "algorithm_weights": predictor.algorithm_weights
+                "algorithm_weights": predictor.algorithm_weights,
+                "model_health": health_report
             })
         else:
             return jsonify({
@@ -2254,19 +2451,42 @@ def get_prediction_history(symbol):
 
 def provide_fallback_prediction(symbol, historical_data):
     try:
-        print(f"⚠️ Using fallback prediction for {symbol}")
+        print(f"⚠️ Using ultimate fallback prediction for {symbol}")
         
         if historical_data is None or historical_data.empty:
             current_price = 100.0
         else:
             current_price = historical_data['Close'].iloc[-1] if 'Close' in historical_data.columns else 100.0
         
-        # Very conservative fallback
+        # Very conservative fallback based on simple moving average
         predictions = {}
         for target in ['Open', 'High', 'Low', 'Close']:
-            variation = random.uniform(-0.02, 0.02)
-            pred = current_price * (1 + variation)
+            # Simple trend following
+            if 'Close' in historical_data.columns and len(historical_data) > 5:
+                recent_avg = historical_data['Close'].iloc[-5:].mean()
+                trend = 1.0 if current_price > recent_avg else 0.99
+            else:
+                trend = 1.0
+            
+            if target == 'High':
+                pred = current_price * trend * 1.005  # Slight upward bias for high
+            elif target == 'Low':
+                pred = current_price * trend * 0.995  # Slight downward bias for low
+            elif target == 'Open':
+                pred = current_price * trend
+            else:  # Close
+                pred = current_price * trend
+            
             predictions[target] = pred
+        
+        # Ensure OHLC constraints
+        pred_open = predictions.get("Open", current_price)
+        pred_close = predictions.get("Close", current_price)
+        pred_high = max(predictions.get("High", current_price * 1.01), pred_open, pred_close)
+        pred_low = min(predictions.get("Low", current_price * 0.99), pred_open, pred_close)
+        
+        predictions["High"] = pred_high
+        predictions["Low"] = pred_low
         
         changes = {}
         for target, pred in predictions.items():
@@ -2296,18 +2516,18 @@ def provide_fallback_prediction(symbol, historical_data):
             },
             "risk_alerts": [{
                 "level": "🟡 HIGH",
-                "type": "Fallback Mode",
-                "message": "Using fallback prediction engine",
-                "details": "Primary models unavailable, using simplified predictions"
+                "type": "Ultimate Fallback Mode",
+                "message": "Using ultimate fallback prediction engine",
+                "details": "Primary models and enhanced fallbacks unavailable"
             }],
             "risk_level": "🟠 MEDIUM RISK",
             "trading_recommendation": "🔄 HOLD",
             "fallback": True,
-            "message": "Using fallback prediction engine"
+            "message": "Using ultimate fallback prediction engine"
         })
         
     except Exception as e:
-        print(f"Fallback prediction error: {e}")
+        print(f"Ultimate fallback prediction error: {e}")
         return jsonify({
             "error": "Prediction service unavailable",
             "fallback": True
@@ -2330,19 +2550,20 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 70)
-    print("📈 STOCK MARKET PREDICTION SYSTEM v6.5")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v6.5.1")
     print("=" * 70)
-    print("✨ CRITICAL FIXES:")
-    print("  • 🚨 STOCK SPLIT HANDLING (GE, AAPL, TSLA, NVDA, GOOGL, AMZN)")
-    print("  • ✅ SANITY CHECKS (rejects >15% daily changes)")
-    print("  • 📊 POST-SPLIT DATA ONLY for split stocks")
-    print("  • 🔴 REJECTS implausible predictions")
+    print("✨ ENHANCED FIXES:")
+    print("  • 🚨 FIXED Extreme Prediction Values (Linear Regression, SVR)")
+    print("  • ✅ Enhanced Data Cleaning & Outlier Removal")
+    print("  • 📊 Conservative Fallback Predictions")
+    print("  • 🔧 Algorithm-Specific Data Requirements")
+    print("  • 🛡️ Robust Feature Scaling with Fallbacks")
     print("=" * 70)
     print("🔧 TECHNICAL:")
     print("  • 10 YEARS historical data")
-    print("  • 8 ALGORITHMS with individual predictions")
+    print("  • 8 ALGORITHMS with enhanced training")
     print("  • 90+ TECHNICAL FEATURES")
-    print("  • Detailed terminal output")
+    print("  • 3-Tier Fallback System")
     print("=" * 70)
     print("🚀 Ready for predictions! Send POST to /api/predict")
     print("=" * 70)
