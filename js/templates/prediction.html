@@ -34,6 +34,14 @@
   --crisis-red: #ff4757;
   --warning-orange: #ffa502;
   --normal-green: #2ed573;
+  --model-linear: #00e6ff;
+  --model-ridge: #00ff9d;
+  --model-lasso: #8a2be2;
+  --model-svr: #ff6b6b;
+  --model-rf: #ffa502;
+  --model-gb: #9b59b6;
+  --model-arima: #3498db;
+  --model-nn: #2ecc71;
 }
 
 body.light {
@@ -52,6 +60,14 @@ body.light {
   --crisis-red: #ff3838;
   --warning-orange: #ff9f1a;
   --normal-green: #00b894;
+  --model-linear: #0077cc;
+  --model-ridge: #00b894;
+  --model-lasso: #8a2be2;
+  --model-svr: #ff3838;
+  --model-rf: #ff9f1a;
+  --model-gb: #9b59b6;
+  --model-arima: #3498db;
+  --model-nn: #2ecc71;
 }
 
 html,body { height:100%; }
@@ -246,17 +262,16 @@ body {
 .confidence-fill { height:100%; border-radius:4px; transition:width 0.5s ease; }
 .confidence-value { width:50px; text-align:right; font-size:13px; font-weight:600; }
 
-/* NEW: Algorithm Breakdown Section */
-.algorithm-section { display:none; margin-bottom:32px; }
-.algorithm-section.active { display:block; }
+/* Algorithm Breakdown Section */
+.algorithm-section { display:block; margin-bottom:32px; }
 
 .algorithm-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
 .algorithm-tab { padding:10px 16px; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.3s; }
 .algorithm-tab:hover { border-color:var(--active-color); }
 .algorithm-tab.active { background:var(--active-color); color:var(--bg-dark); border-color:var(--active-color); box-shadow:var(--shadow-glow); }
 
-.algorithm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; }
-.algorithm-card { background:var(--bg-card); border-radius:16px; padding:20px; border:1px solid var(--border-color); }
+.algorithm-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(350px, 1fr)); gap:20px; }
+.algorithm-card { background:var(--bg-card); border-radius:16px; padding:20px; border:1px solid var(--border-color); position: relative; }
 .algorithm-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
 .algorithm-name { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
 .algorithm-confidence { font-size:14px; font-weight:600; padding:4px 12px; border-radius:20px; }
@@ -264,17 +279,45 @@ body {
 .algorithm-confidence.medium { background:rgba(255, 165, 0, 0.2); color:#ffa500; }
 .algorithm-confidence.low { background:rgba(255, 77, 124, 0.2); color:var(--down-color); }
 
-.algorithm-predictions { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
-.algorithm-prediction-item { background:var(--bg-dark); padding:12px; border-radius:8px; border:1px solid var(--border-color); }
-.algorithm-prediction-label { font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
-.algorithm-prediction-value { font-size:16px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
-.algorithm-prediction-change { font-size:12px; font-weight:600; }
+.algorithm-predictions { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:16px; }
+@media (max-width:768px){ .algorithm-predictions{ grid-template-columns:repeat(2, 1fr); } }
+.algorithm-prediction-item { background:var(--bg-dark); padding:12px; border-radius:8px; border:1px solid var(--border-color); text-align:center; }
+.algorithm-prediction-label { font-size:11px; color:var(--text-secondary); margin-bottom:4px; }
+.algorithm-prediction-value { font-size:14px; font-weight:700; font-family:'Space Grotesk', sans-serif; }
+.algorithm-prediction-change { font-size:11px; font-weight:600; }
 
 .algorithm-performance { margin-top:16px; padding-top:16px; border-top:1px solid var(--border-color); }
-.algorithm-performance-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.algorithm-performance-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
 .algorithm-performance-item { text-align:center; }
-.algorithm-performance-label { font-size:10px; color:var(--text-muted); margin-bottom:2px; }
-.algorithm-performance-value { font-size:12px; font-weight:700; }
+.algorithm-performance-label { font-size:9px; color:var(--text-muted); margin-bottom:2px; }
+.algorithm-performance-value { font-size:10px; font-weight:700; }
+
+/* Model Comparison Table */
+.model-comparison-section { display:block; margin-bottom:32px; }
+.model-comparison-table { width:100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+.model-comparison-table th { background: var(--bg-dark); padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+.model-comparison-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+.model-comparison-table tr:hover { background: var(--hover-color); }
+.model-comparison-table .model-name { font-weight: 600; color: var(--text-primary); }
+.model-comparison-table .performance-score { font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.model-comparison-table .rank-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.model-comparison-table .rank-1 { background: rgba(255, 215, 0, 0.2); color: #ffd700; }
+.model-comparison-table .rank-2 { background: rgba(192, 192, 192, 0.2); color: #c0c0c0; }
+.model-comparison-table .rank-3 { background: rgba(205, 127, 50, 0.2); color: #cd7f32; }
+
+/* Detailed Model View */
+.detailed-model-section { display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom:32px; }
+.detailed-model-card { background: var(--bg-card); border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); }
+.detailed-model-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+.detailed-model-title { font-size: 18px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.detailed-model-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+.detailed-model-stat { background: var(--bg-dark); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+.detailed-model-stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.detailed-model-stat-value { font-size: 16px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+.detailed-model-predictions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.detailed-model-prediction { background: var(--bg-dark); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+.detailed-model-prediction-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.detailed-model-prediction-value { font-size: 16px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
 
 /* Crisis & Market Regime */
 .crisis-section { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
@@ -344,10 +387,12 @@ body {
   .regime-indicators { grid-template-columns:1fr; }
   .algorithm-grid { grid-template-columns:1fr; }
   .algorithm-predictions { grid-template-columns:1fr; }
+  .detailed-model-section { grid-template-columns: 1fr; }
 }
 @media (max-width:480px){
   .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
   .performance-card, .crisis-card { padding:20px; }
+  .algorithm-predictions { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 </head>
@@ -407,7 +452,7 @@ body {
         <h3>AI Prediction Engine</h3>
       </div>
       <div class="ai-content" id="aiInsightText">
-        Our AI analyzes historical data, technical indicators and market signals to generate next-day predictions.
+        Our AI analyzes 10 years of historical data using 8 algorithms (Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network) with 90+ technical features to generate next-day OCHL predictions.
       </div>
     </div>
 
@@ -536,12 +581,12 @@ body {
       </div>
     </div>
 
-    <!-- NEW: Algorithm Breakdown Section -->
+    <!-- Algorithm Breakdown Section -->
     <div class="algorithm-section" id="algorithmSection">
       <div class="performance-card">
-        <h3><i class="fas fa-microchip"></i> Algorithm Predictions Breakdown</h3>
+        <h3><i class="fas fa-microchip"></i> All Algorithm Predictions Breakdown</h3>
         <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
-          See how each algorithm predicts OCHL (Open, Close, High, Low) values
+          See how each of the 8 algorithms predicts OCHL (Open, Close, High, Low) values with individual confidence scores
         </p>
         
         <div class="algorithm-tabs" id="algorithmTabs">
@@ -554,13 +599,41 @@ body {
       </div>
     </div>
 
+    <!-- Model Comparison Table -->
+    <div class="model-comparison-section" id="modelComparisonSection">
+      <div class="performance-card">
+        <h3><i class="fas fa-chart-bar"></i> Model Performance Comparison</h3>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+          Detailed performance metrics across all 8 algorithms for the selected stock
+        </p>
+        
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="model-comparison-table">
+            <thead>
+              <tr id="modelComparisonHeader">
+                <!-- Will be populated by JavaScript -->
+              </tr>
+            </thead>
+            <tbody id="modelComparisonBody">
+              <!-- Will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Model Views -->
+    <div class="detailed-model-section" id="detailedModelSection">
+      <!-- Will be populated by JavaScript -->
+    </div>
+
     <!-- Performance & Confidence -->
     <div class="performance-section">
       <div class="performance-card">
         <h3><i class="fas fa-chart-bar"></i> Historical Performance</h3>
         <div class="performance-grid" id="performanceGrid">
           <div class="performance-item">
-            <div class="performance-label">Model R² Score</div>
+            <div class="performance-label">Best Model R² Score</div>
             <div class="performance-value" id="r2Score">—</div>
             <div class="performance-subtext">Higher is better</div>
           </div>
@@ -570,14 +643,14 @@ body {
             <div class="performance-subtext">Price movement prediction</div>
           </div>
           <div class="performance-item">
-            <div class="performance-label">RMSE</div>
+            <div class="performance-label">Best Model RMSE</div>
             <div class="performance-value" id="rmseScore">—</div>
             <div class="performance-subtext">Lower is better</div>
           </div>
           <div class="performance-item">
-            <div class="performance-label">Overfitting Ratio</div>
-            <div class="performance-value" id="overfittingRatio">—</div>
-            <div class="performance-subtext">Close to 1.0 is ideal</div>
+            <div class="performance-label">Algorithms Used</div>
+            <div class="performance-value" id="algorithmsUsed">—</div>
+            <div class="performance-subtext">Active models</div>
           </div>
         </div>
       </div>
@@ -636,16 +709,17 @@ body {
 
       <div class="chart-card">
         <div class="chart-header">
-          <div class="chart-title">Prediction Confidence</div>
+          <div class="chart-title">Model Performance Comparison</div>
           <div class="chart-actions">
-            <select id="confidenceFilter">
-              <option>All Stocks</option>
-              <option>Tech Sector</option>
-              <option selected>Selected Stock</option>
+            <select id="modelComparisonFilter">
+              <option>All Models</option>
+              <option>Top 3 Models</option>
+              <option selected>By R² Score</option>
+              <option>By Direction Accuracy</option>
             </select>
           </div>
         </div>
-        <div class="chart-container" id="confidenceChart">Confidence chart will appear here</div>
+        <div class="chart-container" id="modelChart">Model comparison chart will appear here</div>
       </div>
     </div>
 
@@ -653,8 +727,7 @@ body {
     <div class="card" style="padding:20px; background:var(--bg-card); border-radius:20px; border:1px solid var(--border-color);">
       <h3 style="color:var(--accent-blue); margin-bottom:8px">Model & Deployment</h3>
       <p style="color:var(--text-secondary); font-size:14px; line-height:1.5;">
-        This AI prediction system uses advanced machine learning models with historical performance tracking, 
-        real-time confidence scoring, and market crisis detection. All predictions are for educational purposes only.
+        This AI prediction system uses 8 advanced machine learning models (Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network) with 10 years of historical data, 90+ technical features, and real-time confidence scoring. All predictions are for educational purposes only.
       </p>
     </div>
 
@@ -679,7 +752,37 @@ const AppState = {
   currentPredictions: null,
   lastFetchTime: null,
   marketStatus: "unknown",
-  activeAlgorithmTab: 'all'
+  activeAlgorithmTab: 'all',
+  allAlgorithms: [
+    'linear_regression',
+    'ridge',
+    'lasso',
+    'svr',
+    'random_forest',
+    'gradient_boosting',
+    'arima',
+    'neural_network'
+  ],
+  algorithmNames: {
+    'linear_regression': 'Linear Regression',
+    'ridge': 'Ridge Regression',
+    'lasso': 'Lasso Regression',
+    'svr': 'Support Vector Regression',
+    'random_forest': 'Random Forest',
+    'gradient_boosting': 'Gradient Boosting',
+    'arima': 'ARIMA',
+    'neural_network': 'Neural Network'
+  },
+  algorithmColors: {
+    'linear_regression': 'var(--model-linear)',
+    'ridge': 'var(--model-ridge)',
+    'lasso': 'var(--model-lasso)',
+    'svr': 'var(--model-svr)',
+    'random_forest': 'var(--model-rf)',
+    'gradient_boosting': 'var(--model-gb)',
+    'arima': 'var(--model-arima)',
+    'neural_network': 'var(--model-nn)'
+  }
 };
 
 /* Mobile menu handler */
@@ -983,6 +1086,11 @@ class PredictionDisplay {
     document.querySelectorAll('.confidence-value').forEach(el => {
       el.textContent = '—';
     });
+    
+    // Clear algorithm sections
+    document.getElementById('algorithmGrid').innerHTML = '';
+    document.getElementById('modelComparisonBody').innerHTML = '';
+    document.getElementById('detailedModelSection').innerHTML = '';
   }
 
   static update(data) {
@@ -1018,6 +1126,12 @@ class PredictionDisplay {
     
     // Update algorithm breakdown
     this.updateAlgorithmBreakdown(data);
+    
+    // Update model comparison table
+    this.updateModelComparison(data);
+    
+    // Update detailed model views
+    this.updateDetailedModelViews(data);
     
     // Update performance metrics
     this.updatePerformance(data.historical_performance || {});
@@ -1176,19 +1290,8 @@ class PredictionDisplay {
     
     if (!algorithmSection || !algorithmTabs || !algorithmGrid) return;
     
-    const algorithmDetails = data.algorithm_details || {};
-    const predictions = data.predictions || {};
-    const currentPrices = data.current_prices || {};
-    
-    // If no algorithm details, hide the section
-    if (Object.keys(algorithmDetails).length === 0) {
-      algorithmSection.style.display = 'none';
-      return;
-    }
-    
-    // Show the section
-    algorithmSection.classList.add('active');
-    algorithmSection.style.display = 'block';
+    const algorithmDetails = data.algorithm_predictions || data.algorithm_details || {};
+    const historicalPerformance = data.historical_performance || {};
     
     // Clear existing content
     algorithmTabs.innerHTML = '';
@@ -1205,18 +1308,10 @@ class PredictionDisplay {
     algorithmTabs.appendChild(allTab);
     
     // Create tabs for each algorithm
-    const algorithms = ['linear_regression', 'svr', 'random_forest', 'arima'];
-    const algorithmNames = {
-      'linear_regression': 'Linear Regression',
-      'svr': 'Support Vector Regression',
-      'random_forest': 'Random Forest',
-      'arima': 'ARIMA'
-    };
-    
-    algorithms.forEach(algo => {
+    AppState.allAlgorithms.forEach(algo => {
       const tab = document.createElement('div');
       tab.className = 'algorithm-tab';
-      tab.textContent = algorithmNames[algo] || algo;
+      tab.textContent = AppState.algorithmNames[algo] || algo;
       tab.dataset.target = algo;
       tab.addEventListener('click', () => {
         this.switchAlgorithmTab(algo);
@@ -1224,64 +1319,85 @@ class PredictionDisplay {
       algorithmTabs.appendChild(tab);
     });
     
-    // Create algorithm cards
-    algorithms.forEach(algo => {
-      const algoData = algorithmDetails[algo] || {};
-      
-      // Skip if no data for this algorithm
-      if (Object.keys(algoData).length === 0) return;
-      
-      const algorithmCard = this.createAlgorithmCard(algo, algoData, currentPrices);
-      algorithmGrid.appendChild(algorithmCard);
+    // Create algorithm cards for all algorithms
+    AppState.allAlgorithms.forEach(algo => {
+      const algorithmCard = this.createAlgorithmCard(algo, data);
+      if (algorithmCard) {
+        algorithmGrid.appendChild(algorithmCard);
+      }
     });
     
     // Show all algorithms by default
+    algorithmSection.style.display = 'block';
     this.switchAlgorithmTab('all');
   }
 
-  static createAlgorithmCard(algorithm, algoData, currentPrices) {
+  static createAlgorithmCard(algorithm, data) {
     const card = document.createElement('div');
     card.className = 'algorithm-card';
     card.dataset.algorithm = algorithm;
     
-    // Get algorithm display name
-    const algorithmNames = {
-      'linear_regression': 'Linear Regression',
-      'svr': 'Support Vector Regression',
-      'random_forest': 'Random Forest',
-      'arima': 'ARIMA'
-    };
+    const algoName = AppState.algorithmNames[algorithm] || algorithm;
+    const algorithmColor = AppState.algorithmColors[algorithm] || 'var(--accent-blue)';
     
-    const algoName = algorithmNames[algorithm] || algorithm;
+    // Get predictions for this algorithm
+    const algorithmDetails = data.algorithm_predictions || {};
+    const historicalPerformance = data.historical_performance || {};
+    const currentPrices = data.current_prices || {};
     
-    // Calculate average confidence
+    // Collect predictions from all targets
+    const predictions = {};
     let totalConfidence = 0;
     let confidenceCount = 0;
     
     ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      if (algoData[target] && algoData[target].confidence) {
-        totalConfidence += algoData[target].confidence;
-        confidenceCount++;
+      if (algorithmDetails[target] && algorithmDetails[target].individual) {
+        const individualPreds = algorithmDetails[target].individual;
+        if (individualPreds[algorithm]) {
+          predictions[target] = {
+            value: individualPreds[algorithm],
+            confidence: algorithmDetails[target].confidences?.[algorithm] || 50
+          };
+          totalConfidence += predictions[target].confidence;
+          confidenceCount++;
+        }
       }
     });
     
+    // Calculate average confidence
     const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 50;
-    let badge = '';
-    if (algorithm === 'random_forest') badge = '🏆 Best Model';
-    if (algorithm === 'arima') badge = '⚠️ Weak Model';
     
     // Determine confidence class
     let confidenceClass = 'low';
     if (avgConfidence >= 80) confidenceClass = 'high';
     else if (avgConfidence >= 60) confidenceClass = 'medium';
     
+    // Get performance metrics
+    const performance = {};
+    ['Open', 'High', 'Low', 'Close'].forEach(target => {
+      if (historicalPerformance[target] && historicalPerformance[target][algorithm]) {
+        performance[target] = historicalPerformance[target][algorithm];
+      }
+    });
+    
+    // Calculate overall performance score
+    let performanceScore = 0;
+    let perfCount = 0;
+    Object.values(performance).forEach(perf => {
+      if (perf) {
+        const r2Score = Math.max(perf.r2 || 0, 0);
+        const dirAcc = perf.direction_accuracy || 0;
+        performanceScore += (r2Score * 100 * 0.5) + (dirAcc * 0.5);
+        perfCount++;
+      }
+    });
+    performanceScore = perfCount > 0 ? performanceScore / perfCount : 0;
+    
+    // Create card content
     card.innerHTML = `
       <div class="algorithm-card-header">
-        <div class="algorithm-name">
+        <div class="algorithm-name" style="color: ${algorithmColor}">
           ${algoName}
-          <span style="font-size:11px;color:var(--text-muted);margin-left:6px">
-            ${badge}
-          </span>
         </div>
         <div class="algorithm-confidence ${confidenceClass}">
           ${Math.round(avgConfidence)}%
@@ -1293,22 +1409,35 @@ class PredictionDisplay {
     
     // Add prediction items
     ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      const targetData = algoData[target] || {};
-      const predictedValue = targetData.predicted || targetData.predicted_price || 0;
-      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || predictedValue;
-      const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
-      const confidence = targetData.confidence || 0;
+      const pred = predictions[target];
+      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || 0;
+      
+      let predValue = 0;
+      let confidence = 0;
+      let change = 0;
+      
+      if (pred) {
+        predValue = pred.value;
+        confidence = pred.confidence;
+        change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
+      } else {
+        // Fallback to ensemble prediction
+        const ensemblePred = data.predictions?.[target]?.predicted_price || currentValue;
+        predValue = ensemblePred;
+        change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
+        confidence = 50;
+      }
       
       const predictionItem = document.createElement('div');
       predictionItem.className = 'algorithm-prediction-item';
       predictionItem.innerHTML = `
         <div class="algorithm-prediction-label">${target}</div>
-        <div class="algorithm-prediction-value">$${predictedValue.toFixed(2)}</div>
+        <div class="algorithm-prediction-value">$${predValue.toFixed(2)}</div>
         <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}">
           ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
         </div>
         <div style="font-size:10px;color:var(--text-muted)">
-          Confidence: ${Math.round(confidence)}%
+          Conf: ${Math.round(confidence)}%
         </div>
       `;
       
@@ -1319,29 +1448,29 @@ class PredictionDisplay {
     card.innerHTML += `</div>`;
     
     // Add performance metrics
-    const perfAll = AppState.currentPredictions?.historical_performance || {};
-    if (perfAll) {
+    if (Object.keys(performance).length > 0) {
       card.innerHTML += `
         <div class="algorithm-performance">
           <div class="algorithm-performance-grid">
-            ${['Open','High','Low','Close'].map(t => {
-              const p = perfAll[t]?.[algorithm];
-              if (!p) return '';
-              return `
-                <div class="algorithm-performance-item">
-                  <div class="algorithm-performance-label">${t}</div>
-                  <div class="algorithm-performance-value">
-                    R² ${p.r2.toFixed(2)}<br>
-                    RMSE ${p.rmse.toFixed(2)}<br>
-                    ${p.direction_accuracy.toFixed(1)}%
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
       `;
+      
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        const perf = performance[target];
+        if (perf) {
+          card.innerHTML += `
+            <div class="algorithm-performance-item">
+              <div class="algorithm-performance-label">${target} R²</div>
+              <div class="algorithm-performance-value">${perf.r2 ? perf.r2.toFixed(3) : '—'}</div>
+            </div>
+          `;
+        }
+      });
+      
+      card.innerHTML += `</div></div>`;
     }
+    
+    // Add border color based on algorithm
+    card.style.borderLeft = `3px solid ${algorithmColor}`;
     
     return card;
   }
@@ -1368,6 +1497,247 @@ class PredictionDisplay {
     });
   }
 
+  static updateModelComparison(data) {
+    const tableBody = document.getElementById('modelComparisonBody');
+    const tableHeader = document.getElementById('modelComparisonHeader');
+    const section = document.getElementById('modelComparisonSection');
+    
+    if (!tableBody || !tableHeader) return;
+    
+    const historicalPerformance = data.historical_performance || {};
+    const algorithmWeights = data.model_info?.algorithm_weights || {};
+    const algorithmDetails = data.algorithm_predictions || {};
+    
+    // Clear table
+    tableBody.innerHTML = '';
+    
+    // Create header
+    tableHeader.innerHTML = `
+      <th>Model</th>
+      <th>Performance Score</th>
+      <th>Avg R²</th>
+      <th>Avg Direction Acc</th>
+      <th>Avg MAPE</th>
+      <th>Weight</th>
+      <th>Status</th>
+    `;
+    
+    // Calculate scores for each algorithm
+    const algorithmScores = [];
+    
+    AppState.allAlgorithms.forEach(algo => {
+      let totalR2 = 0;
+      let totalDirAcc = 0;
+      let totalMape = 0;
+      let count = 0;
+      
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        if (historicalPerformance[target] && historicalPerformance[target][algo]) {
+          const perf = historicalPerformance[target][algo];
+          totalR2 += perf.r2 || 0;
+          totalDirAcc += perf.direction_accuracy || 0;
+          totalMape += perf.mape || 0;
+          count++;
+        }
+      });
+      
+      if (count > 0) {
+        const avgR2 = totalR2 / count;
+        const avgDirAcc = totalDirAcc / count;
+        const avgMape = totalMape / count;
+        
+        // Calculate performance score (weighted average)
+        const performanceScore = (
+          (Math.max(avgR2, 0) * 100 * 0.4) + 
+          (avgDirAcc * 0.4) + 
+          ((100 - Math.min(avgMape, 100)) * 0.2)
+        );
+        
+        algorithmScores.push({
+          algorithm: algo,
+          name: AppState.algorithmNames[algo],
+          performanceScore: performanceScore,
+          avgR2: avgR2,
+          avgDirAcc: avgDirAcc,
+          avgMape: avgMape,
+          weight: algorithmWeights.Close?.[algo] || 0.1,
+          isActive: count > 0
+        });
+      }
+    });
+    
+    // Sort by performance score
+    algorithmScores.sort((a, b) => b.performanceScore - a.performanceScore);
+    
+    // Add rows to table
+    algorithmScores.forEach((score, index) => {
+      const row = document.createElement('tr');
+      
+      let rankBadge = '';
+      if (index === 0) rankBadge = '<span class="rank-badge rank-1">🥇 Best</span>';
+      else if (index === 1) rankBadge = '<span class="rank-badge rank-2">🥈 2nd</span>';
+      else if (index === 2) rankBadge = '<span class="rank-badge rank-3">🥉 3rd</span>';
+      
+      const status = score.isActive ? 
+        '<span style="color: var(--up-color);">✅ Active</span>' : 
+        '<span style="color: var(--text-muted);">⚠️ Limited</span>';
+      
+      row.innerHTML = `
+        <td class="model-name" style="color: ${AppState.algorithmColors[score.algorithm] || 'var(--text-primary)'}">
+          ${score.name} ${rankBadge}
+        </td>
+        <td class="performance-score">${score.performanceScore.toFixed(1)}</td>
+        <td>${score.avgR2.toFixed(3)}</td>
+        <td>${score.avgDirAcc.toFixed(1)}%</td>
+        <td>${score.avgMape.toFixed(1)}%</td>
+        <td>${score.weight.toFixed(2)}</td>
+        <td>${status}</td>
+      `;
+      
+      tableBody.appendChild(row);
+    });
+    
+    section.style.display = 'block';
+  }
+
+  static updateDetailedModelViews(data) {
+    const section = document.getElementById('detailedModelSection');
+    if (!section) return;
+    
+    const historicalPerformance = data.historical_performance || {};
+    const algorithmDetails = data.algorithm_predictions || {};
+    const currentPrices = data.current_prices || {};
+    
+    section.innerHTML = '';
+    
+    // Create detailed cards for top 3 models
+    const modelScores = [];
+    
+    AppState.allAlgorithms.forEach(algo => {
+      let totalR2 = 0;
+      let count = 0;
+      
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        if (historicalPerformance[target] && historicalPerformance[target][algo]) {
+          totalR2 += historicalPerformance[target][algo].r2 || 0;
+          count++;
+        }
+      });
+      
+      if (count > 0) {
+        modelScores.push({
+          algorithm: algo,
+          avgR2: totalR2 / count
+        });
+      }
+    });
+    
+    // Sort by R² score and take top 3
+    modelScores.sort((a, b) => b.avgR2 - a.avgR2);
+    const topModels = modelScores.slice(0, 3);
+    
+    topModels.forEach((model, index) => {
+      const algo = model.algorithm;
+      const algoName = AppState.algorithmNames[algo];
+      const algorithmColor = AppState.algorithmColors[algo];
+      
+      const card = document.createElement('div');
+      card.className = 'detailed-model-card';
+      card.style.borderLeft = `4px solid ${algorithmColor}`;
+      
+      // Get predictions for this model
+      const predictions = {};
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        if (algorithmDetails[target] && algorithmDetails[target].individual) {
+          predictions[target] = algorithmDetails[target].individual[algo] || 0;
+        }
+      });
+      
+      // Get performance metrics
+      const perfMetrics = {};
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        if (historicalPerformance[target] && historicalPerformance[target][algo]) {
+          perfMetrics[target] = historicalPerformance[target][algo];
+        }
+      });
+      
+      // Calculate average metrics
+      let avgR2 = 0, avgDirAcc = 0, avgMape = 0, perfCount = 0;
+      Object.values(perfMetrics).forEach(perf => {
+        avgR2 += perf.r2 || 0;
+        avgDirAcc += perf.direction_accuracy || 0;
+        avgMape += perf.mape || 0;
+        perfCount++;
+      });
+      
+      if (perfCount > 0) {
+        avgR2 /= perfCount;
+        avgDirAcc /= perfCount;
+        avgMape /= perfCount;
+      }
+      
+      const rankIcons = ['🥇', '🥈', '🥉'];
+      
+      card.innerHTML = `
+        <div class="detailed-model-header">
+          <div class="detailed-model-title" style="color: ${algorithmColor}">
+            ${rankIcons[index]} ${algoName}
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted);">
+            Rank #${index + 1}
+          </div>
+        </div>
+        
+        <div class="detailed-model-stats">
+          <div class="detailed-model-stat">
+            <div class="detailed-model-stat-label">Avg R² Score</div>
+            <div class="detailed-model-stat-value">${avgR2.toFixed(3)}</div>
+          </div>
+          <div class="detailed-model-stat">
+            <div class="detailed-model-stat-label">Direction Accuracy</div>
+            <div class="detailed-model-stat-value">${avgDirAcc.toFixed(1)}%</div>
+          </div>
+          <div class="detailed-model-stat">
+            <div class="detailed-model-stat-label">Avg MAPE</div>
+            <div class="detailed-model-stat-value">${avgMape.toFixed(1)}%</div>
+          </div>
+          <div class="detailed-model-stat">
+            <div class="detailed-model-stat-label">Weight in Ensemble</div>
+            <div class="detailed-model-stat-value">${data.model_info?.algorithm_weights?.Close?.[algo]?.toFixed(2) || '0.10'}</div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+            Next Day Predictions:
+          </div>
+          <div class="detailed-model-predictions">
+      `;
+      
+      ['Open', 'High', 'Low', 'Close'].forEach(target => {
+        const predValue = predictions[target] || 0;
+        const currentValue = currentPrices[target.toLowerCase()] || 0;
+        const change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
+        
+        card.innerHTML += `
+          <div class="detailed-model-prediction">
+            <div class="detailed-model-prediction-label">${target}</div>
+            <div class="detailed-model-prediction-value">$${predValue.toFixed(2)}</div>
+            <div style="font-size: 11px; color: ${change >= 0 ? 'var(--up-color)' : 'var(--down-color)'}">
+              ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
+            </div>
+          </div>
+        `;
+      });
+      
+      card.innerHTML += `</div></div>`;
+      
+      section.appendChild(card);
+    });
+    
+    section.style.display = 'grid';
+  }
+
   static hideNextDayPredictions() {
     const sectionEl = document.getElementById('nextDayPredictions');
     if (sectionEl) {
@@ -1379,39 +1749,49 @@ class PredictionDisplay {
     const sectionEl = document.getElementById('algorithmSection');
     if (sectionEl) {
       sectionEl.style.display = 'none';
-      sectionEl.classList.remove('active');
     }
   }
 
   static updatePerformance(performance) {
     if (!performance || !performance.Close) return;
     
-    const closePerf = performance.Close;
-    const algorithms = Object.keys(closePerf);
+    // Calculate best performance across all algorithms
+    let bestR2 = 0;
+    let bestDirAcc = 0;
+    let bestRMSE = Infinity;
+    let activeAlgorithms = 0;
     
-    if (algorithms.length > 0) {
-      // Take the first algorithm's performance (or average them)
-      const firstAlgo = closePerf[algorithms[0]];
-      
-      document.getElementById('r2Score').textContent = 
-        firstAlgo.r2 ? firstAlgo.r2.toFixed(3) : '—';
-      
-      document.getElementById('directionAccuracy').textContent = 
-        firstAlgo.direction_accuracy ? `${firstAlgo.direction_accuracy.toFixed(1)}%` : '—';
-      
-      document.getElementById('rmseScore').textContent = 
-        firstAlgo.rmse ? firstAlgo.rmse.toFixed(4) : '—';
-      
-      // Calculate simple overfitting ratio
-      if (firstAlgo.train_rmse && firstAlgo.test_rmse) {
-        const overfittingRatio = firstAlgo.test_rmse / firstAlgo.train_rmse;
-        document.getElementById('overfittingRatio').textContent = overfittingRatio.toFixed(2);
+    Object.values(performance).forEach(targetPerf => {
+      if (targetPerf) {
+        Object.values(targetPerf).forEach(algoPerf => {
+          if (algoPerf) {
+            bestR2 = Math.max(bestR2, algoPerf.r2 || 0);
+            bestDirAcc = Math.max(bestDirAcc, algoPerf.direction_accuracy || 0);
+            bestRMSE = Math.min(bestRMSE, algoPerf.rmse || Infinity);
+            activeAlgorithms++;
+          }
+        });
       }
-    }
+    });
+    
+    // Count unique algorithms
+    const uniqueAlgorithms = new Set();
+    Object.values(performance).forEach(targetPerf => {
+      if (targetPerf) {
+        Object.keys(targetPerf).forEach(algo => {
+          uniqueAlgorithms.add(algo);
+        });
+      }
+    });
+    
+    document.getElementById('r2Score').textContent = bestR2.toFixed(3);
+    document.getElementById('directionAccuracy').textContent = `${bestDirAcc.toFixed(1)}%`;
+    document.getElementById('rmseScore').textContent = bestRMSE !== Infinity ? bestRMSE.toFixed(4) : '—';
+    document.getElementById('algorithmsUsed').textContent = uniqueAlgorithms.size;
   }
 
   static resetPerformance() {
-    const ids = ['r2Score', 'directionAccuracy', 'rmseScore', 'overfittingRatio'];
+    const ids = ['r2Score', 'directionAccuracy', 'rmseScore', 'algorithmsUsed'];
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '—';
@@ -1664,7 +2044,7 @@ class PredictionManager {
     const symbol = AppState.selectedStock.symbol;
     
     try {
-      NotificationManager.show(`Generating predictions for ${symbol}...`, 'success');
+      NotificationManager.show(`Generating predictions for ${symbol} with 8 algorithms...`, 'success');
       
       // Show loading state
       const chartEl = document.getElementById('predictionChart');
@@ -1672,8 +2052,9 @@ class PredictionManager {
         chartEl.innerHTML = `
           <div style="padding: 40px; text-align: center; color: var(--text-muted);">
             <i class="fas fa-spinner fa-spin" style="font-size: 36px; margin-bottom: 16px;"></i>
-            <div>AI is analyzing ${symbol} with 4 algorithms...</div>
-            <div style="font-size: 12px; margin-top: 8px;">This may take a few seconds</div>
+            <div>AI is analyzing ${symbol} with 8 algorithms...</div>
+            <div style="font-size: 12px; margin-top: 8px;">Processing 10 years of data with 90+ features</div>
+            <div style="font-size: 10px; margin-top: 4px;">Algorithms: Linear, Ridge, Lasso, SVR, RF, GB, ARIMA, NN</div>
           </div>
         `;
       }
@@ -1684,7 +2065,7 @@ class PredictionManager {
       // Update display with prediction data
       PredictionDisplay.update(data);
       
-      NotificationManager.show(`Predictions ready for ${symbol}`, 'success');
+      NotificationManager.show(`Predictions ready for ${symbol}. 8 algorithms analyzed.`, 'success');
       
     } catch (err) {
       console.error('Prediction generation error:', err);
@@ -1716,11 +2097,11 @@ class PredictionManager {
     const symbol = AppState.selectedStock.symbol;
     
     try {
-      NotificationManager.show(`Training models for ${symbol}...`, 'success');
+      NotificationManager.show(`Training all 8 models for ${symbol}...`, 'success');
       const result = await StockAPIService.trainModels(symbol);
       
       if (result.status === 'success') {
-        NotificationManager.show(`Models trained successfully for ${symbol}`, 'success');
+        NotificationManager.show(`All 8 models trained successfully for ${symbol}`, 'success');
         
         // Refresh predictions after training
         setTimeout(() => this.generate(), 1000);
@@ -1749,11 +2130,11 @@ class PredictionManager {
       generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating All...';
     }
     
-    NotificationManager.show('Generating predictions for all stocks...', 'success');
+    NotificationManager.show('Generating predictions for all stocks with 8 algorithms...', 'success');
     
     try {
-      // Limit to first 5 stocks to avoid overwhelming the server
-      const stocksToProcess = AppState.allStocks.slice(0, 5);
+      // Limit to first 3 stocks to avoid overwhelming the server
+      const stocksToProcess = AppState.allStocks.slice(0, 3);
       
       for (const stock of stocksToProcess) {
         try {
@@ -1765,7 +2146,7 @@ class PredictionManager {
         }
         
         // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       // Restore original selection
@@ -1773,7 +2154,7 @@ class PredictionManager {
         await StockAPIService.predict(AppState.selectedStock.symbol);
       }
       
-      NotificationManager.show('Batch generation complete', 'success');
+      NotificationManager.show('Batch generation complete with 8 algorithms per stock', 'success');
     } catch (err) {
       console.error('Batch generation error:', err);
       NotificationManager.show('Batch generation partially failed', 'error');
@@ -1832,7 +2213,7 @@ class ThemeManager {
 let stockListManager;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Initializing Stock Prediction App...');
+  console.log('Initializing Stock Prediction App with 8-Algorithm Support...');
   
   // Initialize components
   ThemeManager.load();
@@ -1848,7 +2229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Auto-refresh stocks periodically
   this.setupAutoRefresh();
   
-  console.log('App initialized successfully');
+  console.log('App initialized with 8-algorithm prediction system');
 });
 
 function setupEventListeners() {
@@ -1899,11 +2280,11 @@ function setupEventListeners() {
     });
   }
   
-  // Confidence filter
-  const confidenceFilter = document.getElementById('confidenceFilter');
-  if (confidenceFilter) {
-    confidenceFilter.addEventListener('change', (e) => {
-      console.log('Confidence filter changed to:', e.target.value);
+  // Model comparison filter
+  const modelComparisonFilter = document.getElementById('modelComparisonFilter');
+  if (modelComparisonFilter) {
+    modelComparisonFilter.addEventListener('change', (e) => {
+      console.log('Model comparison filter changed to:', e.target.value);
     });
   }
 }
