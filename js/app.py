@@ -572,7 +572,14 @@ class OCHLPredictor:
                         self.algorithm_weights = history_data.get('algorithm_weights', {})
                         self.last_training_date = history_data.get('last_training_date')
                         self.feature_columns = history_data.get('feature_columns', self.feature_columns)
-                        self.is_fitted = True
+                        # Check if feature scaler is properly fitted
+                        if hasattr(self.feature_scaler, "median_"):
+                             self.is_fitted = True
+                             print(f"✅ Feature scaler properly fitted for {symbol}")
+                        else:
+                            self.is_fitted = False
+                            print(f"⚠️ Feature scaler not fitted for {symbol}")
+                        
                     except Exception as e:
                         print(f"Error loading history: {e}")
                 
