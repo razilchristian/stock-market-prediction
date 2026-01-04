@@ -743,45 +743,45 @@ class OCHLPredictor:
             return False
     
     def validate_training_data(self, X, y):
-        """Validate training data before model training"""
+        """Validate training data before model training - FIXED VERSION"""
         if X is None or y is None:
             return False, "No data"
         
         if len(X) < 50:
             return False, f"Insufficient samples: {len(X)}"
         
-        # Check for extreme values
-        y_mean, y_std = np.mean(y), np.std(y)
-        if y_std > 10 * abs(y_mean):  # Extreme volatility
-            return False, f"Extreme volatility detected: std={y_std}"
-        
         # Check for NaN/inf
         if np.any(np.isnan(X)) or np.any(np.isnan(y)):
             return False, "NaN values detected"
         
+        # Check for infinite values
+        if np.any(np.isinf(X)) or np.any(np.isinf(y)):
+            return False, "Infinite values detected"
+        
+        # Check if all values are the same (no variation)
+        if len(np.unique(y)) < 2:
+            return False, "No variation in target values"
+        
         return True, "Data valid"
     
     def clean_training_data(self, X, y, algorithm):
-        """Clean training data for sensitive algorithms"""
-        X_clean, y_clean = X.copy(), y.copy()
+        """Clean training data for sensitive algorithms - SIMPLIFIED"""
+        if len(X) == 0 or len(y) == 0:
+            return X, y
         
-        if algorithm in ['linear_regression', 'ridge', 'lasso', 'svr']:
-            # Remove extreme outliers in target
-            y_mean, y_std = np.mean(y_clean), np.std(y_clean)
-            if y_std > 0:
-                mask = np.abs(y_clean - y_mean) < 3 * y_std
-                X_clean = X_clean[mask]
-                y_clean = y_clean[mask]
+        # Remove rows with NaN or Inf
+        mask = ~np.any(np.isnan(X), axis=1) & ~np.isnan(y) & ~np.any(np.isinf(X), axis=1) & ~np.isinf(y)
+        X_clean = X[mask]
+        y_clean = y[mask]
         
-        # Also check feature outliers for all algorithms
-        if len(X_clean) > 0:
-            X_mean = np.mean(X_clean, axis=0)
-            X_std = np.std(X_clean, axis=0)
-            if np.any(X_std > 0):
-                # Remove rows with extreme features
-                mask = np.all(np.abs(X_clean - X_mean) < 5 * X_std, axis=1)
-                X_clean = X_clean[mask]
-                y_clean = y_clean[mask]
+        # For sensitive algorithms, remove extreme outliers
+        if algorithm in ['linear_regression', 'ridge', 'lasso', 'svr', 'neural_network']:
+            if len(y_clean) > 10:
+                y_mean, y_std = np.mean(y_clean), np.std(y_clean)
+                if y_std > 0:
+                    mask = np.abs(y_clean - y_mean) < 3 * y_std
+                    X_clean = X_clean[mask]
+                    y_clean = y_clean[mask]
         
         return X_clean, y_clean
     
@@ -897,14 +897,15 @@ class OCHLPredictor:
             # Validate data first
             is_valid, msg = self.validate_training_data(X, y)
             if not is_valid:
-                print(f"   ❌ {algorithm}: Invalid data - {msg}")
+                print(f"      ❌ {algorithm}: {msg}")
                 return None
             
             # Clean data based on algorithm sensitivity
             X_clean, y_clean = self.clean_training_data(X, y, algorithm)
             
-            if len(X_clean) < self.get_min_samples_for_algorithm(algorithm):
-                print(f"   ❌ {algorithm}: Insufficient clean data ({len(X_clean)} samples)")
+            min_samples = self.get_min_samples_for_algorithm(algorithm)
+            if len(X_clean) < min_samples:
+                print(f"      ⚠️ {algorithm}: Insufficient clean data ({len(X_clean)} < {min_samples})")
                 return None
             
             # Handle NaN values
@@ -913,71 +914,97 @@ class OCHLPredictor:
             y_clean = np.nan_to_num(y_clean, nan=y_mean)
             
             if algorithm == 'linear_regression':
-                model = LinearRegression()
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = LinearRegression()
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'ridge':
-                model = Ridge(alpha=1.0, random_state=42, max_iter=10000)
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = Ridge(alpha=1.0, random_state=42, max_iter=10000)
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'lasso':
-                model = Lasso(alpha=0.01, random_state=42, max_iter=10000)
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = Lasso(alpha=0.01, random_state=42, max_iter=10000)
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'svr':
-                # Scale C parameter based on data characteristics
-                y_std = np.std(y_clean) if len(y_clean) > 0 else 1.0
-                c_value = max(0.1, min(1.0, 1.0 / (y_std + 1e-10)))
-                model = SVR(kernel='rbf', C=c_value, epsilon=0.01, max_iter=5000)
-                
-                if len(X_clean) > 1000:
-                    idx = np.random.choice(len(X_clean), min(1000, len(X_clean)), replace=False)
-                    model.fit(X_clean[idx], y_clean[idx])
-                else:
-                    model.fit(X_clean, y_clean)
-                return model
+                try:
+                    # Use simpler SVR for better stability
+                    model = SVR(kernel='rbf', C=1.0, epsilon=0.1, max_iter=1000)
+                    
+                    if len(X_clean) > 1000:
+                        idx = np.random.choice(len(X_clean), min(1000, len(X_clean)), replace=False)
+                        model.fit(X_clean[idx], y_clean[idx])
+                    else:
+                        model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'random_forest':
-                model = RandomForestRegressor(
-                    n_estimators=200,
-                    max_depth=15,
-                    min_samples_split=10,
-                    min_samples_leaf=4,
-                    max_features='sqrt',
-                    random_state=42,
-                    n_jobs=-1
-                )
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = RandomForestRegressor(
+                        n_estimators=100,
+                        max_depth=10,
+                        min_samples_split=5,
+                        min_samples_leaf=2,
+                        max_features='sqrt',
+                        random_state=42,
+                        n_jobs=-1
+                    )
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'gradient_boosting':
-                model = GradientBoostingRegressor(
-                    n_estimators=100,
-                    learning_rate=0.1,
-                    max_depth=5,
-                    min_samples_split=10,
-                    min_samples_leaf=4,
-                    random_state=42
-                )
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = GradientBoostingRegressor(
+                        n_estimators=50,
+                        learning_rate=0.1,
+                        max_depth=4,
+                        min_samples_split=5,
+                        min_samples_leaf=2,
+                        random_state=42
+                    )
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'neural_network':
-                model = MLPRegressor(
-                    hidden_layer_sizes=(100, 50),
-                    activation='relu',
-                    solver='adam',
-                    alpha=0.01,
-                    max_iter=1000,
-                    random_state=42,
-                    early_stopping=True,
-                    validation_fraction=0.2
-                )
-                model.fit(X_clean, y_clean)
-                return model
+                try:
+                    model = MLPRegressor(
+                        hidden_layer_sizes=(50, 25),
+                        activation='relu',
+                        solver='adam',
+                        alpha=0.01,
+                        max_iter=500,
+                        random_state=42,
+                        early_stopping=True,
+                        validation_fraction=0.2
+                    )
+                    model.fit(X_clean, y_clean)
+                    return model
+                except Exception as e:
+                    print(f"      ❌ {algorithm}: Error - {str(e)[:50]}")
+                    return None
                 
             elif algorithm == 'arima':
                 if len(y_clean) > 100:
@@ -986,30 +1013,32 @@ class OCHLPredictor:
                         
                         model = pm.auto_arima(
                             y_clean_series,
-                            start_p=1, start_q=1,
+                            start_p=0, start_q=0,
                             max_p=2, max_q=2, m=1,
                             seasonal=False,
                             trace=False,
                             error_action='ignore',
                             suppress_warnings=True,
-                            maxiter=30,
+                            maxiter=20,
                             stepwise=True
                         )
                         return model
                     except Exception as e:
-                        print(f"   ⚠️ ARIMA auto failed: {e}, trying simple ARIMA")
+                        print(f"      ⚠️ ARIMA auto failed: {str(e)[:50]}")
                         try:
-                            model = StatsmodelsARIMA(y_clean_series, order=(1,1,0))
+                            model = StatsmodelsARIMA(y_clean_series, order=(1,0,0))
                             model_fit = model.fit()
                             return model_fit
                         except:
+                            print(f"      ❌ ARIMA simple failed")
                             return None
                 else:
+                    print(f"      ⚠️ ARIMA: Insufficient data ({len(y_clean)} samples)")
                     return None
                     
             return None
         except Exception as e:
-            print(f"Error training {algorithm}: {e}")
+            print(f"      ❌ {algorithm}: Unexpected error - {str(e)[:50]}")
             return None
     
     def get_min_samples_for_algorithm(self, algorithm):
@@ -1017,9 +1046,9 @@ class OCHLPredictor:
         if algorithm in ['arima']:
             return 50  # ARIMA needs less data
         elif algorithm in ['linear_regression', 'ridge', 'lasso']:
-            return 100  # Linear models need more
+            return 50  # Linear models
         elif algorithm in ['svr', 'neural_network']:
-            return 150  # Complex models need most
+            return 100  # Complex models need more
         else:
             return 50
     
@@ -1049,6 +1078,7 @@ class OCHLPredictor:
             print(f"📊 Training {len(algorithms)} algorithms:")
             print(f"   Algorithms: {', '.join(algorithms)}")
             
+            # Combine all features for scaling
             all_features = []
             for target in self.targets:
                 if target in X_data and X_data[target] is not None:
@@ -1064,6 +1094,7 @@ class OCHLPredictor:
                 print(f"✅ Fitted RobustScaler with {all_features_array.shape[0]} samples")
             else:
                 print("⚠️ No features available for scaling")
+                self.feature_scaler = RobustScaler()  # Reset
             
             targets_trained = 0
             
@@ -1095,19 +1126,25 @@ class OCHLPredictor:
                     y_scaled = y
                     self.scalers[target] = StandardScaler()
                 
+                successful_models = 0
                 for algo in algorithms:
                     print(f"      Training {algo}...", end=" ")
                     model = self.train_algorithm(X_scaled, y_scaled, algo, target)
                     self.models[target][algo] = model
                     if model is not None:
                         print(f"✅")
+                        successful_models += 1
                     else:
                         print(f"❌")
                 
-                targets_trained += 1
-                print(f"   ✅ Trained all algorithms for {target}")
+                if successful_models > 0:
+                    targets_trained += 1
+                    print(f"   ✅ Trained {successful_models}/{len(algorithms)} algorithms for {target}")
+                else:
+                    print(f"   ❌ Failed all algorithms for {target}")
             
             if targets_trained == 0:
+                print(f"\n❌ Failed to train any targets")
                 return False, "Failed to train any models"
             
             print(f"\n📈 Calculating performance metrics...")
@@ -1125,7 +1162,7 @@ class OCHLPredictor:
             
             print(f"\n✅ TRAINING COMPLETE")
             print(f"   Targets trained: {targets_trained}/{len(self.targets)}")
-            print(f"   Algorithms: {len(algorithms)}")
+            print(f"   Total models trained: {sum(len(self.models[t]) for t in self.targets)}")
             print(f"   Features: {len(self.feature_columns)}")
             if has_split:
                 print(f"   ⚠️ Split handling: POST-SPLIT DATA ONLY")
@@ -1156,6 +1193,9 @@ class OCHLPredictor:
                 tscv = TimeSeriesSplit(n_splits=3)
                 fold_scores = {algo: {'rmse': [], 'mae': [], 'r2': [], 'direction': []} 
                               for algo in self.models[target].keys() if self.models[target][algo] is not None}
+                
+                if not fold_scores:  # No models trained for this target
+                    continue
                 
                 for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
                     if fold >= 2:
@@ -1188,7 +1228,7 @@ class OCHLPredictor:
                                     try:
                                         temp_arima = pm.auto_arima(
                                             y_train_scaled,
-                                            start_p=1, start_q=1,
+                                            start_p=0, start_q=0,
                                             max_p=2, max_q=2,
                                             seasonal=False,
                                             trace=False,
@@ -1208,13 +1248,13 @@ class OCHLPredictor:
                                 elif algo == 'lasso':
                                     fold_model = Lasso(alpha=0.01, random_state=42)
                                 elif algo == 'svr':
-                                    fold_model = SVR(kernel='rbf', C=1.0, epsilon=0.01)
+                                    fold_model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
                                 elif algo == 'random_forest':
-                                    fold_model = RandomForestRegressor(n_estimators=100, random_state=42)
+                                    fold_model = RandomForestRegressor(n_estimators=50, random_state=42)
                                 elif algo == 'gradient_boosting':
-                                    fold_model = GradientBoostingRegressor(n_estimators=50, random_state=42)
+                                    fold_model = GradientBoostingRegressor(n_estimators=30, random_state=42)
                                 elif algo == 'neural_network':
-                                    fold_model = MLPRegressor(hidden_layer_sizes=(50,), random_state=42, max_iter=500)
+                                    fold_model = MLPRegressor(hidden_layer_sizes=(30,), random_state=42, max_iter=300)
                                 else:
                                     continue
                                 
@@ -1400,7 +1440,7 @@ class OCHLPredictor:
         model_count = sum(len(details.get('individual', {})) 
                          for details in result.get('algorithm_details', {}).values())
         
-        if model_count < 3:  # Too few reliable models
+        if model_count < 2:  # Too few reliable models
             return self.get_conservative_fallback(data, result)
         
         return result
@@ -1520,22 +1560,10 @@ class OCHLPredictor:
                 print(f"   Split info: {split_info}")
                 data = clean_data
             
-            # Check if models are properly loaded
-            if not self.is_fitted:
-                print(f"⚠️ Models not properly fitted - loading/retraining...")
-                
-                # Try to load existing models first
-                models_loaded = self.load_models(symbol)
-                
-                if not models_loaded or not self.is_fitted:
-                    print(f"   No valid models found, training new ones...")
-                    success, train_msg = self.train_all_models(data, symbol)
-                    if not success:
-                        print(f"❌ Training failed: {train_msg}")
-                        return self.get_conservative_fallback(data)
-                    print("✅ Training successful")
-            else:
-                print("✅ Loaded existing models")
+            # Check if models exist
+            if not self.models or all(len(self.models.get(target, {})) == 0 for target in self.targets):
+                print(f"⚠️ No models available")
+                return self.get_conservative_fallback(data)
             
             X_data, _, data_with_features = self.prepare_training_data(data)
             
@@ -1549,25 +1577,28 @@ class OCHLPredictor:
             current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
             print(f"📊 Current Price: ${current_close:.2f}")
             
-            # Check if models exist
-            if not self.models or all(len(self.models.get(target, {})) == 0 for target in self.targets):
-                print(f"⚠️ No models available, using fallback prediction")
-                return self.get_conservative_fallback(data)
-            
-            print(f"📈 Algorithms available: {sum(len(self.models.get(target, {})) for target in self.targets)} total")
+            total_models_available = sum(len(self.models.get(target, {})) for target in self.targets)
+            print(f"📈 Models available: {total_models_available} total")
             print()
             
             for target in self.targets:
                 print(f"\n🎯 PREDICTING {target.upper()}")
                 print(f"   {'─'*50}")
                 
-                if target not in self.models or target not in X_data or X_data[target] is None:
-                    print(f"   ❌ No model or data")
+                if target not in self.models or not self.models[target]:
+                    print(f"   ❌ No models for this target")
                     predictions[target] = current_close
                     confidence_scores[target] = 50
                     algorithm_predictions[target] = {'ensemble': float(current_close)}
                     continue
             
+                if target not in X_data or X_data[target] is None:
+                    print(f"   ❌ No data for this target")
+                    predictions[target] = current_close
+                    confidence_scores[target] = 50
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
+                    continue
+                
                 X = X_data[target]
                 if len(X) == 0:
                     print(f"   ❌ Empty data")
@@ -1621,7 +1652,7 @@ class OCHLPredictor:
                                     try:
                                         temp_arima = pm.auto_arima(
                                             y_scaled,
-                                            start_p=1, start_q=1,
+                                            start_p=0, start_q=0,
                                             max_p=2, max_q=2,
                                             seasonal=False,
                                             trace=False,
@@ -2200,13 +2231,13 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "6.5.1",  # Updated version
+        "version": "6.5.2",  # Updated version
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "features": "Complete OCHL Prediction with 90+ Features",
         "data": "10 Years Historical Data",
         "split_handling": "Enabled (GE, AAPL, TSLA, NVDA, GOOGL, AMZN)",
         "sanity_checks": "Enabled (rejects >15% daily changes)",
-        "improvements": "Enhanced data cleaning, better fallbacks, conservative predictions"
+        "improvements": "FIXED volatility check, enhanced training stability"
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -2271,7 +2302,7 @@ def predict_stock():
         expected_changes = {}
         for target in ['Open', 'High', 'Low', 'Close']:
             if target in predictions and target.lower() in current_prices:
-                current = current_prices[target.lower()]
+                current = current_prices.get(target.lower(), current_price)
                 predicted = predictions[target]
                 change = ((predicted - current) / current) * 100 if current != 0 else 0
                 expected_changes[target] = change
@@ -2307,7 +2338,7 @@ def predict_stock():
             
             "predictions": {
                 target: {
-                    "predicted_price": round(predictions.get(target, current_prices[target.lower()]), 2),
+                    "predicted_price": round(predictions.get(target, current_prices.get(target.lower(), current_price)), 2),
                     "current_price": round(current_prices.get(target.lower(), current_price), 2),
                     "expected_change": round(expected_changes.get(target, 0), 2),
                     "confidence": round(confidence_scores.get(target, 70), 1)
@@ -2464,7 +2495,7 @@ def provide_fallback_prediction(symbol, historical_data):
             # Simple trend following
             if 'Close' in historical_data.columns and len(historical_data) > 5:
                 recent_avg = historical_data['Close'].iloc[-5:].mean()
-                trend = 1.0 if current_price > recent_avg else 0.99
+                trend = 1.001 if current_price > recent_avg else 0.999
             else:
                 trend = 1.0
             
@@ -2550,14 +2581,14 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 70)
-    print("📈 STOCK MARKET PREDICTION SYSTEM v6.5.1")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v6.5.2")
     print("=" * 70)
-    print("✨ ENHANCED FIXES:")
-    print("  • 🚨 FIXED Extreme Prediction Values (Linear Regression, SVR)")
-    print("  • ✅ Enhanced Data Cleaning & Outlier Removal")
-    print("  • 📊 Conservative Fallback Predictions")
-    print("  • 🔧 Algorithm-Specific Data Requirements")
-    print("  • 🛡️ Robust Feature Scaling with Fallbacks")
+    print("✨ CRITICAL FIXES:")
+    print("  • 🚨 FIXED Extreme volatility check (was rejecting standardized data)")
+    print("  • ✅ Enhanced model training with better error handling")
+    print("  • 📊 Conservative fallback predictions")
+    print("  • 🔧 Simplified ARIMA parameters for better stability")
+    print("  • 🛡️ Better NaN/inf handling in training data")
     print("=" * 70)
     print("🔧 TECHNICAL:")
     print("  • 10 YEARS historical data")
