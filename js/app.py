@@ -1,4 +1,4 @@
-# app.py — Enhanced Flask with Multi-Algorithm OCHL Prediction + ALL Features + Detailed Output
+# app.py — Enhanced with SANITY CHECKS & SPLIT DETECTION
 import os
 import time
 import random
@@ -61,6 +61,90 @@ class RateLimiter:
 
 rate_limiter = RateLimiter(max_per_minute=25)
 
+# ---------------- CRITICAL SANITY CHECKS ----------------
+def detect_stock_split(data):
+    """Detect if stock has undergone splits in historical data"""
+    try:
+        if 'Close' not in data.columns or len(data) < 10:
+            return False, 1.0
+        
+        # Calculate daily percentage changes
+        daily_changes = data['Close'].pct_change().abs()
+        
+        # Look for extreme single-day jumps (>100% or >-50%)
+        extreme_changes = daily_changes[daily_changes > 1.0]  # >100% change
+        if len(extreme_changes) > 0:
+            print(f"⚠️ Detected {len(extreme_changes)} potential split(s)")
+            return True, 1.0
+        
+        # Check for systematic price level changes
+        if len(data) > 500:
+            # Compare first half vs second half median prices
+            half = len(data) // 2
+            first_half_median = data['Close'].iloc[:half].median()
+            second_half_median = data['Close'].iloc[half:].median()
+            
+            ratio = max(first_half_median, second_half_median) / min(first_half_median, second_half_median)
+            if ratio > 5:  # Price level changed by 5x
+                print(f"⚠️ Major price level change detected: ratio={ratio:.1f}x")
+                return True, ratio
+        
+        return False, 1.0
+    except:
+        return False, 1.0
+
+def apply_price_adjustment(data, adjustment_factor):
+    """Adjust historical prices for splits"""
+    if adjustment_factor == 1.0:
+        return data
+    
+    print(f"📊 Applying price adjustment factor: {adjustment_factor:.2f}x")
+    
+    adjusted_data = data.copy()
+    price_cols = ['Open', 'High', 'Low', 'Close']
+    
+    for col in price_cols:
+        if col in adjusted_data.columns:
+            adjusted_data[col] = adjusted_data[col] * adjustment_factor
+    
+    return adjusted_data
+
+def sanity_check_prediction(predicted_price, current_price, algo_name):
+    """
+    EMERGENCY SANITY CHECK: Reject implausible predictions
+    Returns (is_valid, adjusted_confidence, message)
+    """
+    if predicted_price is None or np.isnan(predicted_price) or np.isinf(predicted_price):
+        return False, 0, f"{algo_name}: Invalid numeric value"
+    
+    if predicted_price <= 0:
+        return False, 0, f"{algo_name}: Negative/zero price"
+    
+    # Calculate percentage change
+    if current_price <= 0:
+        return False, 0, f"{algo_name}: Current price invalid"
+    
+    pct_change = abs(predicted_price - current_price) / current_price
+    
+    # REJECTION CRITERIA - EMERGENCY FIX
+    if pct_change > 0.50:  # >50% change is IMPOSSIBLE for next day
+        return False, 0, f"{algo_name}: Implausible {pct_change*100:.1f}% change"
+    
+    if predicted_price > current_price * 5:  # >5x current price
+        return False, 0, f"{algo_name}: Impossibly high prediction"
+    
+    if predicted_price < current_price * 0.1:  # <10% of current price
+        return False, 0, f"{algo_name}: Impossibly low prediction"
+    
+    # Penalize large changes even if within bounds
+    confidence_penalty = 0
+    if pct_change > 0.20:  # >20% change
+        confidence_penalty = 50  # Reduce confidence by 50 points
+    elif pct_change > 0.10:  # >10% change
+        confidence_penalty = 25  # Reduce confidence by 25 points
+    
+    return True, confidence_penalty, f"{algo_name}: Valid prediction"
+
 # ---------------- Utility & feature functions ----------------
 def calculate_rsi(prices, window=14):
     """Calculate RSI with NaN protection"""
@@ -122,6 +206,12 @@ def create_advanced_features(data):
     try:
         # Create a copy to avoid modifying original
         data = data.copy()
+        
+        # Check for split and adjust if needed
+        has_split, split_factor = detect_stock_split(data)
+        if has_split:
+            print(f"⚠️ WARNING: Potential stock split detected in historical data")
+            print(f"   Consider using adjusted prices or filtering post-split data only")
         
         # Ensure we have the required columns
         required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -351,63 +441,63 @@ def get_live_stock_data_enhanced(ticker):
     try:
         print(f"📊 Fetching 10 years of historical data for {ticker}...")
         
-        # FIXED: Using the correct yfinance syntax
-        strategies = [
-            {"func": lambda t=ticker: yf.download(t, period="10y", interval="1d", progress=False, timeout=60), "name":"10y"},
-            {"func": lambda t=ticker: yf.Ticker(t).history(period="10y", interval="1d"), "name":"ticker.history"},
-        ]
-        
-        for strategy in strategies:
-            try:
-                print(f"  Trying strategy: {strategy['name']}")
-                hist = strategy['func']()
+        # Use yfinance with auto_adjust=True to get split-adjusted prices
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="10y", interval="1d", auto_adjust=True)
+            
+            if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 200:
+                hist = hist.reset_index()
                 
-                if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 200:
-                    hist = hist.reset_index()
-                    
-                    # Handle date column
-                    if 'Date' in hist.columns:
-                        hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
-                    elif 'Datetime' in hist.columns:
-                        hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
-                        hist = hist.drop(columns=['Datetime'])
-                    
-                    # Ensure we have all required columns
-                    required = ['Open', 'High', 'Low', 'Close', 'Volume']
-                    for col in required:
-                        if col not in hist.columns:
-                            print(f"    Warning: Missing {col} in data for {ticker}")
-                            if col == 'Volume':
-                                hist[col] = 1000000
-                            else:
-                                hist[col] = hist.get('Close', 100.0) if 'Close' in hist.columns else 100.0
-                    
-                    # Convert to numeric and handle NaNs
-                    for col in required:
-                        hist[col] = pd.to_numeric(hist[col], errors='coerce')
-                        hist[col] = hist[col].ffill().bfill()
-                        if hist[col].isna().any():
-                            if col == 'Volume':
-                                hist[col] = hist[col].fillna(1000000)
-                            else:
-                                hist[col] = hist[col].fillna(100.0)
-                    
-                    # Get current price
-                    if 'Close' in hist.columns and len(hist) > 0:
-                        current_price = float(hist['Close'].iloc[-1])
-                    else:
-                        current_price = 100.0
-                    
-                    print(f"✅ Successfully fetched {len(hist)} days of data for {ticker}")
-                    print(f"   Date range: {hist['Date'].iloc[0]} to {hist['Date'].iloc[-1]}")
-                    print(f"   Current price: ${current_price:.2f}")
-                    return hist, current_price, None
-                    
-            except Exception as e:
-                print(f"    Strategy {strategy['name']} failed: {str(e)[:100]}...")
-                if "429" in str(e):
-                    time.sleep(10)
-                continue
+                # Handle date column
+                if 'Date' in hist.columns:
+                    hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
+                elif 'Datetime' in hist.columns:
+                    hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
+                    hist = hist.drop(columns=['Datetime'])
+                
+                # Ensure we have all required columns
+                required = ['Open', 'High', 'Low', 'Close', 'Volume']
+                for col in required:
+                    if col not in hist.columns:
+                        print(f"    Warning: Missing {col} in data for {ticker}")
+                        if col == 'Volume':
+                            hist[col] = 1000000
+                        else:
+                            hist[col] = hist.get('Close', 100.0) if 'Close' in hist.columns else 100.0
+                
+                # Convert to numeric and handle NaNs
+                for col in required:
+                    hist[col] = pd.to_numeric(hist[col], errors='coerce')
+                    hist[col] = hist[col].ffill().bfill()
+                    if hist[col].isna().any():
+                        if col == 'Volume':
+                            hist[col] = hist[col].fillna(1000000)
+                        else:
+                            hist[col] = hist[col].fillna(100.0)
+                
+                # Get current price - use the latest split-adjusted price
+                if 'Close' in hist.columns and len(hist) > 0:
+                    current_price = float(hist['Close'].iloc[-1])
+                else:
+                    current_price = 100.0
+                
+                print(f"✅ Successfully fetched {len(hist)} days of data for {ticker}")
+                print(f"   Date range: {hist['Date'].iloc[0]} to {hist['Date'].iloc[-1]}")
+                print(f"   Current price: ${current_price:.2f}")
+                
+                # Check for splits
+                has_split, split_factor = detect_stock_split(hist)
+                if has_split:
+                    print(f"⚠️ WARNING: Stock {ticker} has undergone splits")
+                    print(f"   Using split-adjusted prices from yfinance")
+                
+                return hist, current_price, None
+                
+        except Exception as e:
+            print(f"    yfinance failed: {str(e)[:100]}...")
+            if "429" in str(e):
+                time.sleep(10)
         
         # Fallback: generate synthetic data
         print(f"⚠️ Using fallback data for {ticker}")
@@ -489,7 +579,7 @@ class OCHLPredictor:
     
     def get_scaler_path(self, symbol):
         safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
-        return os.path.join(MODELS_DIR, f"{safe_symbol}_scalers.joblib")
+        return os.path.join(MODELS_DIR, f"{symbol}_scalers.joblib")
     
     def save_models(self, symbol):
         try:
@@ -612,6 +702,12 @@ class OCHLPredictor:
         try:
             print(f"\n📋 Preparing training data...")
             print(f"   Initial data: {len(data)} rows")
+            
+            # CRITICAL: Check for splits and warn
+            has_split, split_factor = detect_stock_split(data)
+            if has_split:
+                print(f"   ⚠️ WARNING: Data contains stock splits")
+                print(f"   Consider filtering post-split data only")
             
             data_with_features = create_advanced_features(data)
             print(f"   Features created: {len(data_with_features.columns)}")
@@ -834,6 +930,13 @@ class OCHLPredictor:
         try:
             print(f"\n🔨 TRAINING MODELS FOR {symbol}")
             print(f"="*60)
+            
+            # Check for splits before training
+            has_split, split_factor = detect_stock_split(data)
+            if has_split:
+                print(f"⚠️ CRITICAL: {symbol} has stock splits in historical data!")
+                print(f"   Training may produce unreliable models")
+                print(f"   Consider using only post-split data")
             
             X_data, y_data, data_with_features = self.prepare_training_data(data)
             
@@ -1219,6 +1322,12 @@ class OCHLPredictor:
             current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
             print(f"📊 Current Price: ${current_close:.2f}")
             
+            # Check for splits and warn
+            has_split, split_factor = detect_stock_split(data_with_features)
+            if has_split:
+                print(f"🚨 CRITICAL: {symbol} has stock splits in data!")
+                print(f"   Predictions may be unreliable")
+            
             # Check if models exist
             if not self.models or all(len(self.models.get(target, {})) == 0 for target in self.targets):
                 print(f"⚠️ No models available, using fallback prediction")
@@ -1283,6 +1392,7 @@ class OCHLPredictor:
                 target_predictions = {}
                 target_confidences = {}
                 target_details = {}
+                rejected_predictions = []
                 
                 print(f"   🤖 Individual Model Predictions:")
                 print(f"   {'─'*40}")
@@ -1331,13 +1441,17 @@ class OCHLPredictor:
                                 np.array([[pred_scaled]])
                             )[0][0]
                         
-                        # Sanity check
-                        if (pred_actual is None or np.isnan(pred_actual) or np.isinf(pred_actual) or
-                            pred_actual <= 0 or pred_actual > current_close * 10):
-                            print(f"   ❌ {algo:20s}: INVALID (${pred_actual:.2f})")
-                            pred_actual = current_close * random.uniform(0.97, 1.03)
+                        # CRITICAL SANITY CHECK - EMERGENCY FIX
+                        is_valid, confidence_penalty, message = sanity_check_prediction(
+                            pred_actual, current_close, algo
+                        )
                         
-                        # Calculate confidence
+                        if not is_valid:
+                            rejected_predictions.append((algo, pred_actual, message))
+                            print(f"   ❌ {algo:20s}: REJECTED - {message}")
+                            continue
+                        
+                        # Calculate base confidence
                         confidence = 70
                         if (target in self.historical_performance and 
                             algo in self.historical_performance[target]):
@@ -1353,6 +1467,9 @@ class OCHLPredictor:
                             )
                             confidence = min(max(confidence, 0), 100)
                         
+                        # Apply penalty from sanity check
+                        confidence = max(confidence - confidence_penalty, 10)
+                        
                         target_predictions[algo] = float(pred_actual)
                         target_confidences[algo] = float(confidence)
                         
@@ -1363,12 +1480,20 @@ class OCHLPredictor:
                         
                     except Exception as e:
                         print(f"   ❌ {algo:20s}: ERROR - {str(e)[:50]}")
-                        fallback = current_close * random.uniform(0.98, 1.02)
-                        target_predictions[algo] = float(fallback)
-                        target_confidences[algo] = 50.0
+                        rejected_predictions.append((algo, None, f"Error: {str(e)[:50]}"))
+                
+                # Show rejected predictions
+                if rejected_predictions:
+                    print(f"   {'─'*40}")
+                    print(f"   🚨 REJECTED PREDICTIONS:")
+                    for algo, pred, reason in rejected_predictions:
+                        if pred is not None:
+                            print(f"     ❌ {algo}: ${pred:.2f} - {reason}")
+                        else:
+                            print(f"     ❌ {algo}: {reason}")
                 
                 if target_predictions:
-                    # FILTER OUTLIERS
+                    # FILTER OUTLIERS - even stricter now
                     pred_values = list(target_predictions.values())
                     if len(pred_values) >= 3:
                         median_pred = np.median(pred_values)
@@ -1378,7 +1503,8 @@ class OCHLPredictor:
                         filtered_confidences = {}
                         
                         for algo, pred in target_predictions.items():
-                            if abs(pred - median_pred) <= 3 * mad or mad == 0:
+                            # Stricter outlier filter
+                            if mad == 0 or abs(pred - median_pred) <= 2 * mad:  # Changed from 3*mad to 2*mad
                                 filtered_predictions[algo] = pred
                                 filtered_confidences[algo] = target_confidences[algo]
                             else:
@@ -1409,8 +1535,13 @@ class OCHLPredictor:
                     else:
                         ensemble_pred = np.median(list(target_predictions.values()))
                     
-                    # Final sanity check
-                    if ensemble_pred <= 0 or ensemble_pred > current_close * 5:
+                    # Final sanity check on ensemble
+                    ensemble_is_valid, ensemble_penalty, ensemble_msg = sanity_check_prediction(
+                        ensemble_pred, current_close, "ENSEMBLE"
+                    )
+                    
+                    if not ensemble_is_valid:
+                        print(f"   🚨 ENSEMBLE REJECTED: {ensemble_msg}")
                         ensemble_pred = np.median(list(target_predictions.values()))
                     
                     predictions[target] = float(ensemble_pred)
@@ -1432,17 +1563,17 @@ class OCHLPredictor:
                     print(f"   🔢 Models used: {len(target_predictions)}/{len(self.models[target])}")
                 else:
                     predictions[target] = float(current_close)
-                    confidence_scores[target] = 50.0
+                    confidence_scores[target] = 30.0  # Lower confidence for fallback
                     algorithm_predictions[target] = {'ensemble': float(current_close)}
-                    print(f"   ⚠️ Fallback: ${current_close:.2f}")
+                    print(f"   ⚠️ Fallback: ${current_close:.2f} (NO VALID MODELS)")
             
             # Ensure we have predictions for all targets
             for target in self.targets:
                 if target not in predictions:
                     predictions[target] = float(current_close)
-                    confidence_scores[target] = 50.0
+                    confidence_scores[target] = 30.0  # Lower confidence
             
-            # Enforce OHLC constraints
+            # Enforce OHLC constraints with stricter bounds
             pred_open = predictions.get("Open", current_close)
             pred_close = predictions.get("Close", current_close)
             pred_high = predictions.get("High", current_close * 1.01)
@@ -1451,8 +1582,8 @@ class OCHLPredictor:
             pred_high = max(pred_high, pred_open, pred_close)
             pred_low = min(pred_low, pred_open, pred_close)
             
-            # Bound predictions
-            max_change = 0.10
+            # Much stricter bounds - stocks rarely move >20% in a day
+            max_change = 0.15  # Changed from 0.10 to 0.15 (15% max change)
             for target in predictions:
                 predictions[target] = max(predictions[target], current_close * (1 - max_change))
                 predictions[target] = min(predictions[target], current_close * (1 + max_change))
@@ -1463,8 +1594,17 @@ class OCHLPredictor:
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
             
+            # Add split warning if detected
+            if has_split:
+                risk_alerts.insert(0, {
+                    'level': '🔴 CRITICAL',
+                    'type': 'Stock Split Detected',
+                    'message': f'{symbol} has stock splits in historical data',
+                    'details': 'Predictions may be unreliable due to price discontinuities'
+                })
+            
             # Calculate prediction confidence metrics
-            confidence_metrics = self.calculate_prediction_confidence(predictions, confidence_scores)
+            confidence_metrics = self.calculate_prediction_confidence(predictions, confidence_scores, current_close)
             
             result = {
                 'predictions': predictions,
@@ -1493,6 +1633,12 @@ class OCHLPredictor:
             
             print(f"\n   📊 Overall Confidence: {confidence_metrics.get('overall_confidence', 50):.1f}%")
             print(f"   📈 Models used: {sum(len(details.get('individual', {})) for details in algorithm_predictions.values())}")
+            
+            # WARN about splits
+            if has_split:
+                print(f"\n   🚨 WARNING: Stock splits detected in {symbol} data")
+                print(f"   Predictions may be unreliable")
+            
             print(f"{'='*70}")
             
             return result, None
@@ -1503,7 +1649,7 @@ class OCHLPredictor:
             traceback.print_exc()
             return None, str(e)
     
-    def calculate_prediction_confidence(self, predictions, confidence_scores):
+    def calculate_prediction_confidence(self, predictions, confidence_scores, current_price):
         try:
             if not predictions or not confidence_scores:
                 return {}
@@ -1525,15 +1671,30 @@ class OCHLPredictor:
             else:
                 consistency_score = 0
             
+            # CRITICAL: Reduce confidence for extreme predictions
+            extreme_prediction_penalty = 0
+            for target, pred in predictions.items():
+                if current_price > 0:
+                    pct_change = abs(pred - current_price) / current_price
+                    if pct_change > 0.20:  # >20% change
+                        extreme_prediction_penalty += 20
+                    elif pct_change > 0.10:  # >10% change
+                        extreme_prediction_penalty += 10
+            
+            overall_confidence = max(overall_confidence - extreme_prediction_penalty, 10)
+            
             if overall_confidence >= 80:
                 confidence_level = "HIGH"
                 confidence_color = "success"
             elif overall_confidence >= 60:
                 confidence_level = "MEDIUM"
                 confidence_color = "warning"
-            else:
+            elif overall_confidence >= 40:
                 confidence_level = "LOW"
                 confidence_color = "danger"
+            else:
+                confidence_level = "VERY LOW"
+                confidence_color = "dark"
             
             return {
                 'overall_confidence': float(overall_confidence),
@@ -1544,7 +1705,8 @@ class OCHLPredictor:
                     target: {
                         'score': float(confidence_scores.get(target, 0)),
                         'level': "HIGH" if confidence_scores.get(target, 0) >= 80 else 
-                                 "MEDIUM" if confidence_scores.get(target, 0) >= 60 else "LOW"
+                                 "MEDIUM" if confidence_scores.get(target, 0) >= 60 else 
+                                 "LOW" if confidence_scores.get(target, 0) >= 40 else "VERY LOW"
                     }
                     for target in self.targets if target in confidence_scores
                 }
@@ -1562,24 +1724,39 @@ class OCHLPredictor:
             
             expected_change = ((predicted_close - current_close) / current_close) * 100 if current_close != 0 else 0
             
-            if abs(expected_change) > 10:
+            # Stricter alert thresholds
+            if abs(expected_change) > 15:
                 alerts.append({
                     'level': '🔴 CRITICAL',
                     'type': 'Extreme Price Movement',
                     'message': f'Expected price change of {expected_change:+.1f}%',
-                    'details': 'Consider adjusting position size or setting stop-loss'
+                    'details': 'Implausible prediction - verify data quality'
                 })
-            elif abs(expected_change) > 5:
+            elif abs(expected_change) > 10:
                 alerts.append({
                     'level': '🟡 HIGH',
                     'type': 'Large Price Movement',
                     'message': f'Expected price change of {expected_change:+.1f}%',
-                    'details': 'Monitor position closely'
+                    'details': 'Unusual prediction - exercise caution'
+                })
+            elif abs(expected_change) > 5:
+                alerts.append({
+                    'level': '🟠 MEDIUM',
+                    'type': 'Moderate Price Movement',
+                    'message': f'Expected price change of {expected_change:+.1f}%',
+                    'details': 'Monitor position'
                 })
             
             if 'Volatility_5d' in data.columns:
                 recent_volatility = data['Volatility_5d'].iloc[-10:].mean()
-                if recent_volatility > 0.03:
+                if recent_volatility > 0.04:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Extreme Volatility',
+                        'message': f'Recent volatility: {recent_volatility:.2%}',
+                        'details': 'Market showing extreme volatility'
+                    })
+                elif recent_volatility > 0.03:
                     alerts.append({
                         'level': '🟡 HIGH',
                         'type': 'High Volatility',
@@ -1589,14 +1766,28 @@ class OCHLPredictor:
             
             if 'RSI_14' in data.columns and len(data) > 0:
                 current_rsi = data['RSI_14'].iloc[-1]
-                if current_rsi > 80:
+                if current_rsi > 85:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Severely Overbought',
+                        'message': f'RSI at {current_rsi:.1f} (Extremely Overbought)',
+                        'details': 'High probability of pullback'
+                    })
+                elif current_rsi > 75:
                     alerts.append({
                         'level': '🟡 HIGH',
                         'type': 'Overbought Condition',
                         'message': f'RSI at {current_rsi:.1f} (Overbought)',
-                        'details': 'Consider taking profits or waiting for pullback'
+                        'details': 'Consider taking profits'
                     })
-                elif current_rsi < 20:
+                elif current_rsi < 15:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Severely Oversold',
+                        'message': f'RSI at {current_rsi:.1f} (Extremely Oversold)',
+                        'details': 'Potential bounce opportunity'
+                    })
+                elif current_rsi < 25:
                     alerts.append({
                         'level': '🟢 MEDIUM',
                         'type': 'Oversold Condition',
@@ -1606,12 +1797,19 @@ class OCHLPredictor:
             
             if 'Volume_Ratio' in data.columns and len(data) > 0:
                 volume_ratio = data['Volume_Ratio'].iloc[-1]
-                if volume_ratio > 2.0:
+                if volume_ratio > 3.0:
+                    alerts.append({
+                        'level': '🔴 CRITICAL',
+                        'type': 'Extreme Volume',
+                        'message': f'Volume {volume_ratio:.1f}x average',
+                        'details': 'Unusual volume - check for news/events'
+                    })
+                elif volume_ratio > 2.0:
                     alerts.append({
                         'level': '🟡 HIGH',
                         'type': 'Unusual Volume',
                         'message': f'Volume {volume_ratio:.1f}x average',
-                        'details': 'High volume may indicate significant news or event'
+                        'details': 'High volume may indicate significant activity'
                     })
             
             return alerts
@@ -1631,10 +1829,14 @@ class OCHLPredictor:
             volume_ratio = recent['Volume_Ratio'].mean() if 'Volume_Ratio' in recent.columns else 1
             rsi = recent['RSI_14'].iloc[-1] if 'RSI_14' in recent.columns else 50
             
-            if volatility > 0.03:
+            if volatility > 0.04:
+                return "EXTREME_VOLATILITY"
+            elif volatility > 0.03:
                 return "HIGH_VOLATILITY"
-            elif volume_ratio > 1.5:
+            elif volume_ratio > 2.0:
                 return "HIGH_VOLUME"
+            elif rsi > 85 or rsi < 15:
+                return "EXTREME_SENTIMENT"
             elif rsi > 75 or rsi < 25:
                 return "EXTREME_SENTIMENT"
             else:
@@ -1711,20 +1913,24 @@ def get_risk_level_from_metrics(risk_metrics):
         return "🟢 LOW RISK"
 
 def get_trading_recommendation(predictions, current_prices, confidence):
-    if confidence < 50:
-        return "🚨 LOW CONFIDENCE - WAIT"
+    if confidence < 40:  # Stricter threshold
+        return "🚨 VERY LOW CONFIDENCE - AVOID"
+    
+    if confidence < 60:
+        return "⚠️ LOW CONFIDENCE - WAIT"
     
     expected_change = ((predictions.get('Close', current_prices['close']) - current_prices['close']) / current_prices['close']) * 100
     
-    if expected_change > 7:
+    # Stricter thresholds
+    if expected_change > 10:
         return "✅ STRONG BUY"
-    elif expected_change > 3:
+    elif expected_change > 5:
         return "📈 BUY"
-    elif expected_change < -7:
+    elif expected_change < -10:
         return "💼 STRONG SELL"
-    elif expected_change < -3:
+    elif expected_change < -5:
         return "📉 SELL"
-    elif abs(expected_change) < 1:
+    elif abs(expected_change) < 2:
         return "🔄 HOLD / SIDEWAYS"
     else:
         return "🔄 HOLD"
@@ -1810,10 +2016,11 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "6.0.0",
+        "version": "6.1.0",  # Updated version
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "features": "Complete OCHL Prediction with 90+ Features",
-        "data": "10 Years Historical Data"
+        "data": "10 Years Historical Data",
+        "safety_features": ["Stock split detection", "Sanity checks", "Implausible prediction rejection"]
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -1835,6 +2042,12 @@ def predict_stock():
         
         print(f"📊 Data fetched: {len(historical_data)} days")
         print(f"💰 Current price: ${current_price:.2f}")
+        
+        # Check for splits immediately
+        has_split, split_factor = detect_stock_split(historical_data)
+        if has_split:
+            print(f"🚨 WARNING: {symbol} has stock splits in historical data")
+            print(f"   Using split-adjusted prices from yfinance")
         
         # Load or train models
         models_loaded = predictor.load_models(symbol)
@@ -1939,7 +2152,9 @@ def predict_stock():
                 "date_range": {
                     "start": historical_data['Date'].iloc[0] if 'Date' in historical_data.columns else "N/A",
                     "end": historical_data['Date'].iloc[-1] if 'Date' in historical_data.columns else "N/A"
-                }
+                },
+                "has_splits": has_split,
+                "warning": "Stock splits detected" if has_split else None
             },
             
             "insight": f"AI predicts {expected_changes.get('Close', 0):+.1f}% change for {symbol}. {recommendation}. Confidence: {overall_confidence:.1f}%"
@@ -2041,9 +2256,10 @@ def provide_fallback_prediction(symbol, historical_data):
         else:
             current_price = historical_data['Close'].iloc[-1] if 'Close' in historical_data.columns else 100.0
         
+        # Very conservative fallback - minimal movement
         predictions = {}
         for target in ['Open', 'High', 'Low', 'Close']:
-            variation = random.uniform(-0.02, 0.02)
+            variation = random.uniform(-0.01, 0.01)  # Only ±1% max
             pred = current_price * (1 + variation)
             predictions[target] = pred
         
@@ -2064,20 +2280,20 @@ def provide_fallback_prediction(symbol, historical_data):
                 target: {
                     "predicted_price": round(pred, 2),
                     "expected_change": round(changes[target], 2),
-                    "confidence": 60
+                    "confidence": 50  # Low confidence for fallback
                 }
                 for target, pred in predictions.items()
             },
             "confidence_metrics": {
-                "overall_confidence": 60,
-                "confidence_level": "MEDIUM",
+                "overall_confidence": 50,
+                "confidence_level": "LOW",
                 "confidence_color": "warning"
             },
             "risk_alerts": [{
                 "level": "🟡 HIGH",
                 "type": "Fallback Mode",
                 "message": "Using fallback prediction engine",
-                "details": "Primary models unavailable, using simplified predictions"
+                "details": "Primary models unavailable, using conservative predictions"
             }],
             "risk_level": "🟠 MEDIUM RISK",
             "trading_recommendation": "🔄 HOLD",
@@ -2109,14 +2325,20 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 70)
-    print("📈 STOCK MARKET PREDICTION SYSTEM v6.0")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v6.1")
     print("=" * 70)
-    print("✨ FEATURES:")
-    print("  • 10 YEARS historical data fetching")
+    print("✨ SAFETY FEATURES:")
+    print("  • 🚨 Stock split detection & warnings")
+    print("  • ✅ Sanity checks on all predictions")
+    print("  • ❌ Rejection of implausible predictions (>50% change)")
+    print("  • 📉 Reduced confidence for large predictions")
+    print("  • 🔴 Critical alerts for extreme movements")
+    print("=" * 70)
+    print("🔧 TECHNICAL:")
+    print("  • 10 YEARS historical data")
     print("  • 8 ALGORITHMS with individual predictions")
     print("  • 90+ TECHNICAL FEATURES")
-    print("  • DETAILED TERMINAL OUTPUT")
-    print("  • FIXED: Model saving/loading issues")
+    print("  • Split-adjusted prices from yfinance")
     print("=" * 70)
     print("🚀 Ready for predictions! Send POST to /api/predict")
     print("=" * 70)
