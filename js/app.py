@@ -351,17 +351,17 @@ def get_live_stock_data_enhanced(ticker):
     try:
         print(f"📊 Fetching 10 years of historical data for {ticker}...")
         
+        # FIXED: Using the correct yfinance syntax
         strategies = [
-            {"func": lambda: yf.download(ticker, period="10y", interval="1d", progress=False, timeout=60), "name":"10y"},
-            {"func": lambda: yf.Ticker(ticker).history(period="10y", interval="1d"), "name":"ticker.history"},
-            {"func": lambda: yf.download(ticker, period="8y", interval="1d", progress=False, timeout=45), "name":"8y"},
-            {"func": lambda: yf.download(ticker, period="5y", interval="1d", progress=False, timeout=30), "name":"5y"},
+            {"func": lambda t=ticker: yf.download(t, period="10y", interval="1d", progress=False, timeout=60), "name":"10y"},
+            {"func": lambda t=ticker: yf.Ticker(t).history(period="10y", interval="1d"), "name":"ticker.history"},
         ]
         
         for strategy in strategies:
             try:
                 print(f"  Trying strategy: {strategy['name']}")
                 hist = strategy['func']()
+                
                 if isinstance(hist, pd.DataFrame) and (not hist.empty) and len(hist) > 200:
                     hist = hist.reset_index()
                     
@@ -487,17 +487,29 @@ class OCHLPredictor:
         safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
         return os.path.join(HISTORY_DIR, f"{symbol}_history.json")
     
+    def get_scaler_path(self, symbol):
+        safe_symbol = "".join([c for c in symbol if c.isalnum() or c in "-_"]).upper()
+        return os.path.join(MODELS_DIR, f"{safe_symbol}_scalers.joblib")
+    
     def save_models(self, symbol):
         try:
+            # Save feature scaler separately
+            scaler_data = {
+                'feature_scaler': self.feature_scaler,
+                'scalers': self.scalers,
+                'feature_columns': self.feature_columns
+            }
+            scaler_path = self.get_scaler_path(symbol)
+            joblib.dump(scaler_data, scaler_path)
+            print(f"💾 Saved scalers for {symbol}")
+            
+            # Save individual models
             for target in self.targets:
                 if target in self.models:
                     for algo, model in self.models[target].items():
                         if model is not None:
                             model_data = {
                                 'model': model,
-                                'feature_scaler': self.feature_scaler,
-                                'target_scaler': self.scalers.get(target, StandardScaler()),
-                                'features': self.feature_columns,
                                 'window_size': 30,
                                 'target': target,
                                 'algorithm': algo
@@ -505,6 +517,7 @@ class OCHLPredictor:
                             path = self.get_model_path(symbol, target, algo)
                             joblib.dump(model_data, path)
             
+            # Save history
             history_data = {
                 'historical_performance': self.historical_performance,
                 'prediction_history': self.prediction_history,
@@ -528,6 +541,26 @@ class OCHLPredictor:
             loaded_models = {target: {} for target in self.targets}
             loaded_scalers = {}
             
+            # First try to load scalers
+            scaler_path = self.get_scaler_path(symbol)
+            if os.path.exists(scaler_path):
+                try:
+                    scaler_data = joblib.load(scaler_path)
+                    self.feature_scaler = scaler_data.get('feature_scaler', RobustScaler())
+                    self.scalers = scaler_data.get('scalers', {})
+                    self.feature_columns = scaler_data.get('feature_columns', [])
+                    
+                    # Check if feature scaler is properly fitted
+                    if hasattr(self.feature_scaler, "median_"):
+                        self.is_fitted = True
+                        print(f"✅ Feature scaler properly loaded for {symbol}")
+                    else:
+                        self.is_fitted = False
+                        print(f"⚠️ Feature scaler not fitted in loaded data for {symbol}")
+                except Exception as e:
+                    print(f"Error loading scalers: {e}")
+                    self.is_fitted = False
+            
             algorithms = ['linear_regression', 'ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'arima', 'neural_network']
             
             models_loaded = False
@@ -539,16 +572,6 @@ class OCHLPredictor:
                         try:
                             model_data = joblib.load(path)
                             loaded_models[target][algo] = model_data['model']
-                            
-                            if not hasattr(self.feature_scaler, "median_"):
-                                self.feature_scaler = model_data.get('feature_scaler', RobustScaler())
-                            
-                            if target not in loaded_scalers:
-                                loaded_scalers[target] = model_data.get('target_scaler', StandardScaler())
-                            
-                            if not self.feature_columns:
-                                self.feature_columns = model_data.get('features', [])
-                            
                             models_loaded = True
                         except Exception as e:
                             print(f"Error loading {target}-{algo}: {e}")
@@ -558,8 +581,8 @@ class OCHLPredictor:
             
             if models_loaded:
                 self.models = loaded_models
-                self.scalers = loaded_scalers
                 
+                # Load history
                 history_path = self.get_history_path(symbol)
                 if os.path.exists(history_path):
                     try:
@@ -571,14 +594,6 @@ class OCHLPredictor:
                         self.risk_metrics = history_data.get('risk_metrics', {})
                         self.algorithm_weights = history_data.get('algorithm_weights', {})
                         self.last_training_date = history_data.get('last_training_date')
-                        self.feature_columns = history_data.get('feature_columns', self.feature_columns)
-                        # Check if feature scaler is properly fitted
-                        if hasattr(self.feature_scaler, "median_"):
-                             self.is_fitted = True
-                             print(f"✅ Feature scaler properly fitted for {symbol}")
-                        else:
-                            self.is_fitted = False
-                            print(f"⚠️ Feature scaler not fitted for {symbol}")
                         
                     except Exception as e:
                         print(f"Error loading history: {e}")
@@ -1171,40 +1186,26 @@ class OCHLPredictor:
             print(f"🤖 PREDICTING OCHL FOR {symbol}")
             print(f"{'='*70}")
             
-            # Check if we need to retrain (feature scaler not fitted)
-            if not hasattr(self.feature_scaler, "median_") or not self.is_fitted:
-                print(f"⚠️ Models not properly fitted - retraining...")
-                print(f"   Feature scaler fitted: {hasattr(self.feature_scaler, 'median_')}")
-                print(f"   Models fitted: {self.is_fitted}")
+            # Check if models are properly loaded
+            if not self.is_fitted:
+                print(f"⚠️ Models not properly fitted - loading/retraining...")
                 
-                # Delete old models if they exist
-                models_exist = False
-                for target in self.targets:
-                    if target in self.models:
-                        for algo, model in self.models[target].items():
-                            if model is not None:
-                                models_exist = True
-                                path = self.get_model_path(symbol, target, algo)
-                                if os.path.exists(path):
-                                    os.remove(path)
+                # Try to load existing models first
+                models_loaded = self.load_models(symbol)
                 
-                if models_exist:
-                    print("   Deleting old incompatible models...")
-                    self.models = {target: {} for target in self.targets}
-                    self.is_fitted = False
-                
-                # Retrain
-                success, msg = self.train_all_models(data, symbol)
-                if not success:
-                    print(f"❌ Retraining failed: {msg}")
-                    current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
-                    predictions = {target: float(current_close) for target in self.targets}
-                    return {
-                        'predictions': predictions,
-                        'confidence_scores': {target: 50.0 for target in self.targets},
-                        'algorithm_details': {},
-                        'current_prices': {'close': float(current_close)}
-                    }, None
+                if not models_loaded or not self.is_fitted:
+                    print(f"   No valid models found, training new ones...")
+                    success, msg = self.train_all_models(data, symbol)
+                    if not success:
+                        print(f"❌ Training failed: {msg}")
+                        current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+                        predictions = {target: float(current_close) for target in self.targets}
+                        return {
+                            'predictions': predictions,
+                            'confidence_scores': {target: 50.0 for target in self.targets},
+                            'algorithm_details': {},
+                            'current_prices': {'close': float(current_close)}
+                        }, None
             
             X_data, _, data_with_features = self.prepare_training_data(data)
             
@@ -1217,7 +1218,26 @@ class OCHLPredictor:
             
             current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
             print(f"📊 Current Price: ${current_close:.2f}")
-            print(f"📈 Algorithms available: {list(self.models.get('Open', {}).keys())}")
+            
+            # Check if models exist
+            if not self.models or all(len(self.models.get(target, {})) == 0 for target in self.targets):
+                print(f"⚠️ No models available, using fallback prediction")
+                for target in self.targets:
+                    predictions[target] = float(current_close)
+                    confidence_scores[target] = 50.0
+                    algorithm_predictions[target] = {'ensemble': float(current_close)}
+                
+                result = {
+                    'predictions': predictions,
+                    'algorithm_details': algorithm_predictions,
+                    'confidence_scores': confidence_scores,
+                    'confidence_metrics': {'overall_confidence': 50.0, 'confidence_level': 'LOW'},
+                    'risk_alerts': [],
+                    'current_prices': {'close': float(current_close)}
+                }
+                return result, None
+            
+            print(f"📈 Algorithms available: {sum(len(self.models.get(target, {})) for target in self.targets)} total")
             print()
             
             for target in self.targets:
@@ -1244,7 +1264,7 @@ class OCHLPredictor:
                 
                 expected_dim = len(self.feature_columns) * 30
                 if latest_features.shape[1] != expected_dim:
-                    print(f"   ❌ Feature mismatch")
+                    print(f"   ❌ Feature mismatch (got {latest_features.shape[1]}, expected {expected_dim})")
                     predictions[target] = current_close
                     confidence_scores[target] = 50.0
                     algorithm_predictions[target] = {'ensemble': float(current_close)}
@@ -1423,10 +1443,10 @@ class OCHLPredictor:
                     confidence_scores[target] = 50.0
             
             # Enforce OHLC constraints
-            pred_open = predictions["Open"]
-            pred_close = predictions["Close"]
-            pred_high = predictions["High"]
-            pred_low = predictions["Low"]
+            pred_open = predictions.get("Open", current_close)
+            pred_close = predictions.get("Close", current_close)
+            pred_high = predictions.get("High", current_close * 1.01)
+            pred_low = predictions.get("Low", current_close * 0.99)
 
             pred_high = max(pred_high, pred_open, pred_close)
             pred_low = min(pred_low, pred_open, pred_close)
@@ -2096,7 +2116,7 @@ if __name__ == '__main__':
     print("  • 8 ALGORITHMS with individual predictions")
     print("  • 90+ TECHNICAL FEATURES")
     print("  • DETAILED TERMINAL OUTPUT")
-    print("  • AUTO-RETRAIN when models outdated")
+    print("  • FIXED: Model saving/loading issues")
     print("=" * 70)
     print("🚀 Ready for predictions! Send POST to /api/predict")
     print("=" * 70)
