@@ -736,7 +736,7 @@ body {
 
 <script>
 /* =============== ENHANCED PREDICTION UI SCRIPT =============== */
-/* Shows which algorithm gives what prediction for OCHL values */
+/* Updated to handle new prediction format from Flask */
 
 const CONFIG = {
   API_BASE_URL: window.location.origin,
@@ -1044,7 +1044,7 @@ class StockListManager {
   }
 }
 
-/* Comprehensive Prediction Display */
+/* Comprehensive Prediction Display - UPDATED FOR NEW FORMAT */
 class PredictionDisplay {
   static reset() {
     // Reset main prediction display
@@ -1102,14 +1102,21 @@ class PredictionDisplay {
     AppState.currentPredictions = data;
     AppState.lastFetchTime = new Date();
     
-    // Update current prices
+    // Extract prediction data from new format
+    const prediction = data.prediction || {};
+    const predictedData = prediction.predicted || {};
+    const modelPredictions = prediction.model_predictions || {};
+    const confidenceData = prediction.confidence || {};
+    
+    // Update current prices - check both formats
     const currentPrices = data.current_prices || {};
+    const currentClose = currentPrices.close || currentPrices.Close || 0;
+    
     document.getElementById('currentPrice').textContent = 
-      `$${(currentPrices.close || data.current_prices?.close || 0).toFixed(2)}`;
+      `$${currentClose.toFixed(2)}`;
     
     // Update predictions
-    const predictions = data.predictions || {};
-    this.updatePredictions(predictions, currentPrices.close || 0);
+    this.updatePredictions(predictedData, currentClose);
     
     // Update confidence
     const confidence = data.confidence_metrics || {};
@@ -1119,25 +1126,25 @@ class PredictionDisplay {
     this.updateInsight(data.insight || data.message || 'AI analysis completed.');
     
     // Update charts
-    this.updateChart(data);
+    this.updateChart(predictedData, currentClose, data.symbol || 'N/A');
     
     // Update next day predictions
-    this.updateNextDayPredictions(predictions, currentPrices);
+    this.updateNextDayPredictions(predictedData, currentPrices, currentClose);
     
     // Update algorithm breakdown
-    this.updateAlgorithmBreakdown(data);
+    this.updateAlgorithmBreakdown(data, modelPredictions, currentClose);
     
     // Update model comparison table
     this.updateModelComparison(data);
     
     // Update detailed model views
-    this.updateDetailedModelViews(data);
+    this.updateDetailedModelViews(data, modelPredictions, currentClose);
     
     // Update performance metrics
     this.updatePerformance(data.historical_performance || {});
     
     // Update confidence bars
-    this.updateConfidenceBars(predictions);
+    this.updateConfidenceBars(confidenceData);
     
     // Update crisis detection
     this.updateCrisisDetection(data);
@@ -1152,11 +1159,11 @@ class PredictionDisplay {
     this.updateRiskAndRecommendation(data);
   }
 
-  static updatePredictions(predictions, currentClose) {
-    if (!predictions.Close) return;
+  static updatePredictions(predictedData, currentClose) {
+    if (!predictedData.Close) return;
     
-    const predictedClose = predictions.Close.predicted_price || predictions.Close.predicted || 0;
-    const expectedChange = predictions.Close.expected_change || 0;
+    const predictedClose = predictedData.Close;
+    const expectedChange = currentClose ? ((predictedClose - currentClose) / currentClose) * 100 : 0;
     
     const predictedPriceEl = document.getElementById('predictedPrice');
     if (predictedPriceEl) {
@@ -1184,19 +1191,17 @@ class PredictionDisplay {
     }
   }
 
-  static updateChart(data) {
+  static updateChart(predictedData, currentClose, symbol) {
     const chartEl = document.getElementById('predictionChart');
     if (!chartEl) return;
     
-    const symbol = AppState.selectedStock?.symbol || data.symbol || 'N/A';
-    const currentPrice = data.current_prices?.close || 0;
-    const predictedPrice = data.predictions?.Close?.predicted_price || currentPrice;
-    const change = currentPrice ? ((predictedPrice - currentPrice) / currentPrice) * 100 : 0;
+    const predictedClose = predictedData.Close || currentClose;
+    const change = currentClose ? ((predictedClose - currentClose) / currentClose) * 100 : 0;
     
     // Create a simple bar chart visualization
-    const maxVal = Math.max(currentPrice, predictedPrice) * 1.1;
-    const currentHeight = (currentPrice / maxVal) * 100;
-    const predictedHeight = (predictedPrice / maxVal) * 100;
+    const maxVal = Math.max(currentClose, predictedClose) * 1.1;
+    const currentHeight = (currentClose / maxVal) * 100;
+    const predictedHeight = (predictedClose / maxVal) * 100;
     
     chartEl.innerHTML = `
       <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
@@ -1210,7 +1215,7 @@ class PredictionDisplay {
             <div style="background: linear-gradient(to top, var(--accent-blue), var(--accent-teal)); 
                         width: 40px; height: ${currentHeight}%; border-radius: 6px 6px 0 0;">
             </div>
-            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${currentPrice.toFixed(2)}</div>
+            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${currentClose.toFixed(2)}</div>
           </div>
           
           <div style="display: flex; flex-direction: column; align-items: center; flex: 1;">
@@ -1219,7 +1224,7 @@ class PredictionDisplay {
                         ${change >= 0 ? 'rgba(0, 255, 157, 0.7)' : 'rgba(255, 77, 124, 0.7)'}); 
                         width: 40px; height: ${predictedHeight}%; border-radius: 6px 6px 0 0;">
             </div>
-            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${predictedPrice.toFixed(2)}</div>
+            <div style="font-size: 12px; font-weight: 600; margin-top: 8px;">$${predictedClose.toFixed(2)}</div>
           </div>
         </div>
         
@@ -1239,7 +1244,7 @@ class PredictionDisplay {
     }
   }
 
-  static updateNextDayPredictions(predictions, currentPrices) {
+  static updateNextDayPredictions(predictedData, currentPrices, currentClose) {
     const gridEl = document.getElementById('predictionsGrid');
     const sectionEl = document.getElementById('nextDayPredictions');
     
@@ -1255,11 +1260,10 @@ class PredictionDisplay {
     gridEl.innerHTML = '';
     
     predictionTypes.forEach(type => {
-      const predData = predictions[type.key];
-      if (!predData) return;
+      const predictedValue = predictedData[type.key];
+      if (predictedValue === undefined || predictedValue === null) return;
       
-      const predictedValue = predData.predicted_price || predData.predicted || 0;
-      const currentValue = currentPrices[type.key.toLowerCase()] || currentPrices.close || predictedValue;
+      const currentValue = currentPrices[type.key.toLowerCase()] || currentClose || predictedValue;
       const change = currentValue ? ((predictedValue - currentValue) / currentValue) * 100 : 0;
       
       const itemEl = document.createElement('div');
@@ -1272,9 +1276,6 @@ class PredictionDisplay {
         <div class="prediction-type-change ${change >= 0 ? 'price-up' : 'price-down'}">
           ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
         </div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-          Conf: ${predData.confidence ? Math.round(predData.confidence) : '—'}%
-        </div>
       `;
       
       gridEl.appendChild(itemEl);
@@ -1283,15 +1284,12 @@ class PredictionDisplay {
     sectionEl.style.display = 'block';
   }
 
-  static updateAlgorithmBreakdown(data) {
+  static updateAlgorithmBreakdown(data, modelPredictions, currentClose) {
     const algorithmSection = document.getElementById('algorithmSection');
     const algorithmTabs = document.getElementById('algorithmTabs');
     const algorithmGrid = document.getElementById('algorithmGrid');
     
     if (!algorithmSection || !algorithmTabs || !algorithmGrid) return;
-    
-    const algorithmDetails = data.algorithm_predictions || data.algorithm_details || {};
-    const historicalPerformance = data.historical_performance || {};
     
     // Clear existing content
     algorithmTabs.innerHTML = '';
@@ -1321,7 +1319,7 @@ class PredictionDisplay {
     
     // Create algorithm cards for all algorithms
     AppState.allAlgorithms.forEach(algo => {
-      const algorithmCard = this.createAlgorithmCard(algo, data);
+      const algorithmCard = this.createAlgorithmCard(algo, data, modelPredictions, currentClose);
       if (algorithmCard) {
         algorithmGrid.appendChild(algorithmCard);
       }
@@ -1332,7 +1330,7 @@ class PredictionDisplay {
     this.switchAlgorithmTab('all');
   }
 
-  static createAlgorithmCard(algorithm, data) {
+  static createAlgorithmCard(algorithm, data, modelPredictions, currentClose) {
     const card = document.createElement('div');
     card.className = 'algorithm-card';
     card.dataset.algorithm = algorithm;
@@ -1340,32 +1338,38 @@ class PredictionDisplay {
     const algoName = AppState.algorithmNames[algorithm] || algorithm;
     const algorithmColor = AppState.algorithmColors[algorithm] || 'var(--accent-blue)';
     
-    // Get predictions for this algorithm
-    const algorithmDetails = data.algorithm_predictions || {};
+    // Get historical performance
     const historicalPerformance = data.historical_performance || {};
-    const currentPrices = data.current_prices || {};
+    const confidenceData = data.prediction?.confidence || {};
     
-    // Collect predictions from all targets
+    // Collect predictions for this algorithm
     const predictions = {};
-    let totalConfidence = 0;
-    let confidenceCount = 0;
+    let hasPredictions = false;
     
     ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      if (algorithmDetails[target] && algorithmDetails[target].individual) {
-        const individualPreds = algorithmDetails[target].individual;
-        if (individualPreds[algorithm]) {
-          predictions[target] = {
-            value: individualPreds[algorithm],
-            confidence: algorithmDetails[target].confidences?.[algorithm] || 50
-          };
-          totalConfidence += predictions[target].confidence;
-          confidenceCount++;
+      if (modelPredictions[target] && modelPredictions[target].individual) {
+        const individualPreds = modelPredictions[target].individual;
+        if (individualPreds[algorithm] !== undefined) {
+          predictions[target] = individualPreds[algorithm];
+          hasPredictions = true;
         }
       }
     });
     
     // Calculate average confidence
-    const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 50;
+    let avgConfidence = 50;
+    if (confidenceData.Open && confidenceData.Close) {
+      const confValues = [
+        confidenceData.Open,
+        confidenceData.High,
+        confidenceData.Low,
+        confidenceData.Close
+      ].filter(v => v !== undefined);
+      
+      if (confValues.length > 0) {
+        avgConfidence = confValues.reduce((a, b) => a + b, 0) / confValues.length;
+      }
+    }
     
     // Determine confidence class
     let confidenceClass = 'low';
@@ -1379,19 +1383,6 @@ class PredictionDisplay {
         performance[target] = historicalPerformance[target][algorithm];
       }
     });
-    
-    // Calculate overall performance score
-    let performanceScore = 0;
-    let perfCount = 0;
-    Object.values(performance).forEach(perf => {
-      if (perf) {
-        const r2Score = Math.max(perf.r2 || 0, 0);
-        const dirAcc = perf.direction_accuracy || 0;
-        performanceScore += (r2Score * 100 * 0.5) + (dirAcc * 0.5);
-        perfCount++;
-      }
-    });
-    performanceScore = perfCount > 0 ? performanceScore / perfCount : 0;
     
     // Create card content
     card.innerHTML = `
@@ -1409,35 +1400,32 @@ class PredictionDisplay {
     
     // Add prediction items
     ['Open', 'High', 'Low', 'Close'].forEach(target => {
-      const pred = predictions[target];
-      const currentValue = currentPrices[target.toLowerCase()] || currentPrices.close || 0;
+      const predValue = predictions[target];
+      const currentValue = currentClose;
       
-      let predValue = 0;
-      let confidence = 0;
+      let displayValue = 0;
       let change = 0;
       
-      if (pred) {
-        predValue = pred.value;
-        confidence = pred.confidence;
+      if (predValue !== undefined) {
+        displayValue = predValue;
         change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
       } else {
         // Fallback to ensemble prediction
-        const ensemblePred = data.predictions?.[target]?.predicted_price || currentValue;
-        predValue = ensemblePred;
-        change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
-        confidence = 50;
+        const ensemblePred = data.prediction?.predicted?.[target] || currentValue;
+        displayValue = ensemblePred;
+        change = currentValue ? ((ensemblePred - currentValue) / currentValue) * 100 : 0;
       }
       
       const predictionItem = document.createElement('div');
       predictionItem.className = 'algorithm-prediction-item';
       predictionItem.innerHTML = `
         <div class="algorithm-prediction-label">${target}</div>
-        <div class="algorithm-prediction-value">$${predValue.toFixed(2)}</div>
+        <div class="algorithm-prediction-value">$${displayValue.toFixed(2)}</div>
         <div class="algorithm-prediction-change ${change >= 0 ? 'price-up' : 'price-down'}">
           ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
         </div>
         <div style="font-size:10px;color:var(--text-muted)">
-          Conf: ${Math.round(confidence)}%
+          ${performance[target] ? `R²: ${performance[target].r2?.toFixed(3) || '—'}` : 'No perf data'}
         </div>
       `;
       
@@ -1447,24 +1435,36 @@ class PredictionDisplay {
     // Close predictions container
     card.innerHTML += `</div>`;
     
-    // Add performance metrics
+    // Add performance metrics if available
     if (Object.keys(performance).length > 0) {
       card.innerHTML += `
         <div class="algorithm-performance">
           <div class="algorithm-performance-grid">
       `;
       
+      let perfCount = 0;
       ['Open', 'High', 'Low', 'Close'].forEach(target => {
         const perf = performance[target];
         if (perf) {
+          perfCount++;
           card.innerHTML += `
             <div class="algorithm-performance-item">
-              <div class="algorithm-performance-label">${target} R²</div>
-              <div class="algorithm-performance-value">${perf.r2 ? perf.r2.toFixed(3) : '—'}</div>
+              <div class="algorithm-performance-label">${target} Acc</div>
+              <div class="algorithm-performance-value">${perf.direction_accuracy ? perf.direction_accuracy.toFixed(1) : '—'}%</div>
             </div>
           `;
         }
       });
+      
+      // Fill empty slots
+      for (let i = perfCount; i < 4; i++) {
+        card.innerHTML += `
+          <div class="algorithm-performance-item">
+            <div class="algorithm-performance-label">—</div>
+            <div class="algorithm-performance-value">—</div>
+          </div>
+        `;
+      }
       
       card.innerHTML += `</div></div>`;
     }
@@ -1506,7 +1506,6 @@ class PredictionDisplay {
     
     const historicalPerformance = data.historical_performance || {};
     const algorithmWeights = data.model_info?.algorithm_weights || {};
-    const algorithmDetails = data.algorithm_predictions || {};
     
     // Clear table
     tableBody.innerHTML = '';
@@ -1514,10 +1513,9 @@ class PredictionDisplay {
     // Create header
     tableHeader.innerHTML = `
       <th>Model</th>
-      <th>Performance Score</th>
-      <th>Avg R²</th>
+      <th>Avg Confidence</th>
       <th>Avg Direction Acc</th>
-      <th>Avg MAPE</th>
+      <th>Avg R²</th>
       <th>Weight</th>
       <th>Status</th>
     `;
@@ -1526,48 +1524,41 @@ class PredictionDisplay {
     const algorithmScores = [];
     
     AppState.allAlgorithms.forEach(algo => {
-      let totalR2 = 0;
       let totalDirAcc = 0;
-      let totalMape = 0;
+      let totalR2 = 0;
       let count = 0;
       
       ['Open', 'High', 'Low', 'Close'].forEach(target => {
         if (historicalPerformance[target] && historicalPerformance[target][algo]) {
           const perf = historicalPerformance[target][algo];
-          totalR2 += perf.r2 || 0;
           totalDirAcc += perf.direction_accuracy || 0;
-          totalMape += perf.mape || 0;
+          totalR2 += perf.r2 || 0;
           count++;
         }
       });
       
       if (count > 0) {
-        const avgR2 = totalR2 / count;
         const avgDirAcc = totalDirAcc / count;
-        const avgMape = totalMape / count;
+        const avgR2 = totalR2 / count;
+        const weight = algorithmWeights.Close?.[algo] || 0.1;
         
-        // Calculate performance score (weighted average)
-        const performanceScore = (
-          (Math.max(avgR2, 0) * 100 * 0.4) + 
-          (avgDirAcc * 0.4) + 
-          ((100 - Math.min(avgMape, 100)) * 0.2)
-        );
+        // Calculate confidence score
+        const confidenceScore = (avgDirAcc + (avgR2 * 100)) / 2;
         
         algorithmScores.push({
           algorithm: algo,
           name: AppState.algorithmNames[algo],
-          performanceScore: performanceScore,
-          avgR2: avgR2,
+          confidenceScore: confidenceScore,
           avgDirAcc: avgDirAcc,
-          avgMape: avgMape,
-          weight: algorithmWeights.Close?.[algo] || 0.1,
+          avgR2: avgR2,
+          weight: weight,
           isActive: count > 0
         });
       }
     });
     
-    // Sort by performance score
-    algorithmScores.sort((a, b) => b.performanceScore - a.performanceScore);
+    // Sort by confidence score
+    algorithmScores.sort((a, b) => b.confidenceScore - a.confidenceScore);
     
     // Add rows to table
     algorithmScores.forEach((score, index) => {
@@ -1586,10 +1577,9 @@ class PredictionDisplay {
         <td class="model-name" style="color: ${AppState.algorithmColors[score.algorithm] || 'var(--text-primary)'}">
           ${score.name} ${rankBadge}
         </td>
-        <td class="performance-score">${score.performanceScore.toFixed(1)}</td>
-        <td>${score.avgR2.toFixed(3)}</td>
+        <td class="performance-score">${score.confidenceScore.toFixed(1)}%</td>
         <td>${score.avgDirAcc.toFixed(1)}%</td>
-        <td>${score.avgMape.toFixed(1)}%</td>
+        <td>${score.avgR2.toFixed(3)}</td>
         <td>${score.weight.toFixed(2)}</td>
         <td>${status}</td>
       `;
@@ -1600,41 +1590,44 @@ class PredictionDisplay {
     section.style.display = 'block';
   }
 
-  static updateDetailedModelViews(data) {
+  static updateDetailedModelViews(data, modelPredictions, currentClose) {
     const section = document.getElementById('detailedModelSection');
     if (!section) return;
     
     const historicalPerformance = data.historical_performance || {};
-    const algorithmDetails = data.algorithm_predictions || {};
-    const currentPrices = data.current_prices || {};
+    const predictionData = data.prediction?.predicted || {};
     
     section.innerHTML = '';
     
-    // Create detailed cards for top 3 models
+    // Create detailed cards for top 4 models
     const modelScores = [];
     
     AppState.allAlgorithms.forEach(algo => {
-      let totalR2 = 0;
+      let totalConfidence = 0;
       let count = 0;
       
       ['Open', 'High', 'Low', 'Close'].forEach(target => {
-        if (historicalPerformance[target] && historicalPerformance[target][algo]) {
-          totalR2 += historicalPerformance[target][algo].r2 || 0;
-          count++;
+        if (modelPredictions[target] && modelPredictions[target].individual) {
+          const individualPreds = modelPredictions[target].individual;
+          if (individualPreds[algo] !== undefined) {
+            // Use prediction confidence as score
+            totalConfidence += 70; // Default confidence
+            count++;
+          }
         }
       });
       
       if (count > 0) {
         modelScores.push({
           algorithm: algo,
-          avgR2: totalR2 / count
+          confidence: totalConfidence / count
         });
       }
     });
     
-    // Sort by R² score and take top 3
-    modelScores.sort((a, b) => b.avgR2 - a.avgR2);
-    const topModels = modelScores.slice(0, 3);
+    // Sort by confidence and take top 4
+    modelScores.sort((a, b) => b.confidence - a.confidence);
+    const topModels = modelScores.slice(0, 4);
     
     topModels.forEach((model, index) => {
       const algo = model.algorithm;
@@ -1648,8 +1641,8 @@ class PredictionDisplay {
       // Get predictions for this model
       const predictions = {};
       ['Open', 'High', 'Low', 'Close'].forEach(target => {
-        if (algorithmDetails[target] && algorithmDetails[target].individual) {
-          predictions[target] = algorithmDetails[target].individual[algo] || 0;
+        if (modelPredictions[target] && modelPredictions[target].individual) {
+          predictions[target] = modelPredictions[target].individual[algo];
         }
       });
       
@@ -1662,62 +1655,59 @@ class PredictionDisplay {
       });
       
       // Calculate average metrics
-      let avgR2 = 0, avgDirAcc = 0, avgMape = 0, perfCount = 0;
+      let avgDirAcc = 0, avgR2 = 0, perfCount = 0;
       Object.values(perfMetrics).forEach(perf => {
-        avgR2 += perf.r2 || 0;
         avgDirAcc += perf.direction_accuracy || 0;
-        avgMape += perf.mape || 0;
+        avgR2 += perf.r2 || 0;
         perfCount++;
       });
       
       if (perfCount > 0) {
-        avgR2 /= perfCount;
         avgDirAcc /= perfCount;
-        avgMape /= perfCount;
+        avgR2 /= perfCount;
       }
       
-      const rankIcons = ['🥇', '🥈', '🥉'];
+      const rankIcons = ['🥇', '🥈', '🥉', '🏅'];
       
       card.innerHTML = `
         <div class="detailed-model-header">
           <div class="detailed-model-title" style="color: ${algorithmColor}">
-            ${rankIcons[index]} ${algoName}
+            ${rankIcons[index] || '🏆'} ${algoName}
           </div>
           <div style="font-size: 12px; color: var(--text-muted);">
-            Rank #${index + 1}
+            Confidence: ${Math.round(model.confidence)}%
           </div>
         </div>
         
         <div class="detailed-model-stats">
           <div class="detailed-model-stat">
-            <div class="detailed-model-stat-label">Avg R² Score</div>
-            <div class="detailed-model-stat-value">${avgR2.toFixed(3)}</div>
-          </div>
-          <div class="detailed-model-stat">
             <div class="detailed-model-stat-label">Direction Accuracy</div>
             <div class="detailed-model-stat-value">${avgDirAcc.toFixed(1)}%</div>
           </div>
           <div class="detailed-model-stat">
-            <div class="detailed-model-stat-label">Avg MAPE</div>
-            <div class="detailed-model-stat-value">${avgMape.toFixed(1)}%</div>
+            <div class="detailed-model-stat-label">R² Score</div>
+            <div class="detailed-model-stat-value">${avgR2.toFixed(3)}</div>
           </div>
           <div class="detailed-model-stat">
             <div class="detailed-model-stat-label">Weight in Ensemble</div>
             <div class="detailed-model-stat-value">${data.model_info?.algorithm_weights?.Close?.[algo]?.toFixed(2) || '0.10'}</div>
           </div>
+          <div class="detailed-model-stat">
+            <div class="detailed-model-stat-label">Rank</div>
+            <div class="detailed-model-stat-value">#${index + 1}</div>
+          </div>
         </div>
         
         <div style="margin-bottom: 16px;">
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
-            Next Day Predictions:
+            Individual Predictions:
           </div>
           <div class="detailed-model-predictions">
       `;
       
       ['Open', 'High', 'Low', 'Close'].forEach(target => {
-        const predValue = predictions[target] || 0;
-        const currentValue = currentPrices[target.toLowerCase()] || 0;
-        const change = currentValue ? ((predValue - currentValue) / currentValue) * 100 : 0;
+        const predValue = predictions[target] !== undefined ? predictions[target] : (predictionData[target] || 0);
+        const change = currentClose ? ((predValue - currentClose) / currentClose) * 100 : 0;
         
         card.innerHTML += `
           <div class="detailed-model-prediction">
@@ -1758,7 +1748,6 @@ class PredictionDisplay {
     // Calculate best performance across all algorithms
     let bestR2 = 0;
     let bestDirAcc = 0;
-    let bestRMSE = Infinity;
     let activeAlgorithms = 0;
     
     Object.values(performance).forEach(targetPerf => {
@@ -1767,7 +1756,6 @@ class PredictionDisplay {
           if (algoPerf) {
             bestR2 = Math.max(bestR2, algoPerf.r2 || 0);
             bestDirAcc = Math.max(bestDirAcc, algoPerf.direction_accuracy || 0);
-            bestRMSE = Math.min(bestRMSE, algoPerf.rmse || Infinity);
             activeAlgorithms++;
           }
         });
@@ -1786,7 +1774,7 @@ class PredictionDisplay {
     
     document.getElementById('r2Score').textContent = bestR2.toFixed(3);
     document.getElementById('directionAccuracy').textContent = `${bestDirAcc.toFixed(1)}%`;
-    document.getElementById('rmseScore').textContent = bestRMSE !== Infinity ? bestRMSE.toFixed(4) : '—';
+    document.getElementById('rmseScore').textContent = '—'; // Not in new format
     document.getElementById('algorithmsUsed').textContent = uniqueAlgorithms.size;
   }
 
@@ -1798,7 +1786,7 @@ class PredictionDisplay {
     });
   }
 
-  static updateConfidenceBars(predictions) {
+  static updateConfidenceBars(confidenceData) {
     const targets = ['Open', 'High', 'Low', 'Close'];
     const colors = [
       'var(--accent-blue)',
@@ -1808,10 +1796,7 @@ class PredictionDisplay {
     ];
     
     targets.forEach((target, index) => {
-      const predData = predictions[target];
-      if (!predData) return;
-      
-      const confidence = predData.confidence || 50;
+      const confidence = confidenceData[target] || 50;
       const barEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-fill`);
       const valueEl = document.querySelector(`.confidence-bar:nth-child(${index + 1}) .confidence-value`);
       
@@ -1862,11 +1847,10 @@ class PredictionDisplay {
     
     // Determine market regime from risk metrics
     const volatility = data.risk_metrics?.volatility || 0;
-    const anomalyScore = data.risk_metrics?.anomaly_score || 0;
     
     let regime = 'NORMAL';
-    if (volatility > 40) regime = 'HIGH_VOLATILITY';
-    else if (anomalyScore > 30) regime = 'ELEVATED_RISK';
+    if (volatility > 40) regime = 'HIGH VOLATILITY';
+    else if (volatility > 20) regime = 'ELEVATED RISK';
     
     regimeLevelEl.textContent = regime;
     regimeCard.className = `crisis-card ${crisisClass}`;
@@ -1885,7 +1869,7 @@ class PredictionDisplay {
     
     const volatilityValue = riskMetrics.volatility || 0;
     const skewness = riskMetrics.skewness || 0;
-    const positiveDays = riskMetrics.positive_days || 50;
+    const winRate = riskMetrics.win_rate || 50;
     
     // Set indicator text based on metrics
     if (indicators.volatility) {
@@ -1911,8 +1895,8 @@ class PredictionDisplay {
     
     if (indicators.sentiment) {
       let sentText = 'Sentiment: ';
-      if (positiveDays > 60) sentText += 'Bullish';
-      else if (positiveDays < 40) sentText += 'Bearish';
+      if (winRate > 60) sentText += 'Bullish';
+      else if (winRate < 40) sentText += 'Bearish';
       else sentText += 'Neutral';
       indicators.sentiment.textContent = sentText;
     }
@@ -1996,8 +1980,8 @@ class PredictionDisplay {
     }
     
     // Update profitable predictions
-    const positiveDays = data.risk_metrics?.positive_days || 50;
-    document.getElementById('metricProfit').textContent = `${positiveDays.toFixed(1)}%`;
+    const winRate = data.risk_metrics?.win_rate || 50;
+    document.getElementById('metricProfit').textContent = `${winRate.toFixed(1)}%`;
     
     // Update latency
     if (AppState.lastFetchTime) {
