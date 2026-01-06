@@ -607,7 +607,15 @@ class OCHLPredictor:
                             history_data = json.load(f)
                         
                         self.historical_performance = history_data.get('historical_performance', {})
-                        self.prediction_history[symbol] = history_data.get('prediction_history', [])  # Load into prediction_history
+                        
+                        # FIX: Ensure prediction_history[symbol] is a list
+                        loaded_history = history_data.get('prediction_history', [])
+                        if isinstance(loaded_history, dict):
+                            # Convert dict to list if needed
+                            self.prediction_history[symbol] = [loaded_history]
+                        else:
+                            self.prediction_history[symbol] = loaded_history
+                            
                         self.risk_metrics = history_data.get('risk_metrics', {})
                         self.algorithm_weights = history_data.get('algorithm_weights', {})
                         self.last_training_date = history_data.get('last_training_date')
@@ -615,6 +623,8 @@ class OCHLPredictor:
                         
                     except Exception as e:
                         print(f"Error loading history: {e}")
+                        # Initialize as empty list if error
+                        self.prediction_history[symbol] = []
                 
                 print(f"✅ Loaded existing models for {symbol}")
                 return True
@@ -1215,13 +1225,14 @@ class OCHLPredictor:
     def update_prediction_history(self, symbol, data):
         """Update prediction history in YOUR format"""
         try:
-            if symbol not in self.prediction_history:
+            # FIX: Initialize as list if not exists or if it's a dict
+            if symbol not in self.prediction_history or isinstance(self.prediction_history[symbol], dict):
                 self.prediction_history[symbol] = []
             
             # Get the last prediction if it exists
             last_prediction = None
-            if self.prediction_history[symbol]:
-                last_prediction = self.prediction_history[symbol][-1]
+            if self.prediction_history[symbol] and isinstance(self.prediction_history[symbol], list):
+                last_prediction = self.prediction_history[symbol][-1] if self.prediction_history[symbol] else None
             
             # Create new history entry with actual prices if available
             history_entry = {
@@ -1248,7 +1259,12 @@ class OCHLPredictor:
                             'error_pct': round(error_pct, 2)
                         }
             
-            self.prediction_history[symbol].append(history_entry)
+            # FIX: Ensure we're appending to a list
+            if isinstance(self.prediction_history[symbol], list):
+                self.prediction_history[symbol].append(history_entry)
+            else:
+                # If it's somehow not a list, reset it
+                self.prediction_history[symbol] = [history_entry]
             
             # Keep only last 100 entries
             if len(self.prediction_history[symbol]) > 100:
@@ -1711,10 +1727,16 @@ class OCHLPredictor:
                 'actual': None  # Will be filled in update_prediction_history
             }
             
-            # Update prediction history with this entry
-            if symbol not in self.prediction_history:
+            # Update prediction history with this entry - FIXED
+            if symbol not in self.prediction_history or not isinstance(self.prediction_history[symbol], list):
                 self.prediction_history[symbol] = []
-            self.prediction_history[symbol].append(history_entry)
+            
+            # Ensure it's a list before appending
+            if isinstance(self.prediction_history[symbol], list):
+                self.prediction_history[symbol].append(history_entry)
+            else:
+                # If it's somehow not a list, reset it
+                self.prediction_history[symbol] = [history_entry]
             
             # Keep only last 100 entries
             if len(self.prediction_history[symbol]) > 100:
@@ -2242,7 +2264,8 @@ def predict_stock():
                 history_entry['overall_confidence']
             ),
             
-            "prediction_history": predictor.prediction_history.get(symbol, [])[-10:],
+            # FIXED: Safely get prediction history
+            "prediction_history": predictor.prediction_history.get(symbol, [])[-10:] if isinstance(predictor.prediction_history.get(symbol), list) else [],
             
             "model_info": {
                 "last_training_date": predictor.last_training_date,
@@ -2323,7 +2346,7 @@ def train_models():
                 "risk_metrics": predictor.risk_metrics,
                 "algorithm_weights": predictor.algorithm_weights,
                 "model_health": health_report,
-                "prediction_history": predictor.prediction_history.get(symbol, [])[-5:]  # Show last 5 predictions
+                "prediction_history": predictor.prediction_history.get(symbol, [])[-5:] if isinstance(predictor.prediction_history.get(symbol), list) else []  # Show last 5 predictions
             })
         else:
             return jsonify({
@@ -2356,10 +2379,15 @@ def get_prediction_history(symbol):
             with open(history_path, 'r') as f:
                 history_data = json.load(f)
             
+            # Ensure prediction_history is a list
+            prediction_history = history_data.get('prediction_history', [])
+            if isinstance(prediction_history, dict):
+                prediction_history = [prediction_history]
+            
             return jsonify({
                 "status": "success",
                 "symbol": symbol,
-                "history": history_data.get('prediction_history', []),  # Returns in YOUR format
+                "history": prediction_history,  # Returns in YOUR format
                 "performance": history_data.get('historical_performance', {}),
                 "algorithm_weights": history_data.get('algorithm_weights', {}),
                 "last_updated": history_data.get('last_training_date')
@@ -2367,10 +2395,15 @@ def get_prediction_history(symbol):
         else:
             # Check if we have in-memory history
             if symbol in predictor.prediction_history:
+                # Ensure it's a list
+                history = predictor.prediction_history[symbol]
+                if isinstance(history, dict):
+                    history = [history]
+                    
                 return jsonify({
                     "status": "success",
                     "symbol": symbol,
-                    "history": predictor.prediction_history[symbol],
+                    "history": history,
                     "last_updated": predictor.last_training_date
                 })
             else:
