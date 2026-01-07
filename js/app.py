@@ -85,14 +85,14 @@ rate_limiter = RateLimiter(max_per_minute=35)  # Increased from 25
 
 # ---------------- CRITICAL FIXES: Stock Split Handling ----------------
 KNOWN_STOCK_SPLITS = {
-    'GE': {'date': '2018-01-01', 'ratio': 8, 'type': 'reverse'},
-    'AAPL': {'date': '2018-01-01', 'ratio': 4, 'type': 'forward'},
-    'TSLA': {'date': '2018-01-01', 'ratio': 3, 'type': 'forward'},
-    'NVDA': {'date': '2018-01-01', 'ratio': 4, 'type': 'forward'},
-    'GOOGL': {'date': '2018-01-01', 'ratio': 20, 'type': 'forward'},
-    'AMZN': {'date': '2018-01-01', 'ratio': 20, 'type': 'forward'},
+    'GE': {'date': '2021-07-30', 'ratio': 8, 'type': 'reverse'},
+    'AAPL': {'date': '2020-08-31', 'ratio': 4, 'type': 'forward'},
+    'TSLA': {'date': '2022-08-25', 'ratio': 3, 'type': 'forward'},
+    'NVDA': {'date': '2021-07-20', 'ratio': 4, 'type': 'forward'},
+    'GOOGL': {'date': '2022-07-18', 'ratio': 20, 'type': 'forward'},
+    'AMZN': {'date': '2022-06-06', 'ratio': 20, 'type': 'forward'},
     'MSFT': {'date': '2003-02-01', 'ratio': 2, 'type': 'forward'},  # Added
-    'META': {'date': '2018-01-01', 'ratio': 1, 'type': 'none'},  # No recent split
+    'META': {'date': 'None', 'ratio': 1, 'type': 'none'},  # No recent split
 }
 
 def detect_and_handle_splits(data, ticker):
