@@ -92,7 +92,7 @@ KNOWN_STOCK_SPLITS = {
     'GOOGL': {'date': '2022-07-18', 'ratio': 20, 'type': 'forward'},
     'AMZN': {'date': '2022-06-06', 'ratio': 20, 'type': 'forward'},
     'MSFT': {'date': '2003-02-01', 'ratio': 2, 'type': 'forward'},
-    'META': {'date': 'None', 'ratio': 1, 'type': 'none'},
+    'META': {'date': None, 'ratio': 1, 'type': 'none'},
 }
 
 def detect_and_handle_splits(data, ticker):
