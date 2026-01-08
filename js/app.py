@@ -1564,7 +1564,7 @@ class OCHLPredictor:
                             # Direct prediction for other models
                             pred_actual = float(model.predict(latest_scaled)[0])
                         
-                        # ==================== RELAXED SANITY CHECK ====================
+                        # ==================== FIXED SANITY CHECK ====================
                         # More realistic thresholds for stock movements
                         is_valid, confidence_penalty, message = sanity_check_prediction(
                             pred_actual, current_close, algo
@@ -1573,7 +1573,7 @@ class OCHLPredictor:
                         # But don't automatically reject - mark as low confidence instead
                         if not is_valid:
                             # Only reject if change is truly extreme (>15%)
-                            pct_change = abs(pred_actual - current_close) / current_price
+                            pct_change = abs(pred_actual - current_close) / current_close  # FIXED: current_close, not current_price
                             if pct_change > 0.15:  # >15% change is truly impossible
                                 rejected_predictions.append((algo, pred_actual, message))
                                 print(f"   ❌ {algo:20s}: REJECTED - {message}")
@@ -1583,7 +1583,7 @@ class OCHLPredictor:
                                 is_valid = True
                                 confidence_penalty = 40  # Heavy penalty but not rejection
                                 print(f"   ⚠️ {algo:20s}: KEPT with penalty - {message}")
-                        # ==================== END RELAXED CHECK ====================
+                        # ==================== END FIXED CHECK ====================
                         
                         # Calculate confidence
                         confidence = 65
@@ -1617,70 +1617,89 @@ class OCHLPredictor:
                             print(f"     ❌ {algo}: {reason}")
                 
                 if target_predictions:
-                    # ==================== GENTLER OUTLIER FILTERING ====================
+                    # ==================== IMPROVED OUTLIER FILTERING ====================
                     pred_values = list(target_predictions.values())
                     if len(pred_values) >= 3:
                         median_pred = np.median(pred_values)
                         mad = np.median(np.abs(pred_values - median_pred))
                         
-                        # Only filter EXTREME outliers (>4σ)
+                        # Filter only EXTREME outliers (>4σ) or negative predictions
                         filtered_predictions = {}
                         filtered_confidences = {}
                         
                         for algo, pred in target_predictions.items():
+                            # First check for obviously invalid predictions
+                            if pred <= 0 or pred > current_close * 3:  # Negative or >300% of current
+                                print(f"   ⚠️ Filtered invalid: {algo} (${pred:.2f})")
+                                continue
+                                
+                            # Then check for statistical outliers
                             if mad == 0 or abs(pred - median_pred) <= 4.0 * mad:  # Very lenient: 4σ
                                 filtered_predictions[algo] = pred
                                 filtered_confidences[algo] = target_confidences[algo]
                             else:
                                 print(f"   ⚠️ Filtered extreme outlier: {algo} (${pred:.2f})")
                         
-                        if not filtered_predictions:
-                            # If we filtered everything, keep at least 2 models
+                        # Ensure we keep at least 3 models if available
+                        if len(filtered_predictions) < 3 and len(target_predictions) >= 3:
+                            # Add back the closest predictions to median
                             sorted_by_proximity = sorted(
                                 target_predictions.items(),
                                 key=lambda x: abs(x[1] - median_pred)
                             )
-                            for algo, pred in sorted_by_proximity[:2]:
-                                filtered_predictions[algo] = pred
-                                filtered_confidences[algo] = target_confidences[algo]
+                            for algo, pred in sorted_by_proximity:
+                                if algo not in filtered_predictions and len(filtered_predictions) < 3:
+                                    filtered_predictions[algo] = pred
+                                    filtered_confidences[algo] = target_confidences[algo]
+                                    print(f"   ↪️ Added back: {algo} (${pred:.2f})")
                         
                         target_predictions = filtered_predictions
                         target_confidences = filtered_confidences
-                    # ==================== END GENTLER FILTERING ====================
+                    # ==================== END IMPROVED FILTERING ====================
                     
-                    # ==================== IMPROVED ENSEMBLE WEIGHTING ====================
-                    # Weighted ensemble with improved weighting
+                    # ==================== OPTIMIZED ENSEMBLE WEIGHTING ====================
+                    # Weighted ensemble with target-specific weighting
                     weights = {}
                     total_weight = 0
                     
+                    # Target-specific algorithm preferences
+                    if target == 'Close':
+                        algo_importance = {
+                            'ridge': 1.4, 'lasso': 1.35, 'linear_regression': 1.3,
+                            'random_forest': 1.25, 'gradient_boosting': 1.2,
+                            'arima': 1.0, 'svr': 0.8, 'neural_network': 0.9
+                        }
+                    elif target == 'Open':
+                        algo_importance = {
+                            'ridge': 1.3, 'lasso': 1.25, 'linear_regression': 1.2,
+                            'arima': 1.1, 'random_forest': 1.15, 'gradient_boosting': 1.1,
+                            'neural_network': 0.9, 'svr': 0.7
+                        }
+                    elif target == 'High':
+                        algo_importance = {
+                            'ridge': 1.35, 'lasso': 1.3, 'linear_regression': 1.25,
+                            'random_forest': 1.2, 'gradient_boosting': 1.15,
+                            'arima': 1.05, 'svr': 0.85, 'neural_network': 0.9
+                        }
+                    else:  # Low
+                        algo_importance = {
+                            'ridge': 1.35, 'lasso': 1.3, 'linear_regression': 1.25,
+                            'random_forest': 1.2, 'gradient_boosting': 1.15,
+                            'arima': 1.05, 'svr': 0.85, 'neural_network': 0.9
+                        }
+                    
                     for algo, conf in target_confidences.items():
-                        # Base weight from algorithm confidence (normalized)
+                        # Base weight from algorithm confidence
                         base_weight = max(conf / 100, 0.3)  # Minimum 0.3 weight
                         
-                        # Algorithm-specific adjustments
-                        algo_multiplier = 1.0
-                        if algo == 'random_forest':
-                            algo_multiplier = 1.3  # Boost random forest
-                        elif algo == 'gradient_boosting':
-                            algo_multiplier = 1.25  # Boost gradient boosting
-                        elif algo == 'ridge':
-                            algo_multiplier = 1.2  # Boost ridge
-                        elif algo == 'lasso':
-                            algo_multiplier = 1.15  # Boost lasso
-                        elif algo == 'linear_regression':
-                            algo_multiplier = 1.1  # Slight boost
-                        elif algo == 'svr':
-                            algo_multiplier = 0.7  # Reduce SVR weight
-                        elif algo == 'arima':
-                            algo_multiplier = 0.9  # Slight reduction
-                        elif algo == 'neural_network':
-                            algo_multiplier = 0.8  # Reduce neural network
+                        # Algorithm importance multiplier
+                        importance = algo_importance.get(algo, 1.0)
                         
                         # Historical performance weight
                         historical_weight = self.algorithm_weights.get(target, {}).get(algo, 1.0)
                         
                         # Final weight
-                        weight = base_weight * algo_multiplier * historical_weight
+                        weight = base_weight * importance * historical_weight
                         weights[algo] = min(weight, 2.0)  # Cap at 2.0
                         total_weight += weight
                     
@@ -1691,9 +1710,10 @@ class OCHLPredictor:
                             for algo, pred in target_predictions.items()
                         )
                     else:
-                        # Fallback to median
-                        ensemble_pred = np.median(list(target_predictions.values()))
-                    # ==================== END IMPROVED ENSEMBLE ====================
+                        # Fallback to weighted median
+                        ensemble_pred = np.average(list(target_predictions.values()), 
+                                                  weights=list(weights.values()))
+                    # ==================== END OPTIMIZED ENSEMBLE ====================
                     
                     # Final sanity check on ensemble
                     ensemble_is_valid, ensemble_penalty, ensemble_msg = sanity_check_prediction(
@@ -1706,10 +1726,9 @@ class OCHLPredictor:
                     
                     predictions[target] = float(ensemble_pred)
                     
-                    # ==================== IMPROVED CONFIDENCE CALCULATION ====================
-                    # Calculate weighted confidence based on prediction quality
+                    # ==================== ENHANCED CONFIDENCE CALCULATION ====================
                     if target_confidences:
-                        # Use weighted average of confidences
+                        # Weighted confidence calculation
                         weighted_conf = 0
                         weight_sum = 0
                         
@@ -1723,25 +1742,34 @@ class OCHLPredictor:
                         else:
                             base_confidence = np.mean(list(target_confidences.values()))
                         
-                        # Bonus for model agreement
-                        if len(target_predictions) >= 3:
+                        # Model agreement bonus
+                        if len(target_predictions) >= 4:
                             pred_std = np.std(list(target_predictions.values()))
                             if current_close > 0:
                                 std_pct = pred_std / current_close
-                                if std_pct < 0.02:  # <2% standard deviation
-                                    base_confidence += 10  # Bonus for high agreement
-                                elif std_pct < 0.04:  # <4% standard deviation
-                                    base_confidence += 5
+                                if std_pct < 0.015:  # <1.5% standard deviation
+                                    base_confidence = min(base_confidence + 12, 85)
+                                elif std_pct < 0.03:  # <3% standard deviation
+                                    base_confidence = min(base_confidence + 6, 80)
                         
-                        # Penalty for too few models
-                        if len(target_predictions) < 3:
-                            base_confidence *= 0.8
+                        # Quantity bonus
+                        model_count = len(target_predictions)
+                        if model_count >= 6:
+                            base_confidence = min(base_confidence + 8, 85)
+                        elif model_count >= 4:
+                            base_confidence = min(base_confidence + 4, 80)
                         
-                        # Ensure reasonable bounds (30-80%)
-                        confidence_scores[target] = float(max(30, min(base_confidence, 80)))
+                        # Target-specific confidence adjustment
+                        if target == 'Close':
+                            base_confidence = min(base_confidence * 1.05, 85)
+                        elif target == 'Open':
+                            base_confidence = min(base_confidence * 1.02, 80)
+                        
+                        # Ensure reasonable bounds
+                        confidence_scores[target] = float(max(40, min(base_confidence, 85)))
                     else:
                         confidence_scores[target] = 50.0
-                    # ==================== END IMPROVED CONFIDENCE ====================
+                    # ==================== END ENHANCED CONFIDENCE ====================
                     
                     algorithm_predictions[target] = {
                         'individual': target_predictions,
@@ -1755,14 +1783,15 @@ class OCHLPredictor:
                     # PRINT ENSEMBLE RESULT
                     ensemble_change = ((ensemble_pred - current_close) / current_close) * 100
                     conf = confidence_scores[target]
-                    conf_symbol = "🟢" if conf >= 60 else "🟡" if confidence >= 45 else "🔴"
+                    conf_symbol = "🟢" if conf >= 65 else "🟡" if conf >= 50 else "🔴"
                     print(f"   {'─'*40}")
                     print(f"   🎯 ENSEMBLE {target}: ${ensemble_pred:8.2f} ({ensemble_change:+6.1f}%)")
                     print(f"   📊 Confidence: {conf:.1f}%")
                     print(f"   🔢 Models used: {len(target_predictions)}/{len(self.models[target])}")
                     if weights:
+                        # Show top 3 weights with full names
                         top_weights = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:3]
-                        weight_str = ', '.join([f'{k[:3]}:{v:.2f}' for k,v in top_weights])
+                        weight_str = ', '.join([f'{k}:{v:.2f}' for k,v in top_weights])
                         print(f"   ⚖️ Top weights: {weight_str}")
                 else:
                     predictions[target] = float(current_close)
@@ -1776,43 +1805,60 @@ class OCHLPredictor:
                     predictions[target] = float(current_close)
                     confidence_scores[target] = 40.0
             
-            # ==================== PROPER OHLC ENFORCEMENT ====================
+            # ==================== ENHANCED OHLC ENFORCEMENT ====================
             pred_open = predictions.get("Open", current_close)
             pred_close = predictions.get("Close", current_close)
-            pred_high = predictions.get("High", current_close * 1.01)
-            pred_low = predictions.get("Low", current_close * 0.99)
+            pred_high = predictions.get("High", current_close * 1.02)
+            pred_low = predictions.get("Low", current_close * 0.98)
             
-            # CRITICAL: High must be >= max(Open, Close)
+            # CRITICAL: Ensure High > Low with realistic spread
+            # Typical daily spread for AAPL is 1-3%
+            typical_spread = current_close * 0.02  # 2% typical spread
+            
+            # Adjust predictions for better OHLC relationships
+            if pred_close > pred_open:
+                # Up day: Close > Open, High > Close, Low < Open
+                pred_high = max(pred_high, pred_close * 1.005)  # High at least 0.5% above Close
+                pred_low = min(pred_low, pred_open * 0.995)    # Low at most 0.5% below Open
+            else:
+                # Down day: Open > Close, High > Open, Low < Close
+                pred_high = max(pred_high, pred_open * 1.005)  # High at least 0.5% above Open
+                pred_low = min(pred_low, pred_close * 0.995)   # Low at most 0.5% below Close
+            
+            # Ensure High > Low with minimum spread
+            if pred_high <= pred_low:
+                mid_point = (pred_open + pred_close) / 2
+                pred_high = mid_point + typical_spread / 2
+                pred_low = mid_point - typical_spread / 2
+            
+            # Ensure High is actually the highest
             pred_high = max(pred_high, pred_open, pred_close)
             
-            # CRITICAL: Low must be <= min(Open, Close)
+            # Ensure Low is actually the lowest
             pred_low = min(pred_low, pred_open, pred_close)
             
-            # Ensure High > Low with a reasonable spread
-            if pred_high <= pred_low:
-                # Add a 1% spread
-                spread = current_close * 0.01
-                pred_high = max(pred_open, pred_close) + spread/2
-                pred_low = min(pred_open, pred_close) - spread/2
+            # Bound predictions to realistic daily ranges (±5% is normal for stocks)
+            max_daily_change = 0.05  # 5% max daily change
             
-            # Bound predictions to realistic ranges (relaxed to ±12%)
-            max_change = 0.12
-            for target in predictions:
-                predictions[target] = max(predictions[target], current_close * (1 - max_change))
-                predictions[target] = min(predictions[target], current_close * (1 + max_change))
+            predictions["Open"] = max(min(pred_open, current_close * (1 + max_daily_change)), 
+                                     current_close * (1 - max_daily_change))
+            predictions["Close"] = max(min(pred_close, current_close * (1 + max_daily_change)), 
+                                      current_close * (1 - max_daily_change))
             
-            # Re-apply OHLC after bounding
-            predictions["Open"] = max(min(pred_open, current_close * (1 + max_change)), current_close * (1 - max_change))
-            predictions["Close"] = max(min(pred_close, current_close * (1 + max_change)), current_close * (1 - max_change))
+            # High can be a bit higher than Close/Open
             predictions["High"] = max(
                 max(pred_high, predictions["Open"], predictions["Close"]),
-                current_close * (1 - max_change)
+                current_close * (1 - max_daily_change * 0.8)  # High can't be too low
             )
+            predictions["High"] = min(predictions["High"], current_close * (1 + max_daily_change * 1.2))
+            
+            # Low can be a bit lower than Close/Open
             predictions["Low"] = min(
                 min(pred_low, predictions["Open"], predictions["Close"]),
-                current_close * (1 + max_change)
+                current_close * (1 + max_daily_change * 0.8)  # Low can't be too high
             )
-            # ==================== END OHLC ENFORCEMENT ====================
+            predictions["Low"] = max(predictions["Low"], current_close * (1 - max_daily_change * 1.2))
+            # ==================== END ENHANCED OHLC ====================
             
             # Generate risk alerts
             risk_alerts = self.generate_risk_alerts(data_with_features, predictions)
@@ -1899,22 +1945,34 @@ class OCHLPredictor:
             print(f"\n{'='*70}")
             print(f"🎯 FINAL OCHL PREDICTIONS FOR {symbol}")
             print(f"{'='*70}")
+            
+            # Calculate expected movement
+            expected_change = ((predictions['Close'] - current_close) / current_close) * 100
+            direction = "UP" if expected_change > 0 else "DOWN"
+            
+            print(f"   📈 Expected {direction} day: {abs(expected_change):.1f}% change")
+            print()
+            
             for target in self.targets:
                 if target in predictions:
                     change = ((predictions[target] - current_close) / current_close) * 100
                     conf = confidence_scores.get(target, 50)
-                    conf_symbol = "🟢" if conf >= 60 else "🟡" if conf >= 45 else "🔴"
+                    conf_symbol = "🟢" if conf >= 65 else "🟡" if conf >= 50 else "🔴"
                     print(f"   {conf_symbol} {target:6s}: ${predictions[target]:8.2f} ({change:+6.1f}%) [Conf: {conf:5.1f}%]")
             
             print(f"\n   📊 Overall Confidence: {confidence_metrics.get('overall_confidence', 50):.1f}%")
-            print(f"   📈 Models used: {sum(len(details.get('individual', {})) for details in algorithm_predictions.values())}")
+            print(f"   📈 Total models used: {sum(len(details.get('individual', {})) for details in algorithm_predictions.values())}")
             
             # Show OHLC validation
-            print(f"   📋 OHLC Validation:")
-            print(f"     • High ({predictions['High']:.2f}) >= Open ({predictions['Open']:.2f}): {'✅' if predictions['High'] >= predictions['Open'] else '❌'}")
-            print(f"     • High ({predictions['High']:.2f}) >= Close ({predictions['Close']:.2f}): {'✅' if predictions['High'] >= predictions['Close'] else '❌'}")
-            print(f"     • Low ({predictions['Low']:.2f}) <= Open ({predictions['Open']:.2f}): {'✅' if predictions['Low'] <= predictions['Open'] else '❌'}")
-            print(f"     • Low ({predictions['Low']:.2f}) <= Close ({predictions['Close']:.2f}): {'✅' if predictions['Low'] <= predictions['Close'] else '❌'}")
+            print(f"\n   📋 OHLC VALIDATION:")
+            high_ok = predictions['High'] >= predictions['Open'] and predictions['High'] >= predictions['Close']
+            low_ok = predictions['Low'] <= predictions['Open'] and predictions['Low'] <= predictions['Close']
+            spread = ((predictions['High'] - predictions['Low']) / current_close) * 100
+            
+            print(f"     • High is highest: {'✅' if high_ok else '❌'} (${predictions['High']:.2f})")
+            print(f"     • Low is lowest: {'✅' if low_ok else '❌'} (${predictions['Low']:.2f})")
+            print(f"     • Daily spread: {spread:.1f}% (typical: 1-3%)")
+            print(f"     • Expected move: {expected_change:+.1f}%")
             
             if has_split:
                 print(f"\n   🚨 WARNING: {symbol} has stock splits")
@@ -1935,13 +1993,13 @@ class OCHLPredictor:
             if not predictions or not confidence_scores:
                 return {}
             
-            # ==================== IMPROVED CONFIDENCE CALCULATION ====================
-            # Weight targets by importance
+            # ==================== ULTIMATE CONFIDENCE CALCULATION ====================
+            # Weight targets by importance and prediction quality
             target_weights = {
-                'Close': 0.40,   # Most important
-                'Open': 0.30,    # Important
-                'High': 0.15,    # Less important
-                'Low': 0.15      # Less important
+                'Close': 0.45,   # Most important - 45% weight
+                'Open': 0.25,    # Important - 25% weight
+                'High': 0.15,    # Less important - 15% weight
+                'Low': 0.15      # Less important - 15% weight
             }
             
             weighted_confidence = 0
@@ -1950,16 +2008,19 @@ class OCHLPredictor:
             for target in self.targets:
                 if target in confidence_scores:
                     weight = target_weights.get(target, 0.25)
-                    # Boost confidence if prediction is reasonable
                     conf = confidence_scores[target]
                     
-                    # Check if prediction is reasonable
+                    # Quality bonus based on prediction reasonableness
                     if target in predictions and current_price > 0:
                         pct_change = abs(predictions[target] - current_price) / current_price
-                        if pct_change < 0.03:  # <3% change is very reasonable
-                            conf = min(conf * 1.1, 80)  # Boost by 10%
-                        elif pct_change < 0.06:  # <6% change is reasonable
-                            conf = min(conf * 1.05, 75)  # Boost by 5%
+                        
+                        # Bonus for very reasonable predictions
+                        if pct_change < 0.02:  # <2% change is very reasonable
+                            conf = min(conf * 1.15, 90)  # 15% bonus
+                        elif pct_change < 0.04:  # <4% change is reasonable
+                            conf = min(conf * 1.08, 85)  # 8% bonus
+                        elif pct_change < 0.06:  # <6% change is somewhat reasonable
+                            conf = min(conf * 1.04, 80)  # 4% bonus
                     
                     weighted_confidence += conf * weight
                     total_weight += weight
@@ -1969,15 +2030,22 @@ class OCHLPredictor:
             else:
                 overall_confidence = np.mean(list(confidence_scores.values())) if confidence_scores else 0
             
-            # Bonus for OHLC consistency
+            # Major bonus for perfect OHLC consistency
             if all(t in predictions for t in ['Open', 'High', 'Low', 'Close']):
-                # Check if High is actually highest
                 if (predictions['High'] >= predictions['Open'] and 
                     predictions['High'] >= predictions['Close'] and
                     predictions['Low'] <= predictions['Open'] and
                     predictions['Low'] <= predictions['Close']):
-                    overall_confidence = min(overall_confidence * 1.05, 85)  # 5% bonus
-            # ==================== END IMPROVED CONFIDENCE ====================
+                    overall_confidence = min(overall_confidence * 1.08, 92)  # 8% bonus
+            
+            # Bonus for realistic daily spread (1-3% typical)
+            if 'High' in predictions and 'Low' in predictions and current_price > 0:
+                daily_spread = (predictions['High'] - predictions['Low']) / current_price
+                if 0.01 <= daily_spread <= 0.04:  # 1-4% spread is realistic
+                    overall_confidence = min(overall_confidence + 3, 95)
+                elif 0.005 <= daily_spread <= 0.06:  # 0.5-6% spread is acceptable
+                    overall_confidence = min(overall_confidence + 1, 90)
+            # ==================== END ULTIMATE CONFIDENCE ====================
             
             predicted_values = list(predictions.values())
             if len(predicted_values) >= 2:
@@ -1994,28 +2062,26 @@ class OCHLPredictor:
             else:
                 consistency_score = 0
             
-            # Reduced penalty for extreme predictions
+            # Minimal penalty for reasonable predictions
             extreme_prediction_penalty = 0
             for target, pred in predictions.items():
                 if current_price > 0:
                     pct_change = abs(pred - current_price) / current_price
-                    if pct_change > 0.12:  # >12% change (stocks CAN move this much)
-                        extreme_prediction_penalty += 15  # Reduced penalty
-                    elif pct_change > 0.08:  # >8% change
-                        extreme_prediction_penalty += 8   # Reduced penalty
-                    elif pct_change > 0.05:  # >5% change
-                        extreme_prediction_penalty += 3   # Small penalty
+                    if pct_change > 0.10:  # >10% change (rare but possible)
+                        extreme_prediction_penalty += 8
+                    elif pct_change > 0.07:  # >7% change (uncommon)
+                        extreme_prediction_penalty += 4
             
-            overall_confidence = max(overall_confidence - extreme_prediction_penalty, 20)
+            overall_confidence = max(overall_confidence - extreme_prediction_penalty, 25)
             
-            # Adjusted confidence thresholds
-            if overall_confidence >= 65:
+            # Optimized confidence thresholds
+            if overall_confidence >= 70:
                 confidence_level = "HIGH"
                 confidence_color = "success"
-            elif overall_confidence >= 50:
+            elif overall_confidence >= 55:
                 confidence_level = "MEDIUM"
                 confidence_color = "warning"
-            elif overall_confidence >= 35:
+            elif overall_confidence >= 40:
                 confidence_level = "LOW"
                 confidence_color = "danger"
             else:
@@ -2030,9 +2096,9 @@ class OCHLPredictor:
                 'target_confidence': {
                     target: {
                         'score': float(confidence_scores.get(target, 0)),
-                        'level': "HIGH" if confidence_scores.get(target, 0) >= 65 else 
-                                 "MEDIUM" if confidence_scores.get(target, 0) >= 50 else 
-                                 "LOW" if confidence_scores.get(target, 0) >= 35 else "VERY LOW"
+                        'level': "HIGH" if confidence_scores.get(target, 0) >= 70 else 
+                                 "MEDIUM" if confidence_scores.get(target, 0) >= 55 else 
+                                 "LOW" if confidence_scores.get(target, 0) >= 40 else "VERY LOW"
                     }
                     for target in self.targets if target in confidence_scores
                 }
@@ -2291,23 +2357,31 @@ def get_stocks_list():
     
     return jsonify(popular_stocks)
 
+# Also need to update the health check endpoint to show new version
 @server.route('/api/health')
 def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "9.1.0",  # ULTIMATE FIXED VERSION WITH CONFIDENCE FIX
+        "version": "9.2.0",  # ULTIMATE FIXED VERSION WITH ALL IMPROVEMENTS
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "critical_fixes": [
             "SVR: Log transform + linear kernel for stability",
-            "Linear models: Increased regularization",
-            "Neural network: Stronger regularization",
-            "Training data: Strict outlier removal",
-            "Predictions: Ultra-strict sanity checks",
+            "Linear models: Strong regularization",
+            "Neural network: Ultra-strong regularization",
             "CONFIDENCE: Fixed calculation bug (weighted average)",
-            "ENSEMBLE: Improved weighting parameters"
+            "ENSEMBLE: Target-specific weighting parameters",
+            "OHLC: Enhanced enforcement with realistic spreads",
+            "FILTERING: Smart outlier detection keeps valid predictions"
         ],
-        "performance": "All 8 algorithms should now work for all stocks"
+        "features": [
+            "8-algorithm ensemble",
+            "Target-specific model weighting",
+            "Realistic OHLC constraints",
+            "Smart confidence calculation",
+            "Detailed prediction history",
+            "Risk assessment and alerts"
+        ]
     })
 
 @server.route('/api/predict', methods=['POST'])
