@@ -1626,23 +1626,44 @@ class OCHLPredictor:
                         target_predictions = filtered_predictions
                         target_confidences = filtered_confidences
                     
-                    # Weighted ensemble
+                    # ==================== ENSEMBLE PARAMETER FIX ====================
+                    # Weighted ensemble with improved weighting
                     weights = {}
                     total_weight = 0
                     
                     for algo, conf in target_confidences.items():
-                        algo_weight = self.algorithm_weights.get(target, {}).get(algo, 1.0)
-                        weight = max(conf / 100, 0.2) * algo_weight
-                        weights[algo] = weight
+                        # Base weight from algorithm confidence
+                        base_weight = max(conf / 100, 0.2)
+                        
+                        # Algorithm-specific adjustments
+                        algo_multiplier = 1.0
+                        if algo == 'random_forest':
+                            algo_multiplier = 1.2  # Boost random forest
+                        elif algo == 'gradient_boosting':
+                            algo_multiplier = 1.15  # Boost gradient boosting
+                        elif algo == 'svr':
+                            algo_multiplier = 0.8  # Reduce SVR weight (less stable)
+                        elif algo == 'arima':
+                            algo_multiplier = 0.9  # Slightly reduce ARIMA
+                        
+                        # Historical performance weight
+                        historical_weight = self.algorithm_weights.get(target, {}).get(algo, 1.0)
+                        
+                        # Final weight
+                        weight = base_weight * algo_multiplier * historical_weight
+                        weights[algo] = min(weight, 1.5)  # Cap at 1.5
                         total_weight += weight
                     
                     if total_weight > 0:
+                        # Apply weighted average
                         ensemble_pred = sum(
                             pred * (weights[algo] / total_weight)
                             for algo, pred in target_predictions.items()
                         )
                     else:
+                        # Fallback to median
                         ensemble_pred = np.median(list(target_predictions.values()))
+                    # ==================== END ENSEMBLE FIX ====================
                     
                     # Final sanity check on ensemble
                     ensemble_is_valid, ensemble_penalty, ensemble_msg = sanity_check_prediction(
@@ -1654,22 +1675,56 @@ class OCHLPredictor:
                         ensemble_pred = np.median(list(target_predictions.values()))
                     
                     predictions[target] = float(ensemble_pred)
-                    confidence_scores[target] = float(np.median(list(target_confidences.values())))
+                    
+                    # ==================== CONFIDENCE CALCULATION FIX ====================
+                    # Calculate weighted confidence based on prediction quality
+                    if target_confidences:
+                        # Base confidence: weighted average of individual confidences
+                        weighted_conf = sum(
+                            target_confidences[algo] * weights.get(algo, 1.0)
+                            for algo in target_confidences.keys()
+                        )
+                        weight_sum = sum(weights.get(algo, 1.0) for algo in target_confidences.keys())
+                        
+                        if weight_sum > 0:
+                            base_confidence = weighted_conf / weight_sum
+                        else:
+                            base_confidence = np.median(list(target_confidences.values()))
+                        
+                        # Penalty for prediction spread
+                        if len(target_predictions) >= 3:
+                            pred_spread = np.std(list(target_predictions.values()))
+                            if current_close > 0:
+                                spread_pct = pred_spread / current_close
+                                if spread_pct > 0.05:  # >5% spread
+                                    base_confidence *= 0.8  # Reduce by 20%
+                                elif spread_pct > 0.03:  # >3% spread
+                                    base_confidence *= 0.9  # Reduce by 10%
+                        
+                        # Ensure bounds
+                        confidence_scores[target] = float(max(40, min(base_confidence, 75)))
+                    else:
+                        confidence_scores[target] = 50.0
+                    # ==================== END CONFIDENCE FIX ====================
+                    
                     algorithm_predictions[target] = {
                         'individual': target_predictions,
                         'confidences': target_confidences,
                         'weights': weights,
                         'details': target_details,
                         'ensemble': float(ensemble_pred),
-                        'ensemble_confidence': float(np.median(list(target_confidences.values())))
+                        'ensemble_confidence': float(confidence_scores[target])
                     }
                     
                     # PRINT ENSEMBLE RESULT
                     ensemble_change = ((ensemble_pred - current_close) / current_close) * 100
+                    conf = confidence_scores[target]
+                    conf_symbol = "🟢" if conf >= 65 else "🟡" if conf >= 55 else "🔴"
                     print(f"   {'─'*40}")
                     print(f"   🎯 ENSEMBLE {target}: ${ensemble_pred:8.2f} ({ensemble_change:+6.1f}%)")
-                    print(f"   📊 Confidence: {confidence_scores[target]:.1f}%")
+                    print(f"   📊 Confidence: {conf:.1f}%")
                     print(f"   🔢 Models used: {len(target_predictions)}/{len(self.models[target])}")
+                    print(f"   ⚖️ Weight distribution: {', '.join([f'{k[:3]}:{v:.2f}' for k,v in weights.items()][:3])}")
                 else:
                     predictions[target] = float(current_close)
                     confidence_scores[target] = 40.0
@@ -1789,7 +1844,7 @@ class OCHLPredictor:
                 if target in predictions:
                     change = ((predictions[target] - current_close) / current_close) * 100
                     conf = confidence_scores.get(target, 50)
-                    conf_symbol = "🟢" if conf >= 65 else "🟡" if conf >= 50 else "🔴"
+                    conf_symbol = "🟢" if conf >= 65 else "🟡" if conf >= 55 else "🔴"
                     print(f"   {conf_symbol} {target:6s}: ${predictions[target]:8.2f} ({change:+6.1f}%) [Conf: {conf:5.1f}%]")
             
             print(f"\n   📊 Overall Confidence: {confidence_metrics.get('overall_confidence', 50):.1f}%")
@@ -1814,7 +1869,29 @@ class OCHLPredictor:
             if not predictions or not confidence_scores:
                 return {}
             
-            overall_confidence = np.median(list(confidence_scores.values())) if confidence_scores else 0
+            # ==================== CONFIDENCE CALCULATION BUG FIX ====================
+            # Use weighted average instead of median for better accuracy
+            target_weights = {
+                'Close': 0.4,   # Most important
+                'Open': 0.3,    # Important
+                'High': 0.15,   # Less important
+                'Low': 0.15     # Less important
+            }
+            
+            weighted_confidence = 0
+            total_weight = 0
+            
+            for target in self.targets:
+                if target in confidence_scores:
+                    weight = target_weights.get(target, 0.25)
+                    weighted_confidence += confidence_scores[target] * weight
+                    total_weight += weight
+            
+            if total_weight > 0:
+                overall_confidence = weighted_confidence / total_weight
+            else:
+                overall_confidence = np.median(list(confidence_scores.values())) if confidence_scores else 0
+            # ==================== END CONFIDENCE FIX ====================
             
             predicted_values = list(predictions.values())
             if len(predicted_values) >= 2:
@@ -2130,7 +2207,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "9.0.0",  # ULTIMATE FIXED VERSION
+        "version": "9.1.0",  # ULTIMATE FIXED VERSION WITH CONFIDENCE FIX
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "critical_fixes": [
             "SVR: Log transform + linear kernel for stability",
@@ -2138,7 +2215,8 @@ def health_check():
             "Neural network: Stronger regularization",
             "Training data: Strict outlier removal",
             "Predictions: Ultra-strict sanity checks",
-            "TSLA volatility: Special handling"
+            "CONFIDENCE: Fixed calculation bug (weighted average)",
+            "ENSEMBLE: Improved weighting parameters"
         ],
         "performance": "All 8 algorithms should now work for all stocks"
     })
@@ -2274,7 +2352,7 @@ def predict_stock():
                 "feature_count": len(predictor.feature_columns),
                 "algorithms_used": ["linear_regression", "ridge", "lasso", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
                 "fallback_mode": is_fallback,
-                "version": "9.0.0"
+                "version": "9.1.0"
             },
             
             "data_info": {
@@ -2536,7 +2614,7 @@ def internal_error(error):
 # ---------------- Run ----------------
 if __name__ == '__main__':
     print("=" * 70)
-    print("📈 STOCK MARKET PREDICTION SYSTEM v9.0.0 - ULTIMATE FIXED VERSION")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v9.1.0 - ULTIMATE FIXED VERSION")
     print("=" * 70)
     print("✨ ULTIMATE CRITICAL FIXES:")
     print("  • 🚀 SVR: Log transform + linear kernel (NO MORE 100% CHANGES!)")
@@ -2544,6 +2622,8 @@ if __name__ == '__main__':
     print("  • 🧠 Neural network: Ultra-strong regularization")
     print("  • 📊 Training: Strict outlier removal (1.5σ bounds)")
     print("  • 🎯 Prediction: Ultra-strict sanity checks (max 8% daily change)")
+    print("  • 🎯 CONFIDENCE CALCULATION: Fixed bug - now uses weighted average")
+    print("  • ⚖️ ENSEMBLE: Improved weighting parameters")
     print("  • 📋 Your format: Complete history storage")
     print("=" * 70)
     
