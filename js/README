@@ -1,0 +1,57 @@
+📈 AI Stock Market Prediction System
+Professional 8-Algorithm ML System for Stock Price Prediction - Run Locally
+
+https://img.shields.io/badge/Python-3.8+-blue
+https://img.shields.io/badge/Machine%2520Learning-8%2520Algorithms-orange
+https://img.shields.io/badge/Status-Local%2520Development-yellow
+https://img.shields.io/badge/License-MIT-green
+
+📌 Local Development Project
+Note: This is a localhost project for development and testing. Run on your own machine to see predictions in action!
+
+🎯 What It Does
+A complete AI system that predicts stock prices (Open, Close, High, Low) using 8 machine learning algorithms working in ensemble. Built for accuracy and reliability with production-level features.
+
+Key Features:
+
+🤖 8 Algorithm Ensemble: Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network
+
+📊 Real-time Data: Fetches live market data from Yahoo Finance
+
+🛡️ Error-Proof: Sanity checks, stock split handling, fallback predictions
+
+📈 Confidence Scoring: Realistic confidence based on model agreement
+
+💾 Auto-save: Models and prediction history saved locally
+
+🚀 Quick Start (Run Locally)
+Step 1: Clone & Setup
+bash
+# Clone the repository
+git clone https://github.com/razilchristian/stock-market-prediction.git
+cd stock-market-prediction
+
+# Navigate to the js directory (where app.py is located)
+cd js
+
+# Install dependencies
+pip install -r requirements.txt
+Step 2: Run the Server
+bash
+python app.py
+Step 3: Access the System
+Local Web Interface: http://localhost:8080
+
+API Endpoint: http://localhost:8080/api/predict
+
+Health Check: http://localhost:8080/api/health
+
+📊 Try It Now!
+Method 1: Using Web Interface
+Open browser to http://localhost:8080
+
+Navigate to prediction page
+
+Enter stock symbol (AAPL, MSFT, TSLA, etc.)
+
+See real-time predictions with confidence scores!
