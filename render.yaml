@@ -4,9 +4,8 @@ services:
     env: python
     region: oregon
     plan: free
-    rootDirectory: js  # THIS IS CRITICAL - tells Render to use js folder
+    rootDirectory: js  # CORRECT - app.py is in js folder
     buildCommand: |
       pip install --upgrade pip setuptools wheel
-      pip install numpy==1.26.4
-      pip install -r requirements.txt
-    startCommand: gunicorn app:server
+      pip install -r requirements.txt  # This will install numpy from requirements.txt
+    startCommand: gunicorn app:server --timeout 120  # Increased timeout
