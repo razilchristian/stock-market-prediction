@@ -1,24 +1,21 @@
-@"
+$renderYaml = @"
 services:
   - type: web
     name: stock-market-prediction
     env: python
     region: oregon
     plan: free
-    # NO rootDirectory - we'll cd manually
     buildCommand: |
-      echo "=== STARTING BUILD ==="
+      echo "Build started: $(date)"
       echo "Current directory: $(pwd)"
-      echo "Listing files:"
-      ls -la
-      echo "Changing to js directory..."
-      cd js
-      echo "Now in: $(pwd)"
-      echo "Files in js/:"
-      ls -la
+      echo "Looking for requirements.txt..."
+      find . -name "requirements.txt" -type f
+      echo "Installing dependencies from js/requirements.txt..."
       pip install --upgrade pip setuptools wheel
-      pip install -r requirements.txt
+      pip install -r ./js/requirements.txt
     startCommand: |
-      cd js
-      gunicorn app:server --timeout 120
-"@ | Out-File -FilePath render.yaml -Encoding UTF8
+      cd js && gunicorn app:server --timeout 120
+"@
+
+# Write to file
+$renderYaml | Out-File -FilePath render.yaml -Encoding UTF8 -NoNewline
