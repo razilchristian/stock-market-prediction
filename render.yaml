@@ -1,15 +1,24 @@
-=@"
+@"
 services:
   - type: web
     name: stock-market-prediction
     env: python
     region: oregon
     plan: free
-    rootDirectory: js
+    # NO rootDirectory - we'll cd manually
     buildCommand: |
-      pwd  # Show current directory
-      ls -la  # List files
+      echo "=== STARTING BUILD ==="
+      echo "Current directory: $(pwd)"
+      echo "Listing files:"
+      ls -la
+      echo "Changing to js directory..."
+      cd js
+      echo "Now in: $(pwd)"
+      echo "Files in js/:"
+      ls -la
       pip install --upgrade pip setuptools wheel
-      pip install -r ./requirements.txt  # Explicit ./ prefix
-    startCommand: gunicorn app:server --timeout 120
+      pip install -r requirements.txt
+    startCommand: |
+      cd js
+      gunicorn app:server --timeout 120
 "@ | Out-File -FilePath render.yaml -Encoding UTF8
