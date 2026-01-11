@@ -5,32 +5,42 @@ const cors = require('cors');
 const session = require('express-session');
 const fs = require('fs');
 const csv = require('csv-parser');
+require('dotenv').config();
 
 const app = express();
 
 // Middleware to parse JSON
 app.use(express.json());
 
-// CORS setup to allow requests from localhost
+// CORS setup to allow requests from frontend
 app.use(cors({
-  origin: ['http://localhost', 'http://localhost:5000'],  
+  origin: ['http://localhost:3000', 'http://localhost:5000', 'http://localhost:5500', 'http://127.0.0.1:5500'],
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
+  credentials: true  // IMPORTANT: Allow cookies/session
 }));
 
 // Session setup
 app.use(session({
-  secret: 'your-secret-key', 
+  secret: process.env.SESSION_SECRET || 'alpha-analytics-secret-key-2026',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 
 // Database connection
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'stockmarketprediction',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'stockmarketprediction',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 };
 
 const pool = mysql.createPool(dbConfig);
@@ -52,7 +62,7 @@ const createUserTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       id INT PRIMARY KEY AUTO_INCREMENT,
-      username VARCHAR(50) NOT NULL,
+      username VARCHAR(50) NOT NULL UNIQUE,
       email VARCHAR(100) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
       role VARCHAR(20) DEFAULT 'user',
@@ -71,11 +81,24 @@ const createStockPredictionsTable = async () => {
       date DATE NOT NULL,
       symbol VARCHAR(10) NOT NULL,
       open_forecast DECIMAL(10,4) NOT NULL,
-      close_forecast DECIMAL(10,4) NOT NULL
+      close_forecast DECIMAL(10,4) NOT NULL,
+      INDEX idx_symbol (symbol),
+      INDEX idx_date (date)
     );
   `;
   await executeQuery(query);
   console.log('Stock predictions table ready');
+};
+
+// Check if stock data already exists
+const checkStockDataExists = async () => {
+  try {
+    const query = `SELECT COUNT(*) as count FROM stock_predictions LIMIT 1`;
+    const [result] = await executeQuery(query);
+    return result[0].count > 0;
+  } catch (error) {
+    return false;
+  }
 };
 
 // Insert a new user
@@ -112,6 +135,12 @@ const insertStockPrediction = async (date, symbol, openForecast, closeForecast) 
 // Load stock data from CSV
 const loadStockData = async (csvFilePath) => {
   return new Promise((resolve, reject) => {
+    // Check if file exists
+    if (!fs.existsSync(csvFilePath)) {
+      console.log('CSV file not found, skipping data load');
+      return resolve();
+    }
+    
     fs.createReadStream(csvFilePath)
       .pipe(csv())
       .on('data', async (row) => {
@@ -138,20 +167,21 @@ app.post('/signup', async (req, res) => {
   const { username, email, password } = req.body;
 
   if (!username || !email || !password) {
-    return res.status(400).send({ error: 'All fields are required' });
+    return res.status(400).json({ error: 'All fields are required' });
   }
 
   try {
     const existingUser = await getUserByUsername(username);
-    if (existingUser) return res.status(400).send({ error: 'Username already exists' });
+    if (existingUser) return res.status(400).json({ error: 'Username already exists' });
 
     const existingEmail = await getUserByEmail(email);
-    if (existingEmail) return res.status(400).send({ error: 'Email already in use' });
+    if (existingEmail) return res.status(400).json({ error: 'Email already in use' });
 
     await insertUser(username, email, password);
-    res.status(201).send({ message: 'User created successfully' });
+    res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
-    res.status(500).send({ error: 'Error creating user' });
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Error creating user' });
   }
 });
 
@@ -160,29 +190,61 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).send({ error: 'Username and password are required' });
+    return res.status(400).json({ error: 'Username and password are required' });
   }
 
   try {
     const user = await getUserByUsername(username);
-    if (!user) return res.status(401).send({ error: 'Invalid username or password' });
+    if (!user) return res.status(401).json({ error: 'Invalid username or password' });
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) return res.status(401).send({ error: 'Invalid username or password' });
+    if (!isPasswordValid) return res.status(401).json({ error: 'Invalid username or password' });
 
-    req.session.user = { id: user.id, username: user.username };
-    res.status(200).send({ message: 'Login successful' });
+    // Store user info in session
+    req.session.user = { 
+      id: user.id, 
+      username: user.username,
+      email: user.email,
+      role: user.role
+    };
+    
+    console.log('User logged in:', req.session.user);
+    res.status(200).json({ 
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
-    res.status(500).send({ error: 'Error logging in' });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Error logging in' });
   }
 });
 
 // Logout route
 app.post('/logout', (req, res) => {
   req.session.destroy((err) => {
-    if (err) return res.status(500).send({ error: 'Error logging out' });
-    res.status(200).send({ message: 'Logged out successfully' });
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ error: 'Error logging out' });
+    }
+    res.status(200).json({ message: 'Logged out successfully' });
   });
+});
+
+// Check authentication status
+app.get('/api/auth/status', (req, res) => {
+  if (req.session.user) {
+    res.json({ 
+      authenticated: true, 
+      user: req.session.user 
+    });
+  } else {
+    res.json({ authenticated: false });
+  }
 });
 
 // Fetch stock predictions
@@ -198,9 +260,7 @@ app.get('/stocks/:symbol', async (req, res) => {
   }
 });
 
-// ... your existing top-of-file code stays
-
-// Add this new API for current user info (no removal of old code)
+// Get current user info
 app.get('/me', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Not logged in' });
@@ -221,7 +281,16 @@ const initDatabase = async () => {
   try {
     await createUserTable();
     await createStockPredictionsTable();
-    await loadStockData('alphaanalytics.csv');  // Change to your actual CSV file
+    
+    // Only load CSV data if table is empty
+    const hasData = await checkStockDataExists();
+    if (!hasData) {
+      console.log('Loading stock data from CSV...');
+      await loadStockData('alphaanalytics.csv');
+    } else {
+      console.log('Stock data already exists, skipping CSV load');
+    }
+    
     console.log('Database initialization complete!');
   } catch (error) {
     console.error('Error initializing database:', error.message);
@@ -229,10 +298,24 @@ const initDatabase = async () => {
 };
 
 // Start server
-(async () => {
-  await initDatabase();
-})();
+const startServer = async () => {
+  try {
+    await initDatabase();
+    
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API Endpoints:`);
+      console.log(`  POST /signup - User registration`);
+      console.log(`  POST /login - User login`);
+      console.log(`  POST /logout - User logout`);
+      console.log(`  GET /me - Current user info`);
+      console.log(`  GET /stocks/:symbol - Stock predictions`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
 
-app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
-});
+startServer();
