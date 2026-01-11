@@ -1,4 +1,3 @@
-
 // Animation Utilities
 class Animations {
     static createParticles() {
@@ -194,7 +193,7 @@ class APIService {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                credentials: 'include',
+                credentials: 'include', // Important for cookies/session
                 body: JSON.stringify({ username, password })
             });
             
@@ -207,14 +206,31 @@ class APIService {
     
     static async checkAuth() {
         try {
-            const response = await fetch('http://localhost:3000/me', {
+            const response = await fetch('http://localhost:3000/api/auth/status', {
                 method: 'GET',
                 credentials: 'include'
             });
             
-            return response.ok ? await response.json() : null;
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.authenticated ? data.user : null;
         } catch (error) {
+            console.log('Auth check failed:', error);
             return null;
+        }
+    }
+    
+    static async logout() {
+        try {
+            const response = await fetch('http://localhost:3000/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Logout API Error:', error);
+            throw error;
         }
     }
 }
@@ -253,30 +269,34 @@ class RegistrationApp {
         
         if (savedTheme === 'light') {
             document.body.classList.add('light-mode');
-            themeToggle.querySelector('i').className = 'fas fa-sun';
+            if (themeToggle) {
+                themeToggle.querySelector('i').className = 'fas fa-sun';
+            }
         }
         
-        themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-            const icon = themeToggle.querySelector('i');
-            
-            if (document.body.classList.contains('light-mode')) {
-                icon.className = 'fas fa-sun';
-                localStorage.setItem('theme', 'light');
-                NotificationSystem.show('Light mode activated', 'info');
-            } else {
-                icon.className = 'fas fa-moon';
-                localStorage.setItem('theme', 'dark');
-                NotificationSystem.show('Dark mode activated', 'info');
-            }
-        });
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                const icon = themeToggle.querySelector('i');
+                
+                if (document.body.classList.contains('light-mode')) {
+                    icon.className = 'fas fa-sun';
+                    localStorage.setItem('theme', 'light');
+                    NotificationSystem.show('Light mode activated', 'info');
+                } else {
+                    icon.className = 'fas fa-moon';
+                    localStorage.setItem('theme', 'dark');
+                    NotificationSystem.show('Dark mode activated', 'info');
+                }
+            });
+        }
     }
     
     async checkExistingSession() {
         try {
             const user = await APIService.checkAuth();
             if (user) {
-                NotificationSystem.show(`Welcome back, ${user.username}! Redirecting...`, 'success');
+                NotificationSystem.show(`Welcome back, ${user.username}! Redirecting to dashboard...`, 'success');
                 setTimeout(() => {
                     window.location.href = 'jeet.html';
                 }, 1500);
@@ -306,10 +326,10 @@ class RegistrationApp {
             NotificationSystem.show('Switched to Sign In form', 'info');
         };
         
-        sign_up_btn.addEventListener("click", switchToSignUpHandler);
-        sign_in_btn.addEventListener("click", switchToSignInHandler);
-        switchToSignUp?.addEventListener("click", switchToSignUpHandler);
-        switchToSignIn?.addEventListener("click", switchToSignInHandler);
+        if (sign_up_btn) sign_up_btn.addEventListener("click", switchToSignUpHandler);
+        if (sign_in_btn) sign_in_btn.addEventListener("click", switchToSignInHandler);
+        if (switchToSignUp) switchToSignUp.addEventListener("click", switchToSignUpHandler);
+        if (switchToSignIn) switchToSignIn.addEventListener("click", switchToSignInHandler);
         
         // Sign Up Form
         const signUpForm = document.getElementById('signUpForm');
@@ -371,15 +391,19 @@ class RegistrationApp {
             if (e.ctrlKey && e.key === 'l') {
                 e.preventDefault();
                 const container = document.querySelector(".container");
-                container.classList.remove("sign-up-mode");
-                NotificationSystem.show('Switched to Login form (Ctrl+L)', 'info');
+                if (container) {
+                    container.classList.remove("sign-up-mode");
+                    NotificationSystem.show('Switched to Login form (Ctrl+L)', 'info');
+                }
             }
             
             if (e.ctrlKey && e.key === 'r') {
                 e.preventDefault();
                 const container = document.querySelector(".container");
-                container.classList.add("sign-up-mode");
-                NotificationSystem.show('Switched to Register form (Ctrl+R)', 'info');
+                if (container) {
+                    container.classList.add("sign-up-mode");
+                    NotificationSystem.show('Switched to Register form (Ctrl+R)', 'info');
+                }
             }
             
             if (e.key === 'Escape') {
@@ -402,10 +426,11 @@ class RegistrationApp {
             
             // Add typing animation
             input.addEventListener('input', function() {
-                if (this.value.length > 0) {
-                    this.parentElement.querySelector('i').style.transform = 'scale(1.2)';
-                } else {
-                    this.parentElement.querySelector('i').style.transform = '';
+                const icon = this.parentElement.querySelector('i');
+                if (icon && this.value.length > 0) {
+                    icon.style.transform = 'scale(1.2)';
+                } else if (icon) {
+                    icon.style.transform = '';
                 }
             });
         });
@@ -476,17 +501,27 @@ class RegistrationApp {
                 
                 // Switch to sign in form with animation
                 const container = document.querySelector(".container");
-                container.classList.remove("sign-up-mode");
+                if (container) {
+                    container.classList.remove("sign-up-mode");
+                }
                 
                 // Clear form
-                document.getElementById('signUpForm').reset();
+                const signUpForm = document.getElementById('signUpForm');
+                if (signUpForm) {
+                    signUpForm.reset();
+                }
                 
                 // Auto-fill username in login form
-                document.getElementById('loginUsername').value = username;
+                const loginUsernameInput = document.getElementById('loginUsername');
+                if (loginUsernameInput) {
+                    loginUsernameInput.value = username;
+                }
                 
                 // Pulse the login form
                 const loginForm = document.querySelector('.sign-in-form');
-                Animations.pulseElement(loginForm);
+                if (loginForm) {
+                    Animations.pulseElement(loginForm);
+                }
                 
             } else if (response.error) {
                 NotificationSystem.show(response.error, 'error');
@@ -529,11 +564,18 @@ class RegistrationApp {
             const response = await APIService.login(username, password);
             
             if (response.message) {
-                NotificationSystem.show('Login successful! Redirecting...', 'success');
+                NotificationSystem.show('Login successful! Redirecting to dashboard...', 'success');
                 
                 // Store user preference
                 if (rememberMe) {
                     localStorage.setItem('username', username);
+                } else {
+                    localStorage.removeItem('username');
+                }
+                
+                // Store user info for dashboard
+                if (response.user) {
+                    localStorage.setItem('user', JSON.stringify(response.user));
                 }
                 
                 // Animate success
@@ -541,9 +583,10 @@ class RegistrationApp {
                 if (loginBtn) {
                     loginBtn.innerHTML = '<i class="fas fa-check"></i> Success!';
                     loginBtn.style.background = 'linear-gradient(135deg, #00ff9d, #00cc7a)';
+                    loginBtn.disabled = true;
                 }
                 
-                // Redirect after animation
+                // Redirect to jeet.html after animation
                 setTimeout(() => {
                     window.location.href = 'jeet.html';
                 }, 1500);
@@ -573,8 +616,23 @@ document.addEventListener('DOMContentLoaded', () => {
 // Auto-fill saved username
 window.addEventListener('load', () => {
     const savedUsername = localStorage.getItem('username');
-    if (savedUsername && document.getElementById('loginUsername')) {
-        document.getElementById('loginUsername').value = savedUsername;
-        document.getElementById('rememberMe').checked = true;
+    if (savedUsername) {
+        const loginUsernameInput = document.getElementById('loginUsername');
+        const rememberMeCheckbox = document.getElementById('rememberMe');
+        
+        if (loginUsernameInput) {
+            loginUsernameInput.value = savedUsername;
+        }
+        if (rememberMeCheckbox) {
+            rememberMeCheckbox.checked = true;
+        }
     }
 });
+
+// Export for global access
+window.Animations = Animations;
+window.NotificationSystem = NotificationSystem;
+window.LoadingSystem = LoadingSystem;
+window.FormValidator = FormValidator;
+window.APIService = APIService;
+window.RegistrationApp = RegistrationApp;
