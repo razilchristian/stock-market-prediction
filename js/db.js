@@ -5,6 +5,7 @@ const cors = require('cors');
 const session = require('express-session');
 const fs = require('fs');
 const csv = require('csv-parser');
+const yahooFinance = require('yahoo-finance2').default; // Add yfinance
 require('dotenv').config();
 
 const app = express();
@@ -90,6 +91,22 @@ const createStockPredictionsTable = async () => {
   console.log('Stock predictions table ready');
 };
 
+// Create user watchlist table
+const createWatchlistTable = async () => {
+  const query = `
+    CREATE TABLE IF NOT EXISTS user_watchlist (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      symbol VARCHAR(20) NOT NULL,
+      added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_user_symbol (user_id, symbol)
+    );
+  `;
+  await executeQuery(query);
+  console.log('Watchlist table ready');
+};
+
 // Check if stock data already exists
 const checkStockDataExists = async () => {
   try {
@@ -161,6 +178,187 @@ const loadStockData = async (csvFilePath) => {
       });
   });
 };
+
+// ================== YFINANCE API ENDPOINTS ==================
+
+// Get stock quotes from yfinance
+app.get('/api/yfinance/quote/:symbol', async (req, res) => {
+  const { symbol } = req.params;
+  try {
+    const quote = await yahooFinance.quote(symbol);
+    res.json({
+      symbol: quote.symbol,
+      name: quote.longName || quote.shortName || symbol,
+      price: quote.regularMarketPrice || quote.price || 0,
+      change: quote.regularMarketChange || quote.change || 0,
+      changePercent: quote.regularMarketChangePercent || 
+                    (quote.regularMarketChange ? (quote.regularMarketChange / (quote.regularMarketPrice - quote.regularMarketChange) * 100) : 0),
+      currency: quote.currency || 'USD',
+      marketState: quote.marketState || 'REGULAR',
+      volume: quote.regularMarketVolume,
+      marketCap: quote.marketCap
+    });
+  } catch (error) {
+    console.error('yfinance error for', symbol, ':', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch stock data',
+      symbol: symbol,
+      message: error.message 
+    });
+  }
+});
+
+// Get multiple stock quotes
+app.get('/api/yfinance/quotes', async (req, res) => {
+  const { symbols } = req.query;
+  if (!symbols) {
+    return res.status(400).json({ error: 'Symbols parameter required' });
+  }
+  
+  try {
+    const symbolArray = symbols.split(',');
+    const quotes = await Promise.all(
+      symbolArray.map(symbol => 
+        yahooFinance.quote(symbol)
+          .then(quote => ({
+            symbol: quote.symbol,
+            name: quote.longName || quote.shortName || symbol,
+            price: quote.regularMarketPrice || quote.price || 0,
+            change: quote.regularMarketChange || quote.change || 0,
+            changePercent: quote.regularMarketChangePercent || 
+                          (quote.regularMarketChange ? (quote.regularMarketChange / (quote.regularMarketPrice - quote.regularMarketChange) * 100) : 0),
+            currency: quote.currency || 'USD',
+            marketState: quote.marketState || 'REGULAR'
+          }))
+          .catch(e => ({ 
+            symbol: symbol, 
+            error: e.message,
+            name: symbol,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            currency: 'USD',
+            marketState: 'CLOSED'
+          }))
+      )
+    );
+    
+    // Filter out only valid quotes for the response
+    const validQuotes = quotes.filter(q => !q.error || q.price > 0);
+    res.json(validQuotes);
+    
+  } catch (error) {
+    console.error('yfinance batch error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch stock data', message: error.message });
+  }
+});
+
+// Get historical data
+app.get('/api/yfinance/historical/:symbol', async (req, res) => {
+  const { symbol } = req.params;
+  const { period = '1mo', interval = '1d' } = req.query;
+  
+  try {
+    const queryOptions = { period, interval };
+    
+    // Handle different period formats
+    if (period.includes('d') || period.includes('mo') || period.includes('y')) {
+      queryOptions.period = period;
+    } else {
+      queryOptions.period = '1mo'; // default
+    }
+    
+    const historical = await yahooFinance.historical(symbol, queryOptions);
+    
+    // Format the response
+    const formattedData = historical.map(item => ({
+      date: item.date,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+      volume: item.volume,
+      adjClose: item.adjClose
+    }));
+    
+    res.json(formattedData);
+  } catch (error) {
+    console.error('yfinance historical error for', symbol, ':', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch historical data',
+      symbol: symbol,
+      message: error.message 
+    });
+  }
+});
+
+// Search stocks by query
+app.get('/api/yfinance/search', async (req, res) => {
+  const { q } = req.query;
+  
+  if (!q || q.length < 2) {
+    return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+  }
+  
+  try {
+    const searchResults = await yahooFinance.search(q);
+    res.json(searchResults.quotes || []);
+  } catch (error) {
+    console.error('yfinance search error:', error.message);
+    res.status(500).json({ error: 'Failed to search stocks', message: error.message });
+  }
+});
+
+// Get market indices
+app.get('/api/yfinance/indices', async (req, res) => {
+  const indices = [
+    { symbol: '^NSEI', name: 'NIFTY 50', type: 'INDIAN' },
+    { symbol: '^BSESN', name: 'SENSEX', type: 'INDIAN' },
+    { symbol: '^IXIC', name: 'NASDAQ', type: 'US' },
+    { symbol: '^GSPC', name: 'S&P 500', type: 'US' },
+    { symbol: '^DJI', name: 'Dow Jones', type: 'US' },
+    { symbol: '^FTSE', name: 'FTSE 100', type: 'UK' },
+    { symbol: '^N225', name: 'Nikkei 225', type: 'JAPAN' }
+  ];
+  
+  try {
+    const quotes = await Promise.all(
+      indices.map(async (index) => {
+        try {
+          const quote = await yahooFinance.quote(index.symbol);
+          return {
+            symbol: index.symbol,
+            name: index.name,
+            type: index.type,
+            price: quote.regularMarketPrice || 0,
+            change: quote.regularMarketChange || 0,
+            changePercent: quote.regularMarketChangePercent || 0,
+            currency: quote.currency || 'USD'
+          };
+        } catch (error) {
+          console.error(`Failed to fetch ${index.symbol}:`, error.message);
+          return {
+            symbol: index.symbol,
+            name: index.name,
+            type: index.type,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            currency: 'USD',
+            error: error.message
+          };
+        }
+      })
+    );
+    
+    res.json(quotes);
+  } catch (error) {
+    console.error('Market indices error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch market indices', message: error.message });
+  }
+});
+
+// ================== AUTH & USER ENDPOINTS ==================
 
 // Sign-up route
 app.post('/signup', async (req, res) => {
@@ -247,6 +445,8 @@ app.get('/api/auth/status', (req, res) => {
   }
 });
 
+// ================== STOCK PREDICTION ENDPOINTS ==================
+
 // Fetch stock predictions
 app.get('/stocks/:symbol', async (req, res) => {
   const { symbol } = req.params;
@@ -259,6 +459,86 @@ app.get('/stocks/:symbol', async (req, res) => {
     res.status(500).json({ error: 'Error fetching stock data' });
   }
 });
+
+// Get all predicted stocks
+app.get('/stocks', async (req, res) => {
+  const query = `SELECT DISTINCT symbol FROM stock_predictions ORDER BY symbol;`;
+  
+  try {
+    const results = await executeQuery(query);
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching stock symbols' });
+  }
+});
+
+// ================== WATCHLIST ENDPOINTS ==================
+
+// Get user watchlist
+app.get('/api/watchlist', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  
+  try {
+    const query = `SELECT symbol FROM user_watchlist WHERE user_id = ? ORDER BY added_at DESC;`;
+    const results = await executeQuery(query, [req.session.user.id]);
+    res.status(200).json(results.map(row => row.symbol));
+  } catch (error) {
+    console.error('Watchlist error:', error);
+    res.status(500).json({ error: 'Error fetching watchlist' });
+  }
+});
+
+// Add to watchlist
+app.post('/api/watchlist/add', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  
+  const { symbol } = req.body;
+  
+  if (!symbol) {
+    return res.status(400).json({ error: 'Symbol is required' });
+  }
+  
+  try {
+    const query = `INSERT INTO user_watchlist (user_id, symbol) VALUES (?, ?);`;
+    await executeQuery(query, [req.session.user.id, symbol]);
+    res.status(201).json({ message: 'Added to watchlist' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Already in watchlist' });
+    }
+    console.error('Add to watchlist error:', error);
+    res.status(500).json({ error: 'Error adding to watchlist' });
+  }
+});
+
+// Remove from watchlist
+app.delete('/api/watchlist/remove/:symbol', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  
+  const { symbol } = req.params;
+  
+  try {
+    const query = `DELETE FROM user_watchlist WHERE user_id = ? AND symbol = ?;`;
+    const result = await executeQuery(query, [req.session.user.id, symbol]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Symbol not found in watchlist' });
+    }
+    
+    res.status(200).json({ message: 'Removed from watchlist' });
+  } catch (error) {
+    console.error('Remove from watchlist error:', error);
+    res.status(500).json({ error: 'Error removing from watchlist' });
+  }
+});
+
+// ================== USER PROFILE ENDPOINTS ==================
 
 // Get current user info
 app.get('/me', async (req, res) => {
@@ -276,11 +556,70 @@ app.get('/me', async (req, res) => {
   }
 });
 
-// Initialize database
+// Update user profile
+app.put('/api/user/profile', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  
+  const { email, currentPassword, newPassword } = req.body;
+  
+  try {
+    if (email) {
+      // Check if email already exists
+      const existingEmail = await getUserByEmail(email);
+      if (existingEmail && existingEmail.id !== req.session.user.id) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+      
+      const query = `UPDATE users SET email = ? WHERE id = ?`;
+      await executeQuery(query, [email, req.session.user.id]);
+      req.session.user.email = email;
+    }
+    
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to change password' });
+      }
+      
+      // Verify current password
+      const user = await getUserByUsername(req.session.user.username);
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+      
+      // Update password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const query = `UPDATE users SET password = ? WHERE id = ?`;
+      await executeQuery(query, [hashedPassword, req.session.user.id]);
+    }
+    
+    res.status(200).json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Error updating profile' });
+  }
+});
+
+// ================== HEALTH CHECK ==================
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'AlphaAnalytics API'
+  });
+});
+
+// ================== INITIALIZE DATABASE ==================
+
 const initDatabase = async () => {
   try {
     await createUserTable();
     await createStockPredictionsTable();
+    await createWatchlistTable();
     
     // Only load CSV data if table is empty
     const hasData = await checkStockDataExists();
@@ -297,20 +636,29 @@ const initDatabase = async () => {
   }
 };
 
-// Start server
+// ================== START SERVER ==================
+
 const startServer = async () => {
   try {
     await initDatabase();
     
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`API Endpoints:`);
-      console.log(`  POST /signup - User registration`);
-      console.log(`  POST /login - User login`);
-      console.log(`  POST /logout - User logout`);
-      console.log(`  GET /me - Current user info`);
-      console.log(`  GET /stocks/:symbol - Stock predictions`);
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`📊 API Endpoints:`);
+      console.log(`  POST /signup        - User registration`);
+      console.log(`  POST /login         - User login`);
+      console.log(`  POST /logout        - User logout`);
+      console.log(`  GET  /me            - Current user info`);
+      console.log(`  GET  /stocks/:symbol - Stock predictions`);
+      console.log(`  GET  /api/yfinance/quote/:symbol - Live stock data`);
+      console.log(`  GET  /api/yfinance/quotes - Multiple stock quotes`);
+      console.log(`  GET  /api/yfinance/historical/:symbol - Historical data`);
+      console.log(`  GET  /api/yfinance/indices - Market indices`);
+      console.log(`  GET  /api/yfinance/search - Stock search`);
+      console.log(`  GET  /api/watchlist  - User watchlist`);
+      console.log(`  POST /api/watchlist/add - Add to watchlist`);
+      console.log(`  GET  /health        - Health check`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
