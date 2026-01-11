@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
@@ -25,13 +24,17 @@
     --shadow-glow: 0 0 30px rgba(0, 230, 255, 0.3);
     --shadow-card: 0 20px 60px rgba(0, 0, 0, 0.3);
     --shadow-light: 0 10px 40px rgba(0, 0, 0, 0.1);
+    --error-color: #ff4d7c;
+    --success-color: #00ff9d;
+    --warning-color: #ff9800;
+    --info-color: #00e6ff;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 body {
@@ -69,6 +72,7 @@ body.light-mode {
     background: var(--active-color);
     opacity: 0.1;
     animation: float 20s infinite linear;
+    filter: blur(2px);
 }
 
 @keyframes float {
@@ -244,22 +248,24 @@ form.sign-up-form {
 }
 
 body.light-mode .title {
-    color: var(--text-primary-light);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .input-field {
     max-width: 380px;
     width: 100%;
     background: rgba(255, 255, 255, 0.05);
-    margin: 18px 0;
+    margin: 15px 0;
     height: 60px;
     border-radius: 18px;
     display: grid;
-    grid-template-columns: 15% 85%;
+    grid-template-columns: 15% 75% 10%;
     padding: 0 0.8rem;
     position: relative;
     border: 2px solid transparent;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     backdrop-filter: blur(10px);
 }
 
@@ -273,10 +279,19 @@ body.light-mode .input-field {
     box-shadow: var(--shadow-glow);
 }
 
-.input-field:focus-within {
+.input-field.focused {
     border-color: var(--accent-teal);
     transform: translateY(-5px) scale(1.02);
     box-shadow: 0 15px 40px rgba(0, 255, 157, 0.2);
+}
+
+.input-field.error {
+    border-color: var(--error-color) !important;
+    animation: shake 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.input-field.success {
+    border-color: var(--success-color) !important;
 }
 
 .input-field i {
@@ -284,10 +299,10 @@ body.light-mode .input-field {
     line-height: 60px;
     color: var(--active-color);
     font-size: 1.3rem;
-    transition: all 0.4s ease;
+    transition: all 0.3s ease;
 }
 
-.input-field:focus-within i {
+.input-field.focused i {
     color: var(--accent-teal);
     transform: scale(1.2);
 }
@@ -318,6 +333,22 @@ body.light-mode .input-field input::placeholder {
     color: var(--text-secondary-light);
 }
 
+.view-password {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.view-password:hover {
+    color: var(--active-color);
+}
+
 /* Social Section */
 .social-text {
     padding: 1.2rem 0;
@@ -325,6 +356,9 @@ body.light-mode .input-field input::placeholder {
     color: var(--text-secondary);
     margin: 20px 0;
     position: relative;
+    text-align: center;
+    width: 100%;
+    max-width: 380px;
 }
 
 body.light-mode .social-text {
@@ -336,7 +370,7 @@ body.light-mode .social-text {
     content: '';
     position: absolute;
     height: 1px;
-    width: 40%;
+    width: 30%;
     top: 50%;
     background: var(--border-color);
     transition: all 0.4s ease;
@@ -360,6 +394,8 @@ body.light-mode .social-text::after {
     justify-content: center;
     gap: 20px;
     margin-top: 15px;
+    width: 100%;
+    max-width: 380px;
 }
 
 .social-icon {
@@ -431,6 +467,10 @@ body.light-mode .social-icon {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 1rem;
     letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .btn::before {
@@ -461,6 +501,16 @@ body.light-mode .social-icon {
 .btn.solid {
     background: var(--primary-gradient);
     color: #fff;
+}
+
+.btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn:disabled:hover {
+    background: var(--primary-gradient);
 }
 
 .btn.transparent {
@@ -617,7 +667,7 @@ body.light-mode .social-icon {
     left: 0;
     width: 100%;
     height: 100%;
-    background: var(--bg-dark);
+    background: rgba(11, 23, 42, 0.95);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -628,7 +678,7 @@ body.light-mode .social-icon {
 }
 
 body.light-mode .loading-overlay {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .loading-overlay.active {
@@ -636,16 +686,21 @@ body.light-mode .loading-overlay {
     visibility: visible;
 }
 
-.spinner {
+.loading-content {
+    text-align: center;
+}
+
+.loading-spinner {
     width: 70px;
     height: 70px;
     border: 5px solid var(--border-color);
     border-top: 5px solid var(--active-color);
     border-radius: 50%;
     animation: spin 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
+    margin: 0 auto 20px;
 }
 
-body.light-mode .spinner {
+body.light-mode .loading-spinner {
     border-color: var(--border-light);
     border-top-color: var(--active-color);
 }
@@ -655,24 +710,40 @@ body.light-mode .spinner {
     100% { transform: rotate(360deg); }
 }
 
-/* Notification */
-.notification {
+.loading-message {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+body.light-mode .loading-message {
+    color: var(--text-primary-light);
+}
+
+/* Notification System */
+.notification-container {
     position: fixed;
-    top: 30px;
-    right: 30px;
-    padding: 20px 25px;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 400px;
+    width: 100%;
+}
+
+.notification {
     background: var(--bg-card);
     border-radius: 15px;
     box-shadow: var(--shadow-card);
-    display: flex;
-    align-items: center;
-    gap: 15px;
+    padding: 20px;
     transform: translateX(400px) scale(0.9);
     opacity: 0;
     transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    z-index: 1000;
-    max-width: 400px;
     border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
 }
 
 body.light-mode .notification {
@@ -686,30 +757,23 @@ body.light-mode .notification {
     opacity: 1;
 }
 
-.notification.success {
-    border-left: 5px solid var(--accent-teal);
-}
-
-.notification.error {
-    border-left: 5px solid var(--down-color);
-}
-
-.notification.warning {
-    border-left: 5px solid #ff9800;
-}
-
-.notification.info {
-    border-left: 5px solid var(--active-color);
+.notification-content-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 10px;
 }
 
 .notification-icon {
     font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
-.notification.success .notification-icon { color: var(--accent-teal); }
-.notification.error .notification-icon { color: var(--down-color); }
-.notification.warning .notification-icon { color: #ff9800; }
-.notification.info .notification-icon { color: var(--active-color); }
+.notification.success .notification-icon { color: var(--success-color); }
+.notification.error .notification-icon { color: var(--error-color); }
+.notification.warning .notification-icon { color: var(--warning-color); }
+.notification.info .notification-icon { color: var(--info-color); }
 
 .notification-content {
     flex: 1;
@@ -719,11 +783,22 @@ body.light-mode .notification {
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 600;
     margin-bottom: 5px;
+    color: var(--text-primary);
+}
+
+body.light-mode .notification-title {
+    color: var(--text-primary-light);
 }
 
 .notification-message {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     opacity: 0.9;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+body.light-mode .notification-message {
+    color: var(--text-secondary-light);
 }
 
 .notification-close {
@@ -734,6 +809,8 @@ body.light-mode .notification {
     padding: 5px;
     border-radius: 5px;
     transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .notification-close:hover {
@@ -741,9 +818,40 @@ body.light-mode .notification {
     background: rgba(0, 230, 255, 0.1);
 }
 
+.notification-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+body.light-mode .notification-progress {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.notification-progress-bar {
+    height: 100%;
+    background: var(--active-color);
+    width: 100%;
+    transform-origin: left;
+    animation: progress linear forwards;
+}
+
+.notification.success .notification-progress-bar { background: var(--success-color); }
+.notification.error .notification-progress-bar { background: var(--error-color); }
+.notification.warning .notification-progress-bar { background: var(--warning-color); }
+.notification.info .notification-progress-bar { background: var(--info-color); }
+
+@keyframes progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
 /* Form Validation */
 .error-message {
-    color: var(--down-color);
+    color: var(--error-color);
     font-size: 0.85rem;
     margin-top: 5px;
     display: none;
@@ -751,11 +859,7 @@ body.light-mode .notification {
     width: 100%;
     max-width: 380px;
     animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.input-field.error {
-    border-color: var(--down-color) !important;
-    animation: shake 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    padding-left: 10px;
 }
 
 @keyframes shake {
@@ -773,6 +877,122 @@ body.light-mode .notification {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    transform: translateY(50px) scale(0.9);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-card);
+}
+
+body.light-mode .modal-content {
+    background: var(--bg-card-light);
+    border-color: var(--border-light);
+}
+
+.modal-content.active {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.light-mode .modal-header {
+    border-bottom-color: var(--border-light);
+}
+
+.modal-header h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.8rem;
+    background: var(--secondary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+    color: var(--error-color);
+}
+
+.modal-body {
+    margin-bottom: 25px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.modal-body h3 {
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+body.light-mode .modal-body h3 {
+    color: var(--text-primary-light);
+}
+
+.modal-body ul {
+    padding-left: 20px;
+    margin: 15px 0;
+}
+
+.modal-body li {
+    margin-bottom: 10px;
+}
+
+.modal-footer {
+    text-align: right;
+}
+
+.modal-ok {
+    padding: 12px 30px;
+    font-size: 1rem;
 }
 
 /* Responsive */
@@ -916,5 +1136,15 @@ body.light-mode .notification {
         width: 40px;
         height: 40px;
         font-size: 16px;
+    }
+    
+    .notification-container {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .notification {
+        padding: 15px;
     }
 }
