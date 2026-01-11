@@ -815,6 +815,67 @@
         padding: 20px;
       }
     }
+        /* Add these missing styles */
+    .market-sentiment {
+      background: var(--bg-card);
+      padding: 16px 24px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-color);
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .market-sentiment.positive {
+      color: var(--up-color);
+      border-left: 4px solid var(--up-color);
+    }
+    
+    .market-sentiment.negative {
+      color: var(--down-color);
+      border-left: 4px solid var(--down-color);
+    }
+    
+    .stock-price-data {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    
+    /* Loading overlay for auth check */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      gap: 20px;
+    }
+    
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid var(--border-color);
+      border-top: 4px solid var(--active-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -1007,28 +1068,28 @@
     </div>
   </main>
 </div>
-
-<script>
-// Configuration
+  <script>
+// Configuration - Using your own backend API
 const CONFIG = {
-    TWELVEDATA_API_KEY: "55d0096fb3364d53bb6dc8d519aa35da",
+    API_BASE_URL: window.location.hostname === 'localhost' 
+        ? 'http://localhost:3000' 
+        : window.location.origin, // Auto-detect for deployment
     AUTO_REFRESH_INTERVAL: 300000, // 5 minutes
-    BATCH_DELAY: 1000,
     CACHE_DURATION: 5 * 60 * 1000 // 5 minutes
 };
 
-// Market Data
+// Market Data - Updated for yfinance format (.NS for NSE)
 const NSE_TICKER_NAMES = {
-    "TCS": "Tata Consultancy Services",
-    "RELIANCE": "Reliance Industries", 
-    "HDFCBANK": "HDFC Bank",
-    "HINDUNILVR": "Hindustan Unilever",
-    "ICICIBANK": "ICICI Bank",
-    "INFY": "Infosys",
-    "KOTAKBANK": "Kotak Mahindra Bank",
-    "LT": "Larsen & Toubro", 
-    "SBIN": "State Bank of India",
-    "AXISBANK": "Axis Bank"
+    "RELIANCE.NS": "Reliance Industries",
+    "TCS.NS": "Tata Consultancy Services", 
+    "HDFCBANK.NS": "HDFC Bank",
+    "INFY.NS": "Infosys",
+    "ICICIBANK.NS": "ICICI Bank",
+    "SBIN.NS": "State Bank of India",
+    "BHARTIARTL.NS": "Bharti Airtel",
+    "ITC.NS": "ITC Limited",
+    "KOTAKBANK.NS": "Kotak Mahindra Bank",
+    "AXISBANK.NS": "Axis Bank"
 };
 
 const INTERNATIONAL_TICKER_NAMES = {
@@ -1037,31 +1098,40 @@ const INTERNATIONAL_TICKER_NAMES = {
     "GOOGL": "Alphabet Inc.",
     "AMZN": "Amazon.com Inc.", 
     "TSLA": "Tesla Inc.",
-    "META": "Meta Platforms Inc.",
     "NVDA": "NVIDIA Corporation",
-    "BABA": "Alibaba Group",
+    "META": "Meta Platforms Inc.",
+    "JPM": "JPMorgan Chase",
     "V": "Visa Inc.",
     "JNJ": "Johnson & Johnson"
+};
+
+// Market indices for yfinance
+const MARKET_INDICES = {
+    "NIFTY_50": { symbol: "^NSEI", name: "NIFTY 50", currency: "₹" },
+    "SENSEX": { symbol: "^BSESN", name: "SENSEX", currency: "₹" },
+    "NASDAQ": { symbol: "^IXIC", name: "NASDAQ", currency: "$" },
+    "SP500": { symbol: "^GSPC", name: "S&P 500", currency: "$" },
+    "DOW": { symbol: "^DJI", name: "Dow Jones", currency: "$" }
 };
 
 const NSE_TICKERS = Object.keys(NSE_TICKER_NAMES);
 const INTERNATIONAL_TICKERS = Object.keys(INTERNATIONAL_TICKER_NAMES);
 
-// Fallback Data
+// Fallback Data (if yfinance fails)
 const FALLBACK_DATA = {
     INDIAN: [
-        { symbol: "RELIANCE", name: "Reliance Industries", close: 2856.50, percentChange: 2.35 },
-        { symbol: "TCS", name: "Tata Consultancy Services", close: 3850.75, percentChange: 1.85 },
-        { symbol: "INFY", name: "Infosys", close: 1650.25, percentChange: 1.52 },
-        { symbol: "HDFCBANK", name: "HDFC Bank", close: 1658.40, percentChange: 1.23 },
-        { symbol: "ICICIBANK", name: "ICICI Bank", close: 1056.80, percentChange: 0.95 }
+        { symbol: "RELIANCE.NS", name: "Reliance Industries", price: 2856.50, changePercent: 2.35 },
+        { symbol: "TCS.NS", name: "Tata Consultancy Services", price: 3850.75, changePercent: 1.85 },
+        { symbol: "INFY.NS", name: "Infosys", price: 1650.25, changePercent: 1.52 },
+        { symbol: "HDFCBANK.NS", name: "HDFC Bank", price: 1658.40, changePercent: 1.23 },
+        { symbol: "ICICIBANK.NS", name: "ICICI Bank", price: 1056.80, changePercent: 0.95 }
     ],
     INTERNATIONAL: [
-        { symbol: "AAPL", name: "Apple Inc.", close: 218.35, percentChange: 3.25 },
-        { symbol: "NVDA", name: "NVIDIA Corporation", close: 950.02, percentChange: 2.85 },
-        { symbol: "MSFT", name: "Microsoft Corporation", close: 415.50, percentChange: 2.15 },
-        { symbol: "TSLA", name: "Tesla Inc.", close: 245.75, percentChange: 1.75 },
-        { symbol: "META", name: "Meta Platforms Inc.", close: 485.60, percentChange: 1.45 }
+        { symbol: "AAPL", name: "Apple Inc.", price: 218.35, changePercent: 3.25 },
+        { symbol: "NVDA", name: "NVIDIA Corporation", price: 950.02, changePercent: 2.85 },
+        { symbol: "MSFT", name: "Microsoft Corporation", price: 415.50, changePercent: 2.15 },
+        { symbol: "TSLA", name: "Tesla Inc.", price: 245.75, changePercent: 1.75 },
+        { symbol: "META", name: "Meta Platforms Inc.", price: 485.60, changePercent: 1.45 }
     ]
 };
 
@@ -1073,10 +1143,123 @@ const AppState = {
         topMoversInternational: [],
         topLosersInternational: []
     },
+    marketIndices: {},
     isInitialized: false,
     refreshInterval: null,
-    cache: new Map()
+    cache: new Map(),
+    currentUser: null
 };
+
+// Authentication Service
+class AuthService {
+    static async checkAuth() {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/api/auth/status`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) throw new Error('Not authenticated');
+            const data = await response.json();
+            return data.authenticated ? data.user : null;
+        } catch (error) {
+            console.log('Auth check failed:', error);
+            return null;
+        }
+    }
+    
+    static async logout() {
+        try {
+            await fetch(`${CONFIG.API_BASE_URL}/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            window.location.href = '/';
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    }
+    
+    static async getUserProfile() {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/me`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Failed to get profile');
+            return await response.json();
+        } catch (error) {
+            console.error('Get profile error:', error);
+            return null;
+        }
+    }
+}
+
+// YFinance API Service
+class YFinanceService {
+    static async getQuote(symbol) {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/api/yfinance/quote/${symbol}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error(`Failed to fetch quote for ${symbol}:`, error);
+            return null;
+        }
+    }
+    
+    static async getMultipleQuotes(symbols) {
+        try {
+            const symbolsQuery = symbols.join(',');
+            const response = await fetch(
+                `${CONFIG.API_BASE_URL}/api/yfinance/quotes?symbols=${symbolsQuery}`,
+                { method: 'GET', credentials: 'include' }
+            );
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to fetch multiple quotes:', error);
+            return [];
+        }
+    }
+    
+    static async getHistoricalData(symbol, period = '1mo', interval = '1d') {
+        try {
+            const response = await fetch(
+                `${CONFIG.API_BASE_URL}/api/yfinance/historical/${symbol}?period=${period}&interval=${interval}`,
+                { method: 'GET', credentials: 'include' }
+            );
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error(`Failed to fetch historical for ${symbol}:`, error);
+            return [];
+        }
+    }
+    
+    static async getMarketIndices() {
+        const indices = Object.values(MARKET_INDICES);
+        try {
+            const quotes = await Promise.all(
+                indices.map(index => this.getQuote(index.symbol))
+            );
+            
+            return indices.map((index, i) => ({
+                ...index,
+                quote: quotes[i]
+            })).filter(item => item.quote);
+        } catch (error) {
+            console.error('Failed to fetch market indices:', error);
+            return [];
+        }
+    }
+}
 
 // Mobile Menu Controller
 class MobileMenu {
@@ -1273,86 +1456,12 @@ class ChartManager {
     }
 }
 
-// API Service
-class APIService {
-    static async fetchBatch(tickers, isInternational = false) {
-        const batchSize = 5;
-        let allData = [];
-
-        try {
-            for (let i = 0; i < tickers.length; i += batchSize) {
-                const batch = tickers.slice(i, i + batchSize);
-                const exchange = isInternational ? "" : ":NSE";
-                const formattedSymbols = batch.map(sym => isInternational ? sym : sym + exchange);
-                const symbolsQuery = formattedSymbols.join(",");
-                
-                const url = `https://api.twelvedata.com/quote?symbol=${symbolsQuery}&apikey=${CONFIG.TWELVEDATA_API_KEY}`;
-
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const json = await response.json();
-
-                if (json.code === 429) {
-                    console.warn("API rate limit exceeded, using fallback data");
-                    return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
-                }
-
-                if (json.status === "error" || json.code) {
-                    console.warn("API error for batch:", json.message || json.code);
-                    continue;
-                }
-
-                const dataArray = Array.isArray(json) ? json : Object.values(json);
-                
-                const batchData = dataArray
-                    .filter(stock => stock && stock.symbol && !stock.code)
-                    .map(stock => {
-                        const symbol = stock.symbol.replace('.NSE', '');
-                        const open = parseFloat(stock.open) || 0;
-                        const close = parseFloat(stock.close) || 0;
-                        let percentChange = 0;
-
-                        if (stock.percent_change !== undefined && stock.percent_change !== null) {
-                            percentChange = parseFloat(stock.percent_change);
-                        } else if (open && close) {
-                            percentChange = ((close - open) / open) * 100;
-                        }
-
-                        return {
-                            symbol: symbol,
-                            name: stock.name || StockManager.getStockName(symbol, isInternational),
-                            open: open,
-                            close: close,
-                            percentChange: percentChange
-                        };
-                    });
-
-                allData = allData.concat(batchData);
-                
-                await new Promise(resolve => setTimeout(resolve, CONFIG.BATCH_DELAY));
-            }
-
-            if (allData.length === 0) {
-                console.log("No data from API, using fallback data");
-                return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
-            }
-
-            return allData;
-
-        } catch (error) {
-            console.error("Fetch batch error: ", error);
-            return isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
-        }
-    }
-}
-
-// Stock Manager
+// Stock Manager (using yfinance)
 class StockManager {
     static getStockName(symbol, isInternational = false) {
-        return isInternational ? INTERNATIONAL_TICKER_NAMES[symbol] || symbol : NSE_TICKER_NAMES[symbol] || symbol;
+        // Remove .NS suffix for display
+        const displaySymbol = symbol.replace('.NS', '');
+        return isInternational ? INTERNATIONAL_TICKER_NAMES[displaySymbol] || displaySymbol : NSE_TICKER_NAMES[symbol] || displaySymbol;
     }
 
     static async updateMarketMoversLosers(tickers, moversContainerId, losersContainerId, isInternational = false) {
@@ -1362,34 +1471,54 @@ class StockManager {
         this.showLoadingPlaceholder(losersContainerId);
 
         try {
-            const data = await APIService.fetchBatch(tickers, isInternational);
+            const data = await YFinanceService.getMultipleQuotes(tickers);
             
             if (!data || data.length === 0) {
-                throw new Error("No data received");
+                throw new Error("No data received from yfinance");
             }
 
-            const gainers = data
-                .filter(stock => stock.percentChange > 0)
-                .sort((a, b) => b.percentChange - a.percentChange)
-                .slice(0, 5);
+            // Process yfinance data
+            const processedData = data.map(quote => ({
+                symbol: quote.symbol,
+                name: quote.name || this.getStockName(quote.symbol, isInternational),
+                price: quote.price,
+                change: quote.change,
+                changePercent: quote.changePercent || ((quote.change / (quote.price - quote.change)) * 100),
+                currency: quote.currency
+            })).filter(stock => stock.price > 0);
 
-            const losers = data
-                .filter(stock => stock.percentChange < 0)
-                .sort((a, b) => a.percentChange - b.percentChange)
-                .slice(0, 5);
-
-            if (gainers.length === 0) {
-                gainers.push(...data.slice(0, 3).map(stock => ({
-                    ...stock,
-                    percentChange: Math.random() * 5 + 0.5
-                })));
+            if (processedData.length === 0) {
+                throw new Error("No valid data received");
             }
 
-            if (losers.length === 0) {
-                losers.push(...data.slice(3, 6).map(stock => ({
-                    ...stock,
-                    percentChange: -(Math.random() * 3 + 0.5)
-                })));
+            const gainers = processedData
+                .filter(stock => stock.changePercent > 0)
+                .sort((a, b) => b.changePercent - a.changePercent)
+                .slice(0, 5);
+
+            const losers = processedData
+                .filter(stock => stock.changePercent < 0)
+                .sort((a, b) => a.changePercent - b.changePercent)
+                .slice(0, 5);
+
+            // Use fallback if no gainers/losers
+            if (gainers.length === 0 || losers.length === 0) {
+                const fallbackData = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
+                const allData = processedData.length > 0 ? processedData : fallbackData;
+                
+                if (gainers.length === 0) {
+                    gainers.push(...allData.slice(0, 3).map(stock => ({
+                        ...stock,
+                        changePercent: Math.random() * 5 + 0.5
+                    })));
+                }
+                
+                if (losers.length === 0) {
+                    losers.push(...allData.slice(3, 6).map(stock => ({
+                        ...stock,
+                        changePercent: -(Math.random() * 3 + 0.5)
+                    })));
+                }
             }
 
             AppState.stockData[moversContainerId] = gainers;
@@ -1401,15 +1530,18 @@ class StockManager {
         } catch (error) {
             console.error("Error updating market data:", error);
             
+            // Use fallback data
             const fallbackData = isInternational ? FALLBACK_DATA.INTERNATIONAL : FALLBACK_DATA.INDIAN;
             const gainers = fallbackData.slice(0, 3);
             const losers = fallbackData.slice(3, 5).map(stock => ({
                 ...stock,
-                percentChange: -(Math.abs(stock.percentChange))
+                changePercent: -(Math.abs(stock.changePercent))
             }));
 
             this.renderStocks(moversContainerId, gainers, isInternational);
             this.renderStocks(losersContainerId, losers, isInternational);
+            
+            NotificationManager.show('Using fallback market data', 'warning');
         }
     }
 
@@ -1429,22 +1561,27 @@ class StockManager {
         }
 
         stocks.forEach(stock => {
-            const priceFormatted = isInternational ? `$${stock.close.toFixed(2)}` : `₹${stock.close.toFixed(2)}`;
-            const changeClass = stock.percentChange >= 0 ? "positive" : "negative";
-            const arrow = stock.percentChange >= 0 ? "📈" : "📉";
-            const changeIcon = stock.percentChange >= 0 ? "🟢" : "🔴";
+            const priceFormatted = isInternational ? `$${stock.price?.toFixed(2) || stock.close?.toFixed(2) || 'N/A'}` 
+                : `₹${stock.price?.toFixed(2) || stock.close?.toFixed(2) || 'N/A'}`;
+            const changePercent = stock.changePercent || stock.percentChange || 0;
+            const changeClass = changePercent >= 0 ? "positive" : "negative";
+            const arrow = changePercent >= 0 ? "📈" : "📉";
+            const changeIcon = changePercent >= 0 ? "🟢" : "🔴";
+
+            // Clean symbol for display
+            const displaySymbol = stock.symbol.replace('.NS', '');
 
             const stockDiv = document.createElement("div");
             stockDiv.className = "stock-item";
             stockDiv.innerHTML = `
                 <div class="stock-info">
                     <span class="stock-name">${stock.name}</span>
-                    <span class="stock-symbol">${stock.symbol}</span>
+                    <span class="stock-symbol">${displaySymbol}</span>
                 </div>
                 <div class="stock-price-data">
                     <span class="stock-price">${priceFormatted}</span>
                     <span class="stock-change ${changeClass}">
-                        ${changeIcon} ${Math.abs(stock.percentChange).toFixed(2)}% ${arrow}
+                        ${changeIcon} ${Math.abs(changePercent).toFixed(2)}% ${arrow}
                     </span>
                 </div>`;
             container.appendChild(stockDiv);
@@ -1481,9 +1618,9 @@ class StockManager {
         if (sortBy === "name") {
             sortedStocks.sort((a, b) => a.name.localeCompare(b.name));
         } else if (sortBy === "changeAsc") {
-            sortedStocks.sort((a, b) => a.percentChange - b.percentChange);
+            sortedStocks.sort((a, b) => (a.changePercent || a.percentChange || 0) - (b.changePercent || b.percentChange || 0));
         } else if (sortBy === "changeDesc") {
-            sortedStocks.sort((a, b) => b.percentChange - a.percentChange);
+            sortedStocks.sort((a, b) => (b.changePercent || b.percentChange || 0) - (a.changePercent || a.percentChange || 0));
         }
         
         const isInternational = containerId.includes("International");
@@ -1518,10 +1655,41 @@ class ThemeManager {
     }
 }
 
+// User Profile Manager
+class UserManager {
+    static async updateUserProfile() {
+        try {
+            const user = await AuthService.getUserProfile();
+            if (user) {
+                AppState.currentUser = user;
+                
+                // Update profile in navbar if exists
+                const profileLink = document.querySelector('a[href="/profile"]');
+                if (profileLink) {
+                    profileLink.innerHTML = `<i class="fas fa-user"></i> ${user.username}`;
+                }
+            }
+        } catch (error) {
+            console.error('Update profile error:', error);
+        }
+    }
+}
+
 // Dashboard Manager
 class Dashboard {
-    static initialize() {
+    static async initialize() {
         console.log("🚀 Initializing Financial Dashboard...");
+        
+        // Check authentication (optional - remove if you want public access)
+        try {
+            const user = await AuthService.checkAuth();
+            if (user) {
+                AppState.currentUser = user;
+                await UserManager.updateUserProfile();
+            }
+        } catch (error) {
+            console.log('Auth optional - continuing without user');
+        }
         
         // Load theme
         ThemeManager.load();
@@ -1539,75 +1707,114 @@ class Dashboard {
         // Setup search
         this.setupSearch();
         
+        // Setup logout if user is logged in
+        if (AppState.currentUser) {
+            this.setupLogout();
+        }
+        
         AppState.isInitialized = true;
         console.log("✅ Financial Dashboard initialized successfully");
         
         NotificationManager.show('Dashboard loaded successfully!', 'success');
     }
 
-    static initializeMarketData() {
+    static async initializeMarketData() {
         // Update Indian market data
         StockManager.updateMarketMoversLosers(NSE_TICKERS, "topMoversIndian", "topLosersIndian", false);
         
         // Update International market data
         StockManager.updateMarketMoversLosers(INTERNATIONAL_TICKERS, "topMoversInternational", "topLosersInternational", true);
         
+        // Update market indices
+        await this.updateMarketIndices();
+        
         // Update other components
-        this.updateMarketOverview();
         this.updateAIInsight();
         this.updateNewsTicker();
     }
-
-    static updateMarketOverview() {
-        const data = { 
-            nifty50: { value: 24500, change: 0.85 }, 
-            sensex: { value: 82000, change: -0.55 },
-            nasdaq: { value: 16500, change: 1.25 },
-            sp500: { value: 5200, change: 0.75 }
-        };
-        
+    
+    static async updateMarketIndices() {
+        try {
+            const indices = await YFinanceService.getMarketIndices();
+            AppState.marketIndices = indices;
+            this.renderMarketIndices(indices);
+        } catch (error) {
+            console.error('Failed to update market indices:', error);
+            this.renderMarketIndices([]);
+        }
+    }
+    
+    static renderMarketIndices(indices) {
         const el = document.getElementById("marketOverview");
-        if (el) {
-            el.innerHTML = `
-                <div class="market-card">
-                    <h3>NIFTY 50</h3>
-                    <div class="market-value">₹${data.nifty50.value.toLocaleString()}</div>
-                    <span class="stock-change ${data.nifty50.change > 0 ? "positive" : "negative"}">
-                        ${data.nifty50.change > 0 ? "📈" : "📉"} ${Math.abs(data.nifty50.change)}%
-                    </span>
-                </div>
-                <div class="market-card">
-                    <h3>SENSEX</h3>
-                    <div class="market-value">₹${data.sensex.value.toLocaleString()}</div>
-                    <span class="stock-change ${data.sensex.change > 0 ? "positive" : "negative"}">
-                        ${data.sensex.change > 0 ? "📈" : "📉"} ${Math.abs(data.sensex.change)}%
-                    </span>
-                </div>
-                <div class="market-card">
-                    <h3>NASDAQ</h3>
-                    <div class="market-value">$${data.nasdaq.value.toLocaleString()}</div>
-                    <span class="stock-change ${data.nasdaq.change > 0 ? "positive" : "negative"}">
-                        ${data.nasdaq.change > 0 ? "📈" : "📉"} ${Math.abs(data.nasdaq.change)}%
-                    </span>
-                </div>
-                <div class="market-card">
-                    <h3>S&P 500</h3>
-                    <div class="market-value">$${data.sp500.value.toLocaleString()}</div>
-                    <span class="stock-change ${data.sp500.change > 0 ? "positive" : "negative"}">
-                        ${data.sp500.change > 0 ? "📈" : "📉"} ${Math.abs(data.sp500.change)}%
-                    </span>
-                </div>`;
+        if (!el) return;
+        
+        if (!indices || indices.length === 0) {
+            // Fallback to static data
+            const fallbackData = [
+                { name: "NIFTY 50", currency: "₹", quote: { price: 24500, changePercent: 0.85 } },
+                { name: "SENSEX", currency: "₹", quote: { price: 82000, changePercent: -0.55 } },
+                { name: "NASDAQ", currency: "$", quote: { price: 16500, changePercent: 1.25 } },
+                { name: "S&P 500", currency: "$", quote: { price: 5200, changePercent: 0.75 } }
+            ];
+            this.renderIndicesHTML(fallbackData);
+            return;
         }
         
+        this.renderIndicesHTML(indices);
+        
+        // Update sentiment
+        this.updateMarketSentiment(indices);
+    }
+    
+    static renderIndicesHTML(indices) {
+        const el = document.getElementById("marketOverview");
+        el.innerHTML = indices.map(index => `
+            <div class="market-card">
+                <h3>${index.name}</h3>
+                <div class="market-value">${index.currency}${index.quote?.price?.toLocaleString() || 'N/A'}</div>
+                <span class="stock-change ${index.quote?.changePercent >= 0 ? "positive" : "negative"}">
+                    ${index.quote?.changePercent >= 0 ? "📈" : "📉"} 
+                    ${index.quote?.changePercent ? Math.abs(index.quote.changePercent).toFixed(2) + '%' : 'N/A'}
+                </span>
+            </div>
+        `).join('');
+    }
+    
+    static updateMarketSentiment(indices) {
         const sentimentEl = document.getElementById("marketSentiment");
-        if (sentimentEl) {
-            const totalChange = data.nifty50.change + data.sensex.change + data.nasdaq.change + data.sp500.change;
-            const sentiment = totalChange > 1 ? "🟢 STRONGLY BULLISH" : 
-                            totalChange > 0 ? "🟢 BULLISH" : 
-                            totalChange > -1 ? "🔴 BEARISH" : "🔴 STRONGLY BEARISH";
-            sentimentEl.textContent = `Market Sentiment: ${sentiment}`;
-            sentimentEl.className = `market-sentiment ${totalChange > 0 ? 'positive' : 'negative'}`;
+        if (!sentimentEl) return;
+        
+        if (indices.length === 0) {
+            sentimentEl.textContent = 'Market Sentiment: 🔵 NEUTRAL (No data)';
+            sentimentEl.className = 'market-sentiment';
+            return;
         }
+        
+        const totalChange = indices.reduce((sum, index) => 
+            sum + (index.quote?.changePercent || 0), 0
+        );
+        const avgChange = totalChange / indices.length;
+        
+        let sentiment, className;
+        if (avgChange > 2) {
+            sentiment = "🟢 STRONGLY BULLISH";
+            className = "positive";
+        } else if (avgChange > 0.5) {
+            sentiment = "🟢 BULLISH";
+            className = "positive";
+        } else if (avgChange > -0.5) {
+            sentiment = "🔵 NEUTRAL";
+            className = "";
+        } else if (avgChange > -2) {
+            sentiment = "🔴 BEARISH";
+            className = "negative";
+        } else {
+            sentiment = "🔴 STRONGLY BEARISH";
+            className = "negative";
+        }
+        
+        sentimentEl.textContent = `Market Sentiment: ${sentiment} (${avgChange.toFixed(2)}%)`;
+        sentimentEl.className = `market-sentiment ${className}`;
     }
 
     static updateAIInsight() {
@@ -1633,7 +1840,7 @@ class Dashboard {
             { symbol: "NVDA", text: "NVIDIA unveils next-gen AI chips", change: 5.8 },
             { symbol: "RELIANCE", text: "Reliance Jio reports strong subscriber growth", change: 1.8 },
             { symbol: "INFY", text: "Infosys signs $500M digital transformation deal", change: 3.1 },
-            { symbol: "BTC", text: "Bitcoin breaks $45,000 as institutional adoption grows", change: 6.2 }
+            { symbol: "BTC-USD", text: "Bitcoin breaks $45,000 as institutional adoption grows", change: 6.2 }
         ];
 
         const ticker = document.getElementById('newsTicker');
@@ -1667,9 +1874,20 @@ class Dashboard {
             searchInput.addEventListener('input', (e) => {
                 const query = e.target.value.toLowerCase();
                 if (query.length > 2) {
-                    // Implement search functionality here
                     console.log('Searching for:', query);
                     NotificationManager.show(`Searching for: ${query}`, 'info');
+                }
+            });
+        }
+    }
+    
+    static setupLogout() {
+        const profileLink = document.querySelector('a[href="/profile"]');
+        if (profileLink && AppState.currentUser) {
+            profileLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm('Are you sure you want to logout?')) {
+                    AuthService.logout();
                 }
             });
         }
@@ -1677,7 +1895,6 @@ class Dashboard {
 
     static exportReport() {
         NotificationManager.show('Exporting dashboard report...', 'info');
-        // In a real implementation, this would generate and download a report
         setTimeout(() => {
             NotificationManager.show('Report exported successfully!', 'success');
         }, 2000);
@@ -1686,6 +1903,10 @@ class Dashboard {
     static refreshData() {
         NotificationManager.show('Refreshing market data...', 'info');
         this.initializeMarketData();
+    }
+    
+    static logout() {
+        AuthService.logout();
     }
 }
 
@@ -1703,6 +1924,8 @@ window.addEventListener('error', (event) => {
 // Make functions globally available
 window.toggleTheme = ThemeManager.toggle;
 window.exportReport = Dashboard.exportReport;
+window.refreshDashboard = Dashboard.refreshData;
+window.logout = Dashboard.logout;
 </script>
 </body>
 </html>
