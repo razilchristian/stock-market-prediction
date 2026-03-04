@@ -136,26 +136,23 @@ def sanity_check_prediction(predicted_price, current_price, algo_name, max_daily
     
     pct_change = abs(predicted_price - current_price) / current_price
     
-    # UPDATED: More realistic thresholds
     if algo_name in ['svr', 'neural_network']:
-        max_daily_change = 0.10  # Increased from 0.08
+        max_daily_change = 0.08
     elif algo_name in ['linear_regression', 'ridge', 'lasso']:
-        max_daily_change = 0.12  # Increased from 0.10
+        max_daily_change = 0.10
     elif algo_name == 'arima':
-        max_daily_change = 0.15  # Increased from 0.12
+        max_daily_change = 0.12
     
-    # REJECT IMPOSSIBLE PREDICTIONS
     if pct_change > max_daily_change:
         return False, 0, f"{algo_name}: Implausible {pct_change*100:.1f}% change"
     
-    # Confidence penalty for large changes (reduced penalties)
     confidence_penalty = 0
-    if pct_change > 0.08:  # >8% change
-        confidence_penalty = 15  # Reduced from 20
-    elif pct_change > 0.06:  # >6% change
-        confidence_penalty = 10  # Reduced from 10
-    elif pct_change > 0.04:  # >4% change
-        confidence_penalty = 5   # Reduced from 5
+    if pct_change > 0.06:
+        confidence_penalty = 20
+    elif pct_change > 0.04:
+        confidence_penalty = 10
+    elif pct_change > 0.02:
+        confidence_penalty = 5
     
     return True, confidence_penalty, f"{algo_name}: Valid (change: {pct_change*100:.1f}%)"
 
@@ -481,9 +478,6 @@ class OCHLPredictor:
         self.last_training_date = None
         self.is_fitted = False
         self.split_info = {}
-        
-        # NEW: Store last algorithm details for confidence calculation
-        self.last_algorithm_details = {}
         
         # Performance metrics storage
         self.performance_metrics = {
@@ -1135,15 +1129,10 @@ class OCHLPredictor:
                     try:
                         y_clean_series = pd.Series(y_clean)
                         
-                        # ADD VALIDATION SPLIT
-                        split_idx = int(len(y_clean_series) * 0.8)
-                        train = y_clean_series[:split_idx]
-                        test = y_clean_series[split_idx:]
-                        
                         model = pm.auto_arima(
-                            train,
+                            y_clean_series,
                             start_p=0, start_q=0,
-                            max_p=1, max_q=1,
+                            max_p=1, max_q=1,           # Reduced complexity
                             m=1,
                             seasonal=False,
                             trace=False,
@@ -1152,14 +1141,6 @@ class OCHLPredictor:
                             maxiter=20,
                             stepwise=True
                         )
-                        
-                        # Test on validation set
-                        if len(test) > 0:
-                            forecasts = model.predict(n_periods=len(test))
-                            test_mae = mean_absolute_error(test, forecasts)
-                            if test_mae > 5.0:  # If validation error is high
-                                print(f"      ⚠️ ARIMA validation MAE: ${test_mae:.2f} - may overfit")
-                        
                         return model
                     except Exception as e:
                         print(f"      ⚠️ ARIMA auto failed: {str(e)[:50]}")
@@ -1996,9 +1977,6 @@ class OCHLPredictor:
                     
                     predictions[target] = float(ensemble_pred)
                     
-                    # Store algorithm details for confidence calculation
-                    self.last_algorithm_details = algorithm_predictions
-                    
                     if target_confidences:
                         weighted_conf = 0
                         weight_sum = 0
@@ -2232,21 +2210,6 @@ class OCHLPredictor:
                     weight = target_weights.get(target, 0.25)
                     conf = confidence_scores[target]
                     
-                    # NEW: Boost confidence when predictions are tight
-                    if target in predictions and current_price > 0:
-                        # Get individual predictions for this target from algorithm_details
-                        if hasattr(self, 'last_algorithm_details') and target in self.last_algorithm_details:
-                            indiv_preds = list(self.last_algorithm_details[target].get('individual', {}).values())
-                            if len(indiv_preds) >= 3:
-                                pred_std = np.std(indiv_preds)
-                                std_pct = pred_std / current_price
-                                
-                                # If models agree closely, boost confidence
-                                if std_pct < 0.01:  # Less than 1% standard deviation
-                                    conf = min(conf * 1.3, 85)
-                                elif std_pct < 0.02:  # Less than 2% standard deviation
-                                    conf = min(conf * 1.15, 80)
-                    
                     if target in predictions and current_price > 0:
                         pct_change = abs(predictions[target] - current_price) / current_price
                         
@@ -2263,25 +2226,21 @@ class OCHLPredictor:
             else:
                 overall_confidence = np.mean(list(confidence_scores.values())) if confidence_scores else 0
             
-            # NEW: Major bonus for perfect OHLC
+            # OHLC consistency bonus
             if all(t in predictions for t in ['Open', 'High', 'Low', 'Close']):
                 if (predictions['High'] >= predictions['Open'] and 
                     predictions['High'] >= predictions['Close'] and
                     predictions['Low'] <= predictions['Open'] and
                     predictions['Low'] <= predictions['Close']):
-                    overall_confidence = min(overall_confidence * 1.15, 90)
+                    overall_confidence = min(overall_confidence * 1.05, 85)
             
-            # NEW: Bonus for realistic spread
+            # Realistic spread bonus
             if 'High' in predictions and 'Low' in predictions and current_price > 0:
                 daily_spread = (predictions['High'] - predictions['Low']) / current_price
-                if 0.01 <= daily_spread <= 0.03:  # 1-3% spread is perfect
-                    overall_confidence = min(overall_confidence + 8, 90)
+                if 0.01 <= daily_spread <= 0.04:
+                    overall_confidence = min(overall_confidence + 5, 85)
             
-            # NEW: Ensure minimum confidence for reasonable predictions
-            if abs(predictions.get('Close', current_price) - current_price) / current_price < 0.02:
-                overall_confidence = max(overall_confidence, 70)  # Minimum 70% for very close predictions
-            
-            overall_confidence = max(min(overall_confidence, 90), 30)
+            overall_confidence = max(min(overall_confidence, 85), 30)
             
             if overall_confidence >= 70:
                 confidence_level = "HIGH"
@@ -2571,7 +2530,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "11.1.0",  # UPDATED VERSION WITH CONFIDENCE FIX
+        "version": "11.0.0",  # OPTIMIZED VERSION
         "algorithms": ["Linear Regression", "Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "ARIMA", "Neural Network"],
         "metrics_available": ["MAE", "MSE", "RMSE", "R²", "Direction Accuracy", "Cross-validation scores"],
         "optimizations": [
@@ -2582,7 +2541,6 @@ def health_check():
             "LINEAR MODELS: Ridge with alpha search (BEST LINEAR FIT)",
             "FEATURE SELECTION: Top 10 features only (REDUCED COMPLEXITY)",
             "WINDOW SIZE: Reduced to 20 days (LESS MEMORIZATION)",
-            "CONFIDENCE: Now boosts when models agree closely (FIXED UNDERESTIMATION)",
             "ENSEMBLE: Smart weighting based on R² performance"
         ],
         "target_r2_range": "0.70 - 0.90 (OPTIMAL)",
@@ -2791,8 +2749,8 @@ def predict_stock():
                 "feature_count": len(predictor.feature_columns),
                 "algorithms_used": ["linear_regression", "ridge", "lasso", "svr", "random_forest", "gradient_boosting", "arima", "neural_network"],
                 "fallback_mode": is_fallback,
-                "version": "11.1.0",
-                "optimization": "Active - Models balanced for R² 0.7-0.9, Confidence fixed"
+                "version": "11.0.0",
+                "optimization": "Active - Models balanced for R² 0.7-0.9"
             },
             
             "data_info": {
@@ -3057,7 +3015,7 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print("=" * 70)
-    print("📈 STOCK MARKET PREDICTION SYSTEM v11.1.0 - OPTIMIZED & BALANCED")
+    print("📈 STOCK MARKET PREDICTION SYSTEM v11.0.0 - OPTIMIZED & BALANCED")
     print("=" * 70)
     print("✨ KEY OPTIMIZATIONS APPLIED:")
     print("  • 🌳 RANDOM FOREST: n_estimators=40, max_depth=4, min_samples_split=20")
@@ -3066,8 +3024,6 @@ if __name__ == '__main__':
     print("  • 📊 FEATURE SELECTION: Reduced to top 10 features only")
     print("  • 📉 WINDOW SIZE: Reduced to 20 days to prevent memorization")
     print("  • 🎯 TARGET R²: Optimizing for 0.70 - 0.90 range (balanced)")
-    print("  • 🎯 CONFIDENCE FIX: Now boosts when models agree closely")
-    print("  • 🎯 MINIMUM CONFIDENCE: 70% for very accurate predictions")
     print("=" * 70)
     print("📊 NEW ENDPOINTS:")
     print("  • GET /api/performance/<symbol> - Get optimized performance metrics")
@@ -3076,7 +3032,6 @@ if __name__ == '__main__':
     print("🎯 EXPECTED RESULTS:")
     print("  • MAE: $1.50 - $3.00 (Reduced from $4-5)")
     print("  • R²: 0.70 - 0.90 (Optimal range)")
-    print("  • Confidence: Now accurately reflects prediction quality")
     print("=" * 70)
     
     os.makedirs('templates', exist_ok=True)
