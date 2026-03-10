@@ -527,7 +527,7 @@ class OCHLPredictor:
                         if model is not None:
                             model_data = {
                                 'model': model,
-                                'window_size': 20,  # Reduced from 30
+                                'window_size': 30,
                                 'target': target,
                                 'algorithm': algo,
                                 'price_stats': getattr(model, 'price_stats', None)
@@ -907,15 +907,15 @@ class OCHLPredictor:
                         model.fit(X_train, y_train)
                         y_pred = model.predict(X_test)
                     elif algorithm == 'random_forest':
-                        model = RandomForestRegressor(n_estimators=40, max_depth=4, min_samples_split=20, random_state=42)
+                        model = RandomForestRegressor(n_estimators=50, max_depth=5, min_samples_split=10, random_state=42)
                         model.fit(X_train, y_train)
                         y_pred = model.predict(X_test)
                     elif algorithm == 'gradient_boosting':
-                        model = GradientBoostingRegressor(n_estimators=50, learning_rate=0.03, max_depth=3, random_state=42)
+                        model = GradientBoostingRegressor(n_estimators=50, learning_rate=0.05, max_depth=3, random_state=42)
                         model.fit(X_train, y_train)
                         y_pred = model.predict(X_test)
                     elif algorithm == 'neural_network':
-                        model = MLPRegressor(hidden_layer_sizes=(20, 10), alpha=0.8, max_iter=500, random_state=42)
+                        model = MLPRegressor(hidden_layer_sizes=(15, 8), alpha=0.5, max_iter=500, random_state=42)
                         model.fit(X_train, y_train)
                         y_pred = model.predict(X_test)
                     else:
