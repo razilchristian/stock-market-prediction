@@ -42,6 +42,9 @@
   --model-gb: #9b59b6;
   --model-arima: #3498db;
   --model-nn: #2ecc71;
+  --model-xgboost: #e67e22;
+  --model-lightgbm: #27ae60;
+  --model-stacking: #f1c40f;
 }
 
 body.light {
@@ -68,6 +71,9 @@ body.light {
   --model-gb: #9b59b6;
   --model-arima: #3498db;
   --model-nn: #2ecc71;
+  --model-xgboost: #e67e22;
+  --model-lightgbm: #27ae60;
+  --model-stacking: #f1c40f;
 }
 
 html,body { height:100%; }
@@ -452,7 +458,7 @@ body {
         <h3>AI Prediction Engine</h3>
       </div>
       <div class="ai-content" id="aiInsightText">
-        Our AI analyzes 10 years of historical data using 8 algorithms (Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network) with 90+ technical features to generate next-day OCHL predictions.
+        Our AI analyzes 10 years of historical data using 11 advanced algorithms (Linear, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network, XGBoost, LightGBM, Stacking Ensemble) with 90+ technical features to generate next-day OCHL predictions.
       </div>
     </div>
 
@@ -586,7 +592,7 @@ body {
       <div class="performance-card">
         <h3><i class="fas fa-microchip"></i> All Algorithm Predictions Breakdown</h3>
         <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
-          See how each of the 8 algorithms predicts OCHL (Open, Close, High, Low) values with individual confidence scores
+          See how each of the 11 algorithms predicts OCHL (Open, Close, High, Low) values with individual confidence scores
         </p>
         
         <div class="algorithm-tabs" id="algorithmTabs">
@@ -604,7 +610,7 @@ body {
       <div class="performance-card">
         <h3><i class="fas fa-chart-bar"></i> Model Performance Comparison</h3>
         <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
-          Detailed performance metrics across all 8 algorithms for the selected stock
+          Detailed performance metrics across all 11 algorithms for the selected stock
         </p>
         
         <div class="table-container" style="overflow-x: auto;">
@@ -727,7 +733,7 @@ body {
     <div class="card" style="padding:20px; background:var(--bg-card); border-radius:20px; border:1px solid var(--border-color);">
       <h3 style="color:var(--accent-blue); margin-bottom:8px">Model & Deployment</h3>
       <p style="color:var(--text-secondary); font-size:14px; line-height:1.5;">
-        This AI prediction system uses 8 advanced machine learning models (Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network) with 10 years of historical data, 90+ technical features, and real-time confidence scoring. All predictions are for educational purposes only.
+        This AI prediction system uses 11 advanced machine learning models (Linear Regression, Ridge, Lasso, SVR, Random Forest, Gradient Boosting, ARIMA, Neural Network, XGBoost, LightGBM, Stacking Ensemble) with 10 years of historical data, 90+ technical features, market sentiment, options flow, institutional flow, pattern recognition, news sentiment, and economic indicators for real-time confidence scoring. All predictions are for educational purposes only.
       </p>
     </div>
 
@@ -735,8 +741,8 @@ body {
 </div>
 
 <script>
-/* =============== ENHANCED PREDICTION UI SCRIPT =============== */
-/* Updated to handle new prediction format from Flask */
+/* =============== ENHANCED PREDICTION UI SCRIPT - UPDATED FOR 11 ALGORITHMS =============== */
+/* Updated to handle new prediction format from Flask with XGBoost, LightGBM, Stacking */
 
 const CONFIG = {
   API_BASE_URL: window.location.origin,
@@ -761,7 +767,10 @@ const AppState = {
     'random_forest',
     'gradient_boosting',
     'arima',
-    'neural_network'
+    'neural_network',
+    'xgboost',
+    'lightgbm',
+    'stacking'
   ],
   algorithmNames: {
     'linear_regression': 'Linear Regression',
@@ -771,7 +780,10 @@ const AppState = {
     'random_forest': 'Random Forest',
     'gradient_boosting': 'Gradient Boosting',
     'arima': 'ARIMA',
-    'neural_network': 'Neural Network'
+    'neural_network': 'Neural Network',
+    'xgboost': 'XGBoost',
+    'lightgbm': 'LightGBM',
+    'stacking': 'Stacking Ensemble'
   },
   algorithmColors: {
     'linear_regression': 'var(--model-linear)',
@@ -781,7 +793,10 @@ const AppState = {
     'random_forest': 'var(--model-rf)',
     'gradient_boosting': 'var(--model-gb)',
     'arima': 'var(--model-arima)',
-    'neural_network': 'var(--model-nn)'
+    'neural_network': 'var(--model-nn)',
+    'xgboost': 'var(--model-xgboost)',
+    'lightgbm': 'var(--model-lightgbm)',
+    'stacking': 'var(--model-stacking)'
   }
 };
 
@@ -1044,7 +1059,7 @@ class StockListManager {
   }
 }
 
-/* Comprehensive Prediction Display - UPDATED FOR NEW FORMAT */
+/* Comprehensive Prediction Display - UPDATED FOR 11 ALGORITHMS */
 class PredictionDisplay {
   static reset() {
     // Reset main prediction display
@@ -1065,7 +1080,7 @@ class PredictionDisplay {
       chartEl.innerHTML = `
         <div style="padding: 40px; text-align: center; color: var(--text-muted);">
           <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-          <div>Select a stock and click "Predict" to generate AI-powered forecasts</div>
+          <div>Select a stock and click "Predict" to generate AI-powered forecasts with 11 algorithms</div>
         </div>
       `;
     }
@@ -1206,7 +1221,7 @@ class PredictionDisplay {
     chartEl.innerHTML = `
       <div style="padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
         <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">
-          ${symbol} Price Forecast
+          ${symbol} Price Forecast (11 Algorithms)
         </div>
         
         <div style="display: flex; align-items: flex-end; height: 140px; gap: 30px; padding: 0 20px;">
@@ -1298,7 +1313,7 @@ class PredictionDisplay {
     // Create "All" tab
     const allTab = document.createElement('div');
     allTab.className = 'algorithm-tab active';
-    allTab.textContent = 'All Algorithms';
+    allTab.textContent = 'All Algorithms (11)';
     allTab.dataset.target = 'all';
     allTab.addEventListener('click', () => {
       this.switchAlgorithmTab('all');
@@ -2028,7 +2043,7 @@ class PredictionManager {
     const symbol = AppState.selectedStock.symbol;
     
     try {
-      NotificationManager.show(`Generating predictions for ${symbol} with 8 algorithms...`, 'success');
+      NotificationManager.show(`Generating predictions for ${symbol} with 11 algorithms...`, 'success');
       
       // Show loading state
       const chartEl = document.getElementById('predictionChart');
@@ -2036,9 +2051,9 @@ class PredictionManager {
         chartEl.innerHTML = `
           <div style="padding: 40px; text-align: center; color: var(--text-muted);">
             <i class="fas fa-spinner fa-spin" style="font-size: 36px; margin-bottom: 16px;"></i>
-            <div>AI is analyzing ${symbol} with 8 algorithms...</div>
+            <div>AI is analyzing ${symbol} with 11 algorithms...</div>
             <div style="font-size: 12px; margin-top: 8px;">Processing 10 years of data with 90+ features</div>
-            <div style="font-size: 10px; margin-top: 4px;">Algorithms: Linear, Ridge, Lasso, SVR, RF, GB, ARIMA, NN</div>
+            <div style="font-size: 10px; margin-top: 4px;">Algorithms: Linear, Ridge, Lasso, SVR, RF, GB, ARIMA, NN, XGBoost, LightGBM, Stacking</div>
           </div>
         `;
       }
@@ -2049,7 +2064,7 @@ class PredictionManager {
       // Update display with prediction data
       PredictionDisplay.update(data);
       
-      NotificationManager.show(`Predictions ready for ${symbol}. 8 algorithms analyzed.`, 'success');
+      NotificationManager.show(`Predictions ready for ${symbol}. 11 algorithms analyzed.`, 'success');
       
     } catch (err) {
       console.error('Prediction generation error:', err);
@@ -2081,11 +2096,11 @@ class PredictionManager {
     const symbol = AppState.selectedStock.symbol;
     
     try {
-      NotificationManager.show(`Training all 8 models for ${symbol}...`, 'success');
+      NotificationManager.show(`Training all 11 models for ${symbol}...`, 'success');
       const result = await StockAPIService.trainModels(symbol);
       
       if (result.status === 'success') {
-        NotificationManager.show(`All 8 models trained successfully for ${symbol}`, 'success');
+        NotificationManager.show(`All 11 models trained successfully for ${symbol}`, 'success');
         
         // Refresh predictions after training
         setTimeout(() => this.generate(), 1000);
@@ -2114,7 +2129,7 @@ class PredictionManager {
       generateAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating All...';
     }
     
-    NotificationManager.show('Generating predictions for all stocks with 8 algorithms...', 'success');
+    NotificationManager.show('Generating predictions for all stocks with 11 algorithms...', 'success');
     
     try {
       // Limit to first 3 stocks to avoid overwhelming the server
@@ -2138,7 +2153,7 @@ class PredictionManager {
         await StockAPIService.predict(AppState.selectedStock.symbol);
       }
       
-      NotificationManager.show('Batch generation complete with 8 algorithms per stock', 'success');
+      NotificationManager.show('Batch generation complete with 11 algorithms per stock', 'success');
     } catch (err) {
       console.error('Batch generation error:', err);
       NotificationManager.show('Batch generation partially failed', 'error');
@@ -2197,7 +2212,7 @@ class ThemeManager {
 let stockListManager;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Initializing Stock Prediction App with 8-Algorithm Support...');
+  console.log('Initializing Stock Prediction App with 11-Algorithm Support...');
   
   // Initialize components
   ThemeManager.load();
@@ -2208,12 +2223,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   await stockListManager.populate();
   
   // Set up event listeners
-  this.setupEventListeners();
+  setupEventListeners();
   
   // Auto-refresh stocks periodically
-  this.setupAutoRefresh();
+  setupAutoRefresh();
   
-  console.log('App initialized with 8-algorithm prediction system');
+  console.log('App initialized with 11-algorithm prediction system');
 });
 
 function setupEventListeners() {
