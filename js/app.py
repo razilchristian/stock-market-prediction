@@ -240,7 +240,7 @@ def get_live_stock_data_enhanced(ticker):
         if not validate_stock_symbol(ticker):
             return generate_fallback_data(ticker, days=500)
         
-        # Get 2-year daily historical data for training
+        # Get data with period parameter to ensure we have current data
         hist = yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30)
         
         if hist.empty:
@@ -271,39 +271,12 @@ def get_live_stock_data_enhanced(ticker):
             hist[col] = pd.to_numeric(hist[col], errors='coerce')
             hist[col] = hist[col].ffill().bfill()
         
-        # -------------------------------------------------------
-        # CRITICAL FIX: Fetch TRUE live/intraday price separately.
-        # The daily bar's last close may be yesterday's close.
-        # We try multiple methods to get the actual current price.
-        # -------------------------------------------------------
-        live_price = None
-        try:
-            ticker_obj = yf.Ticker(ticker)
-            # Method 1: 1-minute intraday bar (most current)
-            intraday = ticker_obj.history(period="1d", interval="1m", timeout=10)
-            if not intraday.empty:
-                live_price = float(intraday['Close'].iloc[-1])
-                print(f"   Live price (1m intraday): ${live_price:.2f}")
-        except Exception:
-            pass
-
-        if live_price is None or live_price <= 0:
-            try:
-                # Method 2: ticker.info current price fields
-                info = ticker_obj.fast_info
-                live_price = float(info.last_price or info.regular_market_price or 0)
-                if live_price > 0:
-                    print(f"   Live price (fast_info): ${live_price:.2f}")
-            except Exception:
-                pass
-
-        if live_price is None or live_price <= 0:
-            # Method 3: fall back to the last daily close
-            live_price = float(hist['Close'].iloc[-1])
-            print(f"   Live price (last daily close fallback): ${live_price:.2f}")
-
-        print(f"✅ Fetched {len(hist)} days historical data | Live price: ${live_price:.2f}")
-        return hist, live_price, None
+        current_price = float(hist['Close'].iloc[-1]) if 'Close' in hist.columns else 100.0
+        
+        print(f"✅ Successfully fetched {len(hist)} days of data for {ticker}")
+        print(f"   Current price: ${current_price:.2f}")
+        
+        return hist, current_price, None
         
     except Exception as e:
         print(f"❌ Error fetching data for {ticker}: {e}")
@@ -514,22 +487,9 @@ class OCHLPredictor:
                     features = data_with_features[self.feature_columns].iloc[i-window_size:i].values.flatten()
                     target_value = data_with_features[target].iloc[i+1]
                     
-                    # -------------------------------------------------------
-                    # CORE FIX: Store TARGET as a RETURN (% change from today's
-                    # close) instead of an absolute price.
-                    # This makes predictions price-level-independent — the
-                    # learned return is later multiplied by the LIVE price so
-                    # predictions are always anchored to today's real price.
-                    # -------------------------------------------------------
-                    current_day_close = data_with_features['Close'].iloc[i]
-                    if current_day_close > 0:
-                        target_return = (target_value - current_day_close) / current_day_close
-                    else:
-                        target_return = 0.0
-                    
-                    if not np.any(np.isnan(features)) and not np.isnan(target_return):
+                    if not np.any(np.isnan(features)) and not np.isnan(target_value):
                         X_list.append(features)
-                        y_list.append(target_return)  # ← store return, not price
+                        y_list.append(target_value)
                 
                 if len(X_list) > 50:
                     X_data[target] = np.array(X_list)
@@ -800,10 +760,7 @@ class OCHLPredictor:
                     
                     try:
                         pred_scaled = model.predict(latest_scaled)[0]
-                        # pred_actual is now a RETURN (e.g. +0.005 = +0.5%)
-                        pred_return = pred_scaled * model.price_stats['y_std'] + model.price_stats['y_mean']
-                        # Apply that return to the LIVE price → anchored prediction
-                        pred_actual = current_close * (1 + pred_return)
+                        pred_actual = pred_scaled * model.price_stats['y_std'] + model.price_stats['y_mean']
                         
                         # Sanity check against LIVE price
                         is_valid, penalty, _ = sanity_check_prediction(pred_actual, current_close, algo, max_daily_change=0.04)
@@ -1213,31 +1170,19 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("📈 STOCK PREDICTION SYSTEM v12.3.0 - RETURN-BASED PREDICTIONS")
+    print("📈 STOCK PREDICTION SYSTEM v12.2.0 - LIVE PRICE FIXED")
     print("=" * 60)
     print("✨ KEY FIXES:")
-    print("  • RETURN-BASED TRAINING: Models predict % change, not $ price")
-    print("  • Predictions anchored to LIVE price at inference time")
-    print("  • TRUE LIVE PRICE: intraday 1m bar > fast_info > daily close")
-    print("  • 3% max daily move guardrail still active")
+    print("  • LIVE PRICE HANDLING: Using actual current market price")
+    print("  • Heavy regularization to prevent overfitting")
+    print("  • 3-4% max daily move limit")
+    print("  • Simplified feature set (12 features)")
     print("=" * 60)
     
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(HISTORY_DIR, exist_ok=True)
-    
-    # Delete old absolute-price models so they are retrained correctly
-    import glob
-    old_models = glob.glob(os.path.join(MODELS_DIR, '*.joblib'))
-    if old_models:
-        print(f"🗑️  Removing {len(old_models)} stale model(s) (old absolute-price format)...")
-        for f in old_models:
-            try:
-                os.remove(f)
-            except Exception:
-                pass
-        print("   Done — models will retrain with return-based targets on first request.")
     
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port, debug=True, threaded=True)
