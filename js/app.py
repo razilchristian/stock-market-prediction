@@ -1,4 +1,4 @@
-# app.py — FIXED OVERFITTING VERSION - PROPER REGULARIZATION
+# app.py — FIXED OVERFITTING VERSION - CORRECT LIVE PRICE HANDLING
 import os
 import time
 import random
@@ -28,10 +28,6 @@ from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 import joblib
 import pmdarima as pm
-
-# For news sentiment
-from bs4 import BeautifulSoup
-from textblob import TextBlob
 
 warnings.filterwarnings('ignore')
 
@@ -110,8 +106,8 @@ def detect_and_handle_splits(data, ticker):
         print(f"Split detection error: {e}")
         return data, False, None
 
-def sanity_check_prediction(predicted_price, current_price, algo_name, max_daily_change=0.05):
-    """Strict sanity check - max 5% daily move for normal stocks"""
+def sanity_check_prediction(predicted_price, current_price, algo_name, max_daily_change=0.04):
+    """Strict sanity check - max 4% daily move for normal stocks"""
     if predicted_price is None or np.isnan(predicted_price) or np.isinf(predicted_price):
         return False, 0, f"{algo_name}: Invalid value"
     
@@ -120,21 +116,20 @@ def sanity_check_prediction(predicted_price, current_price, algo_name, max_daily
     
     pct_change = abs(predicted_price - current_price) / current_price
     
-    # Stricter limits
     if pct_change > max_daily_change:
         return False, 0, f"{algo_name}: {pct_change*100:.1f}% > {max_daily_change*100}% limit"
     
     confidence_penalty = 0
-    if pct_change > 0.03:
-        confidence_penalty = 30
-    elif pct_change > 0.02:
-        confidence_penalty = 15
-    elif pct_change > 0.01:
+    if pct_change > 0.025:
+        confidence_penalty = 25
+    elif pct_change > 0.015:
+        confidence_penalty = 10
+    elif pct_change > 0.008:
         confidence_penalty = 5
     
     return True, confidence_penalty, f"{algo_name}: Valid ({pct_change*100:.1f}%)"
 
-# ---------------- Feature Engineering (Simplified, less overfitting) ----------------
+# ---------------- Feature Engineering ----------------
 def calculate_rsi(prices, window=14):
     try:
         if len(prices) < window:
@@ -189,7 +184,7 @@ def create_advanced_features(data):
                 data[col] = pd.to_numeric(data[col], errors='coerce')
                 data[col] = data[col].ffill().bfill()
         
-        # Returns (simple, not log)
+        # Returns
         data['Return'] = data['Close'].pct_change().fillna(0)
         data['Volatility_5d'] = data['Return'].rolling(window=5, min_periods=1).std().fillna(0)
         data['Volatility_20d'] = data['Return'].rolling(window=20, min_periods=1).std().fillna(0)
@@ -218,7 +213,7 @@ def create_advanced_features(data):
         data['Resistance_Distance'] = safe_divide(data['Resistance_20'] - data['Close'], data['Close'], 0)
         data['Support_Distance'] = safe_divide(data['Close'] - data['Support_20'], data['Close'], 0)
         
-        # Lagged returns (just 1 and 2)
+        # Lagged returns
         data['Return_Lag_1'] = data['Return'].shift(1).fillna(0)
         data['Return_Lag_2'] = data['Return'].shift(2).fillna(0)
         
@@ -228,7 +223,7 @@ def create_advanced_features(data):
         for col in data.columns:
             if col != 'Date' and col not in ['Open', 'High', 'Low', 'Close']:
                 if data[col].dtype in ['float64', 'int64']:
-                    data[col] = np.clip(data[col], -3, 3)  # Keep features in reasonable range
+                    data[col] = np.clip(data[col], -3, 3)
         
         print(f"   Created {len([c for c in data.columns if c != 'Date'])} features")
         return data
@@ -243,17 +238,18 @@ def get_live_stock_data_enhanced(ticker):
         print(f"📊 Fetching historical data for {ticker}...")
         
         if not validate_stock_symbol(ticker):
-            return generate_fallback_data(ticker, days=1000)
+            return generate_fallback_data(ticker, days=500)
         
-        hist = yf.download(ticker, period="5y", interval="1d", progress=False, timeout=30)
+        # Get data with period parameter to ensure we have current data
+        hist = yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30)
         
         if hist.empty:
             ticker_obj = yf.Ticker(ticker)
-            hist = ticker_obj.history(period="5y", interval="1d", timeout=30)
+            hist = ticker_obj.history(period="2y", interval="1d", timeout=30)
         
         if hist.empty:
             print(f"⚠️ Using fallback data for {ticker}")
-            return generate_fallback_data(ticker, days=1000)
+            return generate_fallback_data(ticker, days=500)
         
         hist = hist.reset_index()
         
@@ -284,9 +280,9 @@ def get_live_stock_data_enhanced(ticker):
         
     except Exception as e:
         print(f"❌ Error fetching data for {ticker}: {e}")
-        return generate_fallback_data(ticker, days=1000)
+        return generate_fallback_data(ticker, days=500)
 
-def generate_fallback_data(ticker, days=1000):
+def generate_fallback_data(ticker, days=500):
     base_prices = {'AAPL':270, 'MSFT':407, 'GOOGL':172, 'AMZN':178, 'TSLA':175, 'NVDA':620, 'META':485}
     base_price = base_prices.get(ticker, 100.0)
     
@@ -300,7 +296,7 @@ def generate_fallback_data(ticker, days=1000):
     
     prices = [base_price]
     for i in range(1, len(dates)):
-        change = random.gauss(0, 0.01)  # 1% daily volatility
+        change = random.gauss(0, 0.01)
         new_price = prices[-1] * (1 + change)
         new_price = max(new_price, base_price * 0.5)
         new_price = min(new_price, base_price * 2)
@@ -327,7 +323,7 @@ def generate_fallback_data(ticker, days=1000):
     print(f"📊 Generated {len(df)} days of fallback data for {ticker}")
     return df, prices[-1], None
 
-# ---------------- OCHL Multi-Algorithm Predictor (FIXED OVERFITTING) ----------------
+# ---------------- OCHL Multi-Algorithm Predictor ----------------
 class OCHLPredictor:
     def __init__(self):
         self.models = {}
@@ -456,7 +452,6 @@ class OCHLPredictor:
             feature_candidates = [col for col in numeric_cols if col not in self.targets]
             
             if not self.feature_columns:
-                # Use fewer features to prevent overfitting
                 if len(feature_candidates) > 12:
                     correlations = {}
                     for col in feature_candidates:
@@ -482,7 +477,7 @@ class OCHLPredictor:
                 
                 X_list = []
                 y_list = []
-                window_size = 10  # Smaller window to prevent overfitting
+                window_size = 10
                 
                 missing_features = [f for f in self.feature_columns if f not in data_with_features.columns]
                 for f in missing_features:
@@ -509,7 +504,6 @@ class OCHLPredictor:
                 print("❌ No valid training data")
                 return None, None, None
             
-            # Fit scaler on all features combined
             all_features = np.vstack([X_data[t] for t in valid_targets if X_data[t] is not None])
             self.feature_scaler.fit(all_features)
             
@@ -522,15 +516,13 @@ class OCHLPredictor:
             return None, None, None
     
     def train_algorithm(self, X, y, algorithm, target):
-        """Train with HEAVY regularization to prevent overfitting"""
+        """Train with HEAVY regularization"""
         try:
             if len(X) < 100:
                 return None
             
-            # Scale features
             X_scaled = self.feature_scaler.transform(X)
             
-            # Target scaling for stability
             y_mean, y_std = np.mean(y), np.std(y)
             if y_std > 0:
                 y_scaled = (y - y_mean) / y_std
@@ -538,7 +530,7 @@ class OCHLPredictor:
                 y_scaled = y
             
             if algorithm == 'ridge':
-                model = Ridge(alpha=5.0, random_state=42)  # High alpha = strong regularization
+                model = Ridge(alpha=5.0, random_state=42)
                 model.fit(X_scaled, y_scaled)
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
@@ -550,15 +542,15 @@ class OCHLPredictor:
                 return model
                 
             elif algorithm == 'svr':
-                model = SVR(kernel='rbf', C=0.5, epsilon=0.1, gamma='scale')  # Low C = regularization
+                model = SVR(kernel='rbf', C=0.5, epsilon=0.1, gamma='scale')
                 model.fit(X_scaled, y_scaled)
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
                 
             elif algorithm == 'random_forest':
                 model = RandomForestRegressor(
-                    n_estimators=30,  # Fewer trees
-                    max_depth=3,      # Shallow trees
+                    n_estimators=30,
+                    max_depth=3,
                     min_samples_split=30,
                     min_samples_leaf=15,
                     max_features=0.5,
@@ -572,8 +564,8 @@ class OCHLPredictor:
             elif algorithm == 'gradient_boosting':
                 model = GradientBoostingRegressor(
                     n_estimators=30,
-                    learning_rate=0.01,  # Very low learning rate
-                    max_depth=2,         # Very shallow
+                    learning_rate=0.01,
+                    max_depth=2,
                     min_samples_split=30,
                     min_samples_leaf=20,
                     subsample=0.5,
@@ -590,8 +582,8 @@ class OCHLPredictor:
                     learning_rate=0.01,
                     subsample=0.5,
                     colsample_bytree=0.5,
-                    reg_alpha=2.0,   # L1 regularization
-                    reg_lambda=3.0,   # L2 regularization
+                    reg_alpha=2.0,
+                    reg_lambda=3.0,
                     random_state=42,
                     n_jobs=-1
                 )
@@ -623,7 +615,7 @@ class OCHLPredictor:
     
     def train_all_models(self, data, symbol):
         try:
-            print(f"\n🔨 TRAINING MODELS FOR {symbol} (HEAVY REGULARIZATION)")
+            print(f"\n🔨 TRAINING MODELS FOR {symbol}")
             print(f"="*60)
             
             clean_data, has_split, split_info = detect_and_handle_splits(data, symbol)
@@ -637,11 +629,10 @@ class OCHLPredictor:
             if X_data is None:
                 return False, "Insufficient data"
             
-            # Use fewer algorithms to reduce complexity
             algorithms = ['ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'xgboost', 'lightgbm']
             self.models = {target: {} for target in self.targets}
             
-            print(f"📊 Training {len(algorithms)} algorithms with strong regularization...")
+            print(f"📊 Training {len(algorithms)} algorithms...")
             
             targets_trained = 0
             
@@ -666,7 +657,6 @@ class OCHLPredictor:
                     self.models[target][algo] = model
                     
                     if model is not None:
-                        # Quick validation
                         X_scaled = self.feature_scaler.transform(X[-100:])
                         y_pred_scaled = model.predict(X_scaled)
                         y_pred = y_pred_scaled * model.price_stats['y_std'] + model.price_stats['y_mean']
@@ -684,13 +674,12 @@ class OCHLPredictor:
             if targets_trained == 0:
                 return False, "Failed to train any models"
             
-            # Calculate performance metrics (without overfitting stats)
             for target in self.targets:
                 if target in self.models:
                     self.performance_metrics['r2'][target] = {}
                     for algo, model in self.models[target].items():
                         if model is not None:
-                            self.performance_metrics['r2'][target][algo] = 0.5  # Conservative estimate
+                            self.performance_metrics['r2'][target][algo] = 0.5
             
             self.last_training_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.is_fitted = True
@@ -707,8 +696,8 @@ class OCHLPredictor:
             traceback.print_exc()
             return False, str(e)
     
-    def predict_ochl(self, symbol, data):
-        """PREDICT WITH CONSERVATIVE OUTPUTS"""
+    def predict_ochl(self, symbol, data, live_price=None):
+        """PREDICT WITH LIVE PRICE REFERENCE"""
         try:
             print(f"\n{'='*60}")
             print(f"🤖 PREDICTING FOR {symbol}")
@@ -720,15 +709,20 @@ class OCHLPredictor:
             
             if not self.models or not self.is_fitted:
                 print(f"⚠️ No models available")
-                return self.get_conservative_fallback(data)
+                return self.get_conservative_fallback(data, live_price)
             
             X_data, _, data_with_features = self.prepare_training_data(data, symbol)
             
             if X_data is None:
-                return self.get_conservative_fallback(data)
+                return self.get_conservative_fallback(data, live_price)
             
-            current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
-            print(f"📊 Current Price: ${current_close:.2f}")
+            # CRITICAL FIX: Use live price if provided
+            if live_price is not None and live_price > 0:
+                current_close = live_price
+                print(f"📊 USING LIVE PRICE: ${current_close:.2f}")
+            else:
+                current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
+                print(f"📊 Using historical price: ${current_close:.2f}")
             
             predictions = {}
             confidence_scores = {}
@@ -768,7 +762,8 @@ class OCHLPredictor:
                         pred_scaled = model.predict(latest_scaled)[0]
                         pred_actual = pred_scaled * model.price_stats['y_std'] + model.price_stats['y_mean']
                         
-                        is_valid, penalty, _ = sanity_check_prediction(pred_actual, current_close, algo, max_daily_change=0.05)
+                        # Sanity check against LIVE price
+                        is_valid, penalty, _ = sanity_check_prediction(pred_actual, current_close, algo, max_daily_change=0.04)
                         
                         if is_valid:
                             target_predictions.append(pred_actual)
@@ -782,15 +777,14 @@ class OCHLPredictor:
                         print(f"   ❌ {algo:15s}: ERROR - {str(e)[:30]}")
                 
                 if target_predictions:
-                    # Use median instead of weighted average (more robust)
                     predictions[target] = float(np.median(target_predictions))
                     confidence_scores[target] = float(np.median(target_confidences)) if target_confidences else 50
                 else:
-                    # Fallback to small movement based on recent trend
+                    # Small movement based on recent trend
                     recent_returns = data_with_features['Return'].iloc[-5:].mean() if 'Return' in data_with_features.columns else 0
-                    predictions[target] = current_close * (1 + np.clip(recent_returns, -0.02, 0.02))
+                    predictions[target] = current_close * (1 + np.clip(recent_returns, -0.015, 0.015))
                     confidence_scores[target] = 45
-                    print(f"   ⚠️ Using trend fallback for {target}")
+                    print(f"   ⚠️ Using trend fallback for {target}: ${predictions[target]:.2f}")
             
             # Ensure OHLC consistency
             pred_open = predictions.get("Open", current_close)
@@ -798,11 +792,10 @@ class OCHLPredictor:
             pred_high = predictions.get("High", max(pred_open, pred_close) * 1.005)
             pred_low = predictions.get("Low", min(pred_open, pred_close) * 0.995)
             
-            # Ensure High is highest, Low is lowest
             pred_high = max(pred_high, pred_open, pred_close)
             pred_low = min(pred_low, pred_open, pred_close)
             
-            # Limit daily movement to 3% for normal predictions
+            # Limit daily movement to 3%
             max_move = 0.03
             for key in ['Open', 'Close', 'High', 'Low']:
                 if key in predictions:
@@ -811,7 +804,6 @@ class OCHLPredictor:
             predictions["High"] = max(predictions.get("High", current_close), predictions.get("Open", current_close), predictions.get("Close", current_close))
             predictions["Low"] = min(predictions.get("Low", current_close), predictions.get("Open", current_close), predictions.get("Close", current_close))
             
-            # Calculate overall confidence
             overall_confidence = np.mean(list(confidence_scores.values())) if confidence_scores else 50
             
             # Store prediction
@@ -837,6 +829,8 @@ class OCHLPredictor:
                 self.prediction_history[symbol] = []
             self.prediction_history[symbol].append(history_entry)
             
+            expected_change = ((predictions['Close'] - current_close) / current_close) * 100
+            
             result = {
                 'history_format': history_entry,
                 'predictions': predictions,
@@ -856,8 +850,7 @@ class OCHLPredictor:
                 'split_info': split_info if has_split else None
             }
             
-            print(f"\n🎯 FINAL PREDICTIONS:")
-            expected_change = ((predictions['Close'] - current_close) / current_close) * 100
+            print(f"\n🎯 FINAL PREDICTIONS (Live price: ${current_close:.2f}):")
             print(f"   Open : ${predictions.get('Open', current_close):.2f}")
             print(f"   High : ${predictions.get('High', current_close):.2f}")
             print(f"   Low  : ${predictions.get('Low', current_close):.2f}")
@@ -870,12 +863,15 @@ class OCHLPredictor:
             print(f"❌ Error predicting: {e}")
             import traceback
             traceback.print_exc()
-            return self.get_conservative_fallback(data)
+            return self.get_conservative_fallback(data, live_price)
     
-    def get_conservative_fallback(self, data):
-        """Conservative fallback predictions"""
+    def get_conservative_fallback(self, data, live_price=None):
+        """Conservative fallback predictions using live price"""
         try:
-            current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
+            if live_price is not None and live_price > 0:
+                current_close = live_price
+            else:
+                current_close = data['Close'].iloc[-1] if 'Close' in data.columns else 100.0
             
             # Calculate recent trend
             recent_returns = []
@@ -883,7 +879,7 @@ class OCHLPredictor:
                 for i in range(1, min(6, len(data))):
                     recent_returns.append((data['Close'].iloc[-i] - data['Close'].iloc[-i-1]) / data['Close'].iloc[-i-1])
             avg_return = np.mean(recent_returns) if recent_returns else 0
-            avg_return = np.clip(avg_return, -0.02, 0.02)  # Limit to 2%
+            avg_return = np.clip(avg_return, -0.015, 0.015)
             
             predictions = {
                 'Open': current_close * (1 + avg_return * 0.5),
@@ -892,7 +888,6 @@ class OCHLPredictor:
                 'Low': current_close * (1 + avg_return - 0.005)
             }
             
-            # Ensure consistency
             predictions['High'] = max(predictions['High'], predictions['Open'], predictions['Close'])
             predictions['Low'] = min(predictions['Low'], predictions['Open'], predictions['Close'])
             
@@ -924,7 +919,6 @@ class OCHLPredictor:
             return self.get_emergency_fallback()
     
     def get_emergency_fallback(self):
-        """Emergency fallback"""
         current_close = 100.0
         return {
             'predictions': {'Open': 100.0, 'High': 101.0, 'Low': 99.0, 'Close': 100.0},
@@ -935,12 +929,12 @@ class OCHLPredictor:
             'fallback': True
         }
     
-    def get_reliable_predictions(self, symbol, data):
+    def get_reliable_predictions(self, symbol, data, live_price=None):
         try:
-            return self.predict_ochl(symbol, data)
+            return self.predict_ochl(symbol, data, live_price)
         except Exception as e:
             print(f"Error in get_reliable_predictions: {e}")
-            return self.get_conservative_fallback(data)
+            return self.get_conservative_fallback(data, live_price)
 
 # Global predictor instance
 predictor = OCHLPredictor()
@@ -983,11 +977,11 @@ def get_trading_recommendation(predictions, current_prices, confidence):
     if confidence < 45:
         return "🚨 LOW CONFIDENCE - WAIT"
     expected_change = ((predictions.get('Close', current_prices['close']) - current_prices['close']) / current_prices['close']) * 100
-    if expected_change > 3 and confidence >= 60:
+    if expected_change > 2.5 and confidence >= 60:
         return "✅ BUY"
     elif expected_change > 1 and confidence >= 55:
         return "📈 CONSIDER BUYING"
-    elif expected_change < -3 and confidence >= 60:
+    elif expected_change < -2.5 and confidence >= 60:
         return "📉 SELL"
     elif expected_change < -1 and confidence >= 55:
         return "💼 CONSIDER SELLING"
@@ -1058,9 +1052,9 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "12.1.0",
+        "version": "12.2.0",
         "algorithms": ["Ridge", "Lasso", "SVR", "Random Forest", "Gradient Boosting", "XGBoost", "LightGBM"],
-        "improvements": ["Heavy regularization to prevent overfitting", "Conservative 3% daily move limit", "Simplified feature set"]
+        "fixes": ["Live price handling fixed", "3% daily move limit", "Heavy regularization"]
     })
 
 @server.route('/api/predict', methods=['POST'])
@@ -1079,21 +1073,27 @@ def predict_stock():
         if error:
             return jsonify({"error": str(error)}), 400
         
+        print(f"💰 LIVE CURRENT PRICE: ${current_price:.2f}")
+        
         clean_data, has_split, split_info = detect_and_handle_splits(historical_data, symbol)
         if has_split:
-            print(f"   Using post-split data only")
-            current_price = float(clean_data['Close'].iloc[-1]) if len(clean_data) > 0 else current_price
+            print(f"   Stock split detected - using post-split data for training")
         
         models_loaded = predictor.load_models(symbol)
         
         if not models_loaded or not predictor.is_fitted:
-            print("🔨 Training new models with heavy regularization...")
+            print("🔨 Training new models...")
             success, train_msg = predictor.train_all_models(clean_data if has_split else historical_data, symbol)
             if not success:
-                return provide_fallback_prediction(symbol, historical_data)
+                return provide_fallback_prediction(symbol, historical_data, current_price)
             print("✅ Training complete")
         
-        prediction_result = predictor.get_reliable_predictions(symbol, clean_data if has_split else historical_data)
+        # Pass the LIVE CURRENT PRICE to the predictor
+        prediction_result = predictor.get_reliable_predictions(
+            symbol, 
+            clean_data if has_split else historical_data,
+            live_price=current_price  # CRITICAL: Pass live price
+        )
         
         history_entry = prediction_result.get('history_format', {})
         
@@ -1104,7 +1104,7 @@ def predict_stock():
             "last_trading_day": get_last_market_date(),
             "prediction_date": get_next_trading_day(),
             "prediction": history_entry,
-            "current_prices": prediction_result.get('current_prices', {}),
+            "current_prices": prediction_result.get('current_prices', {'close': current_price}),
             "risk_alerts": prediction_result.get('risk_alerts', []),
             "trading_recommendation": get_trading_recommendation(
                 history_entry.get('predicted', {}),
@@ -1115,7 +1115,7 @@ def predict_stock():
                 "last_training_date": predictor.last_training_date,
                 "feature_count": len(predictor.feature_columns),
                 "fallback_mode": prediction_result.get('fallback', False),
-                "version": "12.1.0"
+                "version": "12.2.0"
             },
             "insight": f"AI predicts {((history_entry.get('predicted', {}).get('Close', current_price) - current_price) / current_price * 100):+.1f}% change"
         }
@@ -1128,10 +1128,8 @@ def predict_stock():
         traceback.print_exc()
         return jsonify({"error": str(e), "fallback": True}), 500
 
-def provide_fallback_prediction(symbol, historical_data):
+def provide_fallback_prediction(symbol, historical_data, current_price):
     try:
-        current_price = historical_data['Close'].iloc[-1] if historical_data is not None and 'Close' in historical_data.columns else 100.0
-        
         predictions = {
             'Open': current_price * 0.998,
             'High': current_price * 1.01,
@@ -1172,14 +1170,12 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("📈 STOCK PREDICTION SYSTEM v12.1.0 - FIXED OVERFITTING")
+    print("📈 STOCK PREDICTION SYSTEM v12.2.0 - LIVE PRICE FIXED")
     print("=" * 60)
     print("✨ KEY FIXES:")
-    print("  • Heavy regularization (Ridge alpha=5.0, Lasso alpha=0.5)")
-    print("  • Shallow trees (max_depth=2-3)")
-    print("  • Low learning rates (0.01)")
-    print("  • Strong L1/L2 regularization for XGBoost/LightGBM")
-    print("  • 3% max daily move limit")
+    print("  • LIVE PRICE HANDLING: Using actual current market price")
+    print("  • Heavy regularization to prevent overfitting")
+    print("  • 3-4% max daily move limit")
     print("  • Simplified feature set (12 features)")
     print("=" * 60)
     
