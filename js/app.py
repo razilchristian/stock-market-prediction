@@ -1195,13 +1195,13 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("📈 STOCK PREDICTION SYSTEM v12.2.0 - LIVE PRICE FIXED")
+    print("[STOCK PREDICTION SYSTEM v12.2.0 - LIVE PRICE FIXED]")
     print("=" * 60)
-    print("✨ KEY FIXES:")
-    print("  • LIVE PRICE HANDLING: Using actual current market price")
-    print("  • Heavy regularization to prevent overfitting")
-    print("  • 3-4% max daily move limit")
-    print("  • Simplified feature set (12 features)")
+    print("KEY FIXES:")
+    print("  * LIVE PRICE HANDLING: Using actual current market price")
+    print("  * Heavy regularization to prevent overfitting")
+    print("  * 3-4% max daily move limit")
+    print("  * Simplified feature set (12 features)")
     print("=" * 60)
     
     os.makedirs('templates', exist_ok=True)

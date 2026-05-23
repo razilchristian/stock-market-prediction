@@ -398,46 +398,373 @@ body {
 @media (max-width:480px){
   .prediction-card, .stock-selector, .metric-card, .chart-card, .next-day-predictions { padding:20px; }
   .performance-card, .crisis-card { padding:20px; }
-  .algorithm-predictions { grid-template-columns: repeat(2, 1fr); }
+/* Sidebar and Main Frame Grid Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  background: var(--bg-gradient);
+}
+.sidebar {
+  width: 280px;
+  background: rgba(15, 15, 30, 0.6);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-right: 1px solid var(--border-color);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1001;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease;
+}
+.sidebar.collapsed {
+  width: 80px;
+  padding: 24px 16px;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  padding-left: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.brand-icon {
+  font-size: 26px;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  min-width: 32px;
+}
+.brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  transition: opacity 0.3s;
+}
+.sidebar.collapsed .brand-name {
+  opacity: 0;
+  pointer-events: none;
+}
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.nav-link i {
+  font-size: 18px;
+  min-width: 20px;
+  transition: transform 0.3s ease;
+}
+.nav-link:hover {
+  background: var(--hover-color);
+  color: var(--active-color);
+  box-shadow: 0 0 15px var(--border-glow);
+}
+.nav-link:hover i {
+  transform: scale(1.15);
+}
+.nav-link.active {
+  background: linear-gradient(135deg, rgba(0, 230, 255, 0.12) 0%, rgba(138, 43, 226, 0.03) 100%);
+  color: var(--active-color);
+  border: 1px solid rgba(0, 230, 255, 0.2);
+  box-shadow: var(--shadow-glow);
+  font-weight: 600;
+}
+.sidebar.collapsed .nav-link span {
+  display: none;
+}
+.sidebar-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: absolute;
+  bottom: 24px;
+  right: -16px;
+  background: var(--bg-dark);
+  transition: all 0.3s;
+  z-index: 10;
+}
+.sidebar-toggle:hover {
+  color: var(--active-color);
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+.main-frame {
+  flex: 1;
+  margin-left: 280px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar.collapsed + .main-frame {
+  margin-left: 80px;
+}
+.glass-navbar {
+  height: 80px;
+  background: rgba(15, 15, 30, 0.6);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.mobile-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  z-index: 1002;
+}
+.mobile-toggle span {
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.navbar-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Space Grotesk', sans-serif;
+}
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-action:hover {
+  color: var(--active-color);
+  border-color: var(--active-color);
+  box-shadow: var(--shadow-glow);
+}
+.profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.profile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg-dark);
+  font-size: 12px;
+}
+.profile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px !important;
+  }
+  .sidebar.mobile-show {
+    transform: translateX(0);
+  }
+  .main-frame {
+    margin-left: 0 !important;
+  }
+  .sidebar-toggle {
+    display: none;
+  }
+  .mobile-toggle {
+    display: flex;
+  }
+}
+body.light .sidebar {
+  background: rgba(255, 255, 255, 0.8);
+  border-right-color: rgba(0, 0, 0, 0.06);
+}
+body.light .glass-navbar {
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
 }
 </style>
 </head>
 <body>
-<div class="container">
-  <!-- NAVBAR -->
-  <header class="navbar">
-    <div class="nav-wrap">
-      <div class="nav-row">
-        <div class="logo"><i class="fas fa-chart-line"></i> AlphaAnalytics</div>
-        <button class="menu-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
-        <nav class="nav-items">
-          <a href="/jeet" class="nav-item"><i class="fas fa-home"></i>Dashboard</a>
-          <a href="/portfolio" class="nav-item"><i class="fas fa-briefcase"></i>Portfolio</a>
-          <a href="/mystock" class="nav-item"><i class="fas fa-star"></i>My Stock</a>
-          <a href="/deposit" class="nav-item"><i class="fas fa-wallet"></i>Deposit</a>
-          <a href="/insight" class="nav-item"><i class="fas fa-brain"></i>Insight</a>
-          <a href="/prediction" class="nav-item active"><i class="fas fa-crystal-ball"></i>Prediction</a>
-          <a href="/news" class="nav-item"><i class="fas fa-newspaper"></i>News</a>
-          <a href="/videos" class="nav-item"><i class="fas fa-play-circle"></i>Videos</a>
-          <a href="/Superstars" class="nav-item"><i class="fas fa-trophy"></i>Superstars</a>
-          <a href="/alerts" class="nav-item"><i class="fas fa-bell"></i>Alerts</a>
-          <a href="/help" class="nav-item"><i class="fas fa-question-circle"></i>Help</a>
-          <a href="/profile" class="nav-item"><i class="fas fa-user"></i>Profile</a>
-        </nav>
+  <!-- Animated Background Canvas -->
+  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
+
+  <div class="app-container">
+    <!-- COLLAPSIBLE SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <i class="fas fa-chart-line brand-icon"></i>
+        <span class="brand-name font-space">AlphaAnalytics</span>
       </div>
-    </div>
-  </header>
+      
+      <nav class="sidebar-nav">
+        <a href="/jeet" class="nav-link">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="/prediction" class="nav-link active">
+          <i class="fas fa-crystal-ball"></i>
+          <span>Predictions</span>
+        </a>
+        <a href="/portfolio" class="nav-link">
+          <i class="fas fa-briefcase"></i>
+          <span>Portfolio</span>
+        </a>
+        <a href="/news" class="nav-link">
+          <i class="fas fa-newspaper"></i>
+          <span>Market News</span>
+        </a>
+        <a href="/alerts" class="nav-link">
+          <i class="fas fa-bell"></i>
+          <span>Alerts</span>
+        </a>
+        <a href="/insight" class="nav-link">
+          <i class="fas fa-brain"></i>
+          <span>AI Insights</span>
+        </a>
+        <a href="/mystock" class="nav-link">
+          <i class="fas fa-star"></i>
+          <span>Watchlist</span>
+        </a>
+        <a href="/Superstars" class="nav-link">
+          <i class="fas fa-trophy"></i>
+          <span>Superstars</span>
+        </a>
+        <a href="/videos" class="nav-link">
+          <i class="fas fa-play-circle"></i>
+          <span>Videos</span>
+        </a>
+        <a href="/setting" class="nav-link">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </a>
+        <a href="/profile" class="nav-link">
+          <i class="fas fa-user"></i>
+          <span>Profile</span>
+        </a>
+      </nav>
+      
+      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </aside>
 
-  <!-- Notification -->
-  <div class="notification" id="notification">
-    <div class="notification-content">
-      <i class="fas fa-check-circle notification-icon"></i>
-      <div class="notification-message" id="notificationMessage">Operation completed successfully!</div>
-    </div>
-  </div>
+    <!-- MAIN FRAME -->
+    <div class="main-frame" id="mainFrame">
+      <!-- STICKY GLASS NAVBAR -->
+      <header class="glass-navbar">
+        <div class="navbar-left">
+          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="navbar-title font-space">AI Predictive Intelligence</div>
+        </div>
+        
+        <div class="navbar-right">
+          <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-bar" placeholder="Search predictions..." id="globalSearch">
+          </div>
+          
+          <div class="navbar-actions">
+            <button class="btn-action" id="predictBtn" title="Run Prediction Model">
+              <i class="fas fa-chart-line"></i>
+            </button>
+            <button class="btn-action" id="themeBtn" title="Toggle Theme">
+              <i class="fas fa-palette"></i>
+            </button>
+            <button class="btn-action" id="generateAllBtn" title="Generate All Models">
+              <i class="fas fa-bolt"></i>
+            </button>
+          </div>
+          
+          <div class="profile-badge" id="profileBadge">
+            <div class="profile-avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <span class="profile-name">Guest User</span>
+          </div>
+        </div>
+      </header>
 
-  <!-- MAIN -->
-  <main class="main-content">
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
     <div class="header">
       <h1>AI Stock Predictions</h1>
       <div class="header-controls">
@@ -737,8 +1064,9 @@ body {
       </p>
     </div>
 
-  </main>
-</div>
+      </main>
+    </div>
+  </div>
 
 <script>
 /* =============== ENHANCED PREDICTION UI SCRIPT - UPDATED FOR 11 ALGORITHMS =============== */
@@ -750,6 +1078,104 @@ const CONFIG = {
   NOTIFICATION_DURATION: 4500,
   STOCK_REFRESH_INTERVAL: 300000 // 5 minutes
 };
+
+// Sidebar collapse controller
+class SidebarManager {
+  static init() {
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('sidebarCollapseBtn');
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+        
+        const icon = collapseBtn.querySelector('i');
+        if (icon) {
+          icon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+        }
+      });
+      
+      const savedState = localStorage.getItem('sidebarCollapsed');
+      if (savedState === 'true') {
+        sidebar.classList.add('collapsed');
+        const icon = collapseBtn.querySelector('i');
+        if (icon) icon.className = 'fas fa-chevron-right';
+      }
+    }
+    
+    if (mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle('mobile-show');
+      });
+    }
+    
+    document.addEventListener('click', (e) => {
+      if (sidebar.classList.contains('mobile-show') && 
+          !sidebar.contains(e.target) && 
+          !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('mobile-show');
+      }
+    });
+  }
+}
+
+// Particle background script
+class CanvasParticles {
+  static init() {
+    const canvas = document.getElementById('particlesCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+    
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2 + 1;
+        this.speedX = Math.random() * 0.3 - 0.15;
+        this.speedY = Math.random() * 0.3 - 0.15;
+        this.color = Math.random() > 0.5 ? 'rgba(0, 230, 255, 0.15)' : 'rgba(138, 43, 226, 0.15)';
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+      }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    for (let i = 0; i < 40; i++) {
+      particles.push(new Particle());
+    }
+    
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animate);
+    };
+    animate();
+  }
+}
 
 const AppState = {
   allStocks: [],
@@ -2216,7 +2642,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Initialize components
   ThemeManager.load();
-  new MobileMenu();
+  SidebarManager.init();
+  CanvasParticles.init();
   
   // Initialize stock list manager
   stockListManager = new StockListManager();
