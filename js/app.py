@@ -997,12 +997,14 @@ NAVIGATION_MAP = {
 }
 
 def _find_template_for_page(page_key):
+    if page_key == 'index':
+        return 'jeet.html'
     candidates = [f"{page_key}.html", f"{page_key.capitalize()}.html", f"{page_key.lower()}.html"]
     for fn in candidates:
         full = os.path.join(current_dir, 'templates', fn)
         if os.path.exists(full):
             return fn
-    return 'index.html'
+    return 'jeet.html'
 
 for page_name, route_path in NAVIGATION_MAP.items():
     def make_view(p=page_name):
@@ -1155,6 +1157,29 @@ def provide_fallback_prediction(symbol, historical_data, current_price):
         })
     except Exception as e:
         return jsonify({"error": str(e), "fallback": True}), 500
+
+@server.route('/reg.css')
+def serve_reg_css():
+    return send_from_directory(os.path.dirname(current_dir), 'reg.css')
+
+@server.route('/js/<path:path>')
+def serve_js_files(path):
+    return send_from_directory(current_dir, path)
+
+@server.route('/<filename>.png')
+@server.route('/<filename>.jpg')
+@server.route('/<filename>.svg')
+def serve_root_images(filename):
+    ext = request.path.split('.')[-1]
+    fullname = f"{filename}.{ext}"
+    root_dir = os.path.dirname(current_dir)
+    if os.path.exists(os.path.join(root_dir, fullname)):
+        return send_from_directory(root_dir, fullname)
+    return send_from_directory(os.path.join(current_dir, 'static', 'images'), fullname)
+
+@server.route('/Register.html')
+def serve_register_html():
+    return redirect('/')
 
 @server.route('/static/<path:path>')
 def serve_static(path):
