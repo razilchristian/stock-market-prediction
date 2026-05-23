@@ -5,768 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Market Insights - AlphaAnalytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="/static/css/layout.css">
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
-}
-
-:root {
-  --primary-white: #ffffff;
-  --bg-gradient: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-  --bg-dark: #0f0f23;
-  --bg-card: rgba(30, 30, 46, 0.8);
-  --bg-card-hover: rgba(40, 40, 62, 0.9);
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0c0;
-  --text-muted: #707090;
-  --border-color: rgba(255, 255, 255, 0.1);
-  --hover-color: rgba(0, 230, 255, 0.15);
-  --active-color: #00e6ff;
-  --up-color: #00ff9d;
-  --down-color: #ff4d7c;
-  --accent-blue: #00e6ff;
-  --accent-teal: #00ff9d;
-  --accent-purple: #8a2be2;
-  --accent-pink: #ff4d7c;
-  --shadow-glow: 0 0 20px rgba(0, 230, 255, 0.3);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-body.light {
-  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  --bg-dark: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --bg-card-hover: rgba(255, 255, 255, 1);
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --hover-color: rgba(0, 230, 255, 0.1);
-  --active-color: #0077cc;
-  --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-body {
-  background: var(--bg-gradient);
-  color: var(--text-primary);
-  transition: all 0.4s ease;
-  min-height: 100vh;
-  line-height: 1.6;
-}
-
-.container {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-/* Enhanced Navbar */
-.navbar {
-  background: rgba(15, 15, 35, 0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  padding: 0;
-}
-
-.nav-wrap {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-}
-
-.logo {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.logo i {
-  font-size: 24px;
-}
-
-.nav-items {
-  display: flex;
-  gap: 8px;
-  list-style: none;
-}
-
-.nav-item {
-  padding: 10px 16px;
-  border-radius: 12px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.nav-item:hover {
-  background: var(--hover-color);
-  color: var(--active-color);
-  transform: translateY(-2px);
-}
-
-.nav-item.active {
-  background: var(--active-color);
-  color: var(--bg-dark);
-  box-shadow: var(--shadow-glow);
-}
-
-.menu-toggle {
-  display: none;
-  flex-direction: column;
-  gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-}
-
-.menu-toggle span {
-  width: 24px;
-  height: 2px;
-  background: var(--text-primary);
-  border-radius: 2px;
-  transition: all 0.3s ease;
-}
-
-/* Mobile Menu Animation */
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-  
-  .menu-toggle {
-    display: flex;
-  }
-}
-
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-/* Header Section */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.header h1 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.header-controls {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-/* Search Bar */
-.search-container {
-  position: relative;
-  width: 400px;
-  max-width: 100%;
-}
-
-.search-bar {
-  width: 100%;
-  padding: 14px 20px 14px 48px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.search-bar:focus {
-  outline: none;
-  border-color: var(--active-color);
-  box-shadow: var(--shadow-glow);
-}
-
-.search-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  font-size: 18px;
-}
-
-/* Action Buttons */
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-primary {
-  background: var(--active-color);
-  color: var(--bg-dark);
-  box-shadow: var(--shadow-glow);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(0, 230, 255, 0.5);
-}
-
-.btn-secondary {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--active-color);
-}
-
-/* AI Insight */
-.ai-insight {
-  background: var(--bg-card);
-  border-radius: 20px;
-  padding: 24px;
-  border: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
-}
-
-.ai-insight-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.ai-insight-header h3 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.ai-icon {
-  font-size: 20px;
-  color: var(--active-color);
-}
-
-.ai-content {
-  color: var(--text-primary);
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-/* Market Overview */
-.market-overview {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.market-card {
-  background: var(--bg-card);
-  border-radius: 20px;
-  padding: 24px;
-  border: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.market-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
-}
-
-.market-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-card);
-  border-color: var(--active-color);
-}
-
-.market-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.market-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.market-value {
-  font-size: 28px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.market-change {
-  font-size: 14px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.market-change.positive {
-  background: rgba(0, 255, 157, 0.15);
-  color: var(--up-color);
-}
-
-.market-change.negative {
-  background: rgba(255, 77, 124, 0.15);
-  color: var(--down-color);
-}
-
-/* Insights Grid */
-.insights-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.insight-card {
-  background: var(--bg-card);
-  border-radius: 20px;
-  padding: 24px;
-  border: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.insight-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
-}
-
-.insight-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-card);
-  border-color: var(--active-color);
-}
-
-.insight-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.insight-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.insight-symbol {
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 500;
-  margin-top: 4px;
-}
-
-.insight-price {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.insight-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color);
-}
-
-.insight-change {
-  font-size: 16px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.insight-change.positive {
-  background: rgba(0, 255, 157, 0.15);
-  color: var(--up-color);
-}
-
-.insight-change.negative {
-  background: rgba(255, 77, 124, 0.15);
-  color: var(--down-color);
-}
-
-.insight-volume {
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Sector Performance */
-.sector-section {
-  background: var(--bg-card);
-  border-radius: 20px;
-  padding: 32px;
-  border: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
-  margin-bottom: 32px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.section-header h2 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.sector-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.sector-item {
-  background: var(--bg-dark);
-  border-radius: 16px;
-  padding: 20px;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-  text-align: center;
-}
-
-.sector-item:hover {
-  border-color: var(--active-color);
-  transform: translateY(-2px);
-}
-
-.sector-name {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 8px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.sector-performance {
-  font-size: 18px;
-  font-weight: 700;
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.sector-performance.positive {
-  color: var(--up-color);
-}
-
-.sector-performance.negative {
-  color: var(--down-color);
-}
-
-/* Loading States */
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--text-muted);
-}
-
-.loading i {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-/* Shimmer Loading */
-.shimmer {
-  background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .navbar {
-    padding: 0 16px;
-  }
-  
-  .nav-row {
-    flex-wrap: wrap;
-  }
-  
-  .menu-toggle {
-    display: flex;
-  }
-  
-  .nav-items {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .header-controls {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .search-container {
-    width: 100%;
-  }
-  
-  .market-overview {
-    grid-template-columns: 1fr;
-  }
-  
-  .insights-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .sector-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .market-card {
-    padding: 20px;
-  }
-  
-  .insight-card {
-    padding: 20px;
-  }
-  
-  .sector-section {
-    padding: 24px;
-  }
-  
-  .sector-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
 </head>
-<body>
-<div class="container">
-  <!-- Enhanced Navbar -->
-  <header class="navbar">
-    <div class="nav-wrap">
-      <div class="nav-row">
-        <div class="logo">
-          <i class="fas fa-chart-line"></i>
-          AlphaAnalytics
+  <!-- Animated Background Canvas -->
+  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
+
+  <div class="app-container">
+    <!-- COLLAPSIBLE SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <i class="fas fa-chart-line brand-icon"></i>
+        <span class="brand-name font-space">AlphaAnalytics</span>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="/jeet" class="nav-link">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="/prediction" class="nav-link">
+          <i class="fas fa-crystal-ball"></i>
+          <span>Predictions</span>
+        </a>
+        <a href="/portfolio" class="nav-link">
+          <i class="fas fa-briefcase"></i>
+          <span>Portfolio</span>
+        </a>
+        <a href="/deposit" class="nav-link">
+          <i class="fas fa-wallet"></i>
+          <span>Deposit</span>
+        </a>
+        <a href="/news" class="nav-link">
+          <i class="fas fa-newspaper"></i>
+          <span>Market News</span>
+        </a>
+        <a href="/alerts" class="nav-link">
+          <i class="fas fa-bell"></i>
+          <span>Alerts</span>
+        </a>
+        <a href="/insight" class="nav-link active">
+          <i class="fas fa-brain"></i>
+          <span>AI Insights</span>
+        </a>
+        <a href="/mystock" class="nav-link">
+          <i class="fas fa-star"></i>
+          <span>Watchlist</span>
+        </a>
+        <a href="/Superstars" class="nav-link">
+          <i class="fas fa-trophy"></i>
+          <span>Superstars</span>
+        </a>
+        <a href="/videos" class="nav-link">
+          <i class="fas fa-play-circle"></i>
+          <span>Videos</span>
+        </a>
+        <a href="/setting" class="nav-link">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </a>
+        <a href="/profile" class="nav-link">
+          <i class="fas fa-user"></i>
+          <span>Profile</span>
+        </a>
+      </nav>
+      
+      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </aside>
+
+    <!-- MAIN FRAME -->
+    <div class="main-frame" id="mainFrame">
+      <!-- STICKY GLASS NAVBAR -->
+      <header class="glass-navbar">
+        <div class="navbar-left">
+          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="navbar-title font-space">AI Market Insights</div>
         </div>
         
-        <button class="menu-toggle" aria-label="Toggle menu">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-
-        <nav class="nav-items">
-          <a href="/jeet" class="nav-item">
-            <i class="fas fa-home"></i>Dashboard
-          </a>
-          <a href="/portfolio" class="nav-item">
-            <i class="fas fa-briefcase"></i>Portfolio
-          </a>
-          <a href="/mystock" class="nav-item">
-            <i class="fas fa-star"></i>My Stock
-          </a>
-          <a href="/deposit" class="nav-item">
-            <i class="fas fa-wallet"></i>Deposit
-          </a>
-          <a href="/insight" class="nav-item active">
-            <i class="fas fa-brain"></i>Insight
-          </a>
-          <a href="/prediction" class="nav-item">
-            <i class="fas fa-crystal-ball"></i>Prediction
-          </a>
-          <a href="/news" class="nav-item">
-            <i class="fas fa-newspaper"></i>News
-          </a>
-          <a href="videos" class="nav-item">
-            <i class="fas fa-play-circle"></i>Videos
-          </a>
-          <a href="/Superstars" class="nav-item">
-            <i class="fas fa-trophy"></i>Superstars
-          </a>
-          <a href="/alerts" class="nav-item">
-            <i class="fas fa-bell"></i>Alerts
-          </a>
-          <a href="/help" class="nav-item">
-            <i class="fas fa-question-circle"></i>Help
-          </a>
-          <a href="/profile" class="nav-item">
-            <i class="fas fa-user"></i>Profile
-          </a>
-        </nav>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Header -->
-    <div class="header">
-      <h1>Market Intelligence</h1>
-      <div class="header-controls">
-        <div class="search-container">
-          <i class="fas fa-search search-icon"></i>
-          <input type="text" class="search-bar" placeholder="Search stocks, sectors..." id="searchInput">
+        <div class="navbar-right">
+          <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-bar" placeholder="Search stocks, sectors..." id="searchInput">
+          </div>
+          
+          <div class="navbar-actions">
+            <button class="btn-action" onclick="exportInsights()" title="Export CSV">
+              <i class="fas fa-download"></i>
+            </button>
+            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+              <i class="fas fa-palette"></i>
+            </button>
+          </div>
+          
+          <div class="profile-badge" id="profileBadge">
+            <div class="profile-avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <span class="profile-name">Guest User</span>
+          </div>
         </div>
-        <div class="action-buttons">
-          <button class="btn btn-primary" onclick="exportInsights()">
-            <i class="fas fa-download"></i>Export
-          </button>
-          <button class="btn btn-secondary" onclick="toggleTheme()">
-            <i class="fas fa-palette"></i>Theme
-          </button>
-        </div>
-      </div>
-    </div>
+      </header>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
 
     <!-- AI Insight -->
     <div class="ai-insight">
@@ -831,9 +178,11 @@ body {
       </div>
     </div>
   </main>
-</div>
+    </div>
+  </div>
 
-<script>
+  <script src="/static/js/layout.js"></script>
+  <script>
 // Configuration
 const TWELVEDATA_API_KEY = '5f988a8aff6b4b58848dfcf67af727d9';
 let allInsights = [];

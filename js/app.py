@@ -993,7 +993,7 @@ NAVIGATION_MAP = {
     'index':'/', 'jeet':'/jeet', 'portfolio':'/portfolio', 'mystock':'/mystock',
     'deposit':'/deposit', 'insight':'/insight', 'prediction':'/prediction',
     'news':'/news', 'videos':'/videos', 'superstars':'/Superstars',
-    'alerts':'/alerts', 'help':'/help', 'profile':'/profile'
+    'alerts':'/alerts', 'help':'/help', 'profile':'/profile', 'setting':'/setting'
 }
 
 def _find_template_for_page(page_key):
