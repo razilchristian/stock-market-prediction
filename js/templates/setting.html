@@ -199,73 +199,6 @@
   </style>
 </head>
 <body>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link active">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -276,7 +209,7 @@
             <span></span>
             <span></span>
           </button>
-          <div class="navbar-title font-space">System Settings</div>
+          <div class="navbar-title font-space">Settings</div>
         </div>
         
         <div class="navbar-right">
@@ -286,10 +219,7 @@
           </div>
           
           <div class="navbar-actions">
-            <button class="btn-action" onclick="loadSettings()" title="Reset Settings">
-              <i class="fas fa-sync-alt"></i>
-            </button>
-            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -486,7 +416,7 @@
         if (val !== null) document.getElementById(t).checked = (val === 'true');
       });
 
-      showToast('Settings loaded successfully!', 'info');
+      if(window.AlphaAnimations) AlphaAnimations.showNotification('Settings loaded successfully!', 'info');
     }
 
     function saveSettings() {
@@ -512,53 +442,10 @@
         particlesCanvas.style.display = document.getElementById('perfParticles').checked ? 'block' : 'none';
       }
 
-      showToast('Configurations saved successfully!', 'success');
+      if(window.AlphaAnimations) AlphaAnimations.showNotification('Configurations saved successfully!', 'success');
     }
 
-    // Helper toast display logic
-    function showToast(message, type = 'success') {
-      let toast = document.getElementById('settingsToast');
-      if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'settingsToast';
-        toast.style.position = 'fixed';
-        toast.style.top = '24px';
-        toast.style.right = '24px';
-        toast.style.padding = '16px 24px';
-        toast.style.borderRadius = '12px';
-        toast.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-        toast.style.fontSize = '14px';
-        toast.style.fontWeight = '600';
-        toast.style.zIndex = '9999';
-        toast.style.transition = 'all 0.3s ease';
-        toast.style.backdropFilter = 'blur(15px)';
-        toast.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
-        document.body.appendChild(toast);
-      }
-
-      if (type === 'success') {
-        toast.style.background = 'rgba(0, 255, 157, 0.15)';
-        toast.style.borderColor = 'var(--up-color)';
-        toast.style.color = 'var(--up-color)';
-      } else if (type === 'error') {
-        toast.style.background = 'rgba(255, 77, 124, 0.15)';
-        toast.style.borderColor = 'var(--down-color)';
-        toast.style.color = 'var(--down-color)';
-      } else {
-        toast.style.background = 'rgba(0, 230, 255, 0.15)';
-        toast.style.borderColor = 'var(--active-color)';
-        toast.style.color = 'var(--active-color)';
-      }
-
-      toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}" style="margin-right: 8px;"></i> ${message}`;
-      toast.style.transform = 'translateY(0)';
-      toast.style.opacity = '1';
-
-      setTimeout(() => {
-        toast.style.transform = 'translateY(-20px)';
-        toast.style.opacity = '0';
-      }, 3000);
-    }
   </script>
+  <script src="/static/js/animations.js"></script>
 </body>
 </html>

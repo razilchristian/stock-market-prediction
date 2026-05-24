@@ -919,73 +919,6 @@
 </style>
 </head>
 <body>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link active">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -1009,7 +942,7 @@
             <button class="btn-action" onclick="AlertManager.refreshAlerts()" title="Refresh">
               <i class="fas fa-sync-alt"></i>
             </button>
-            <button class="btn-action" onclick="ThemeManager.toggle()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -1028,20 +961,6 @@
     <!-- Header -->
     <div class="header">
       <h1>Market Intelligence Alerts</h1>
-      <div class="header-controls">
-        <div class="search-container">
-          <i class="fas fa-search search-icon"></i>
-          <input type="text" class="search-bar" placeholder="Search alerts..." id="searchInput">
-        </div>
-        <div class="action-buttons">
-          <button class="btn btn-primary" onclick="AlertManager.refreshAlerts()">
-            <i class="fas fa-sync-alt"></i>Refresh
-          </button>
-          <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
-            <i class="fas fa-palette"></i>Theme
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Stats Overview -->
@@ -1298,87 +1217,6 @@ const AppState = {
     unreadCount: ALERTS_DATA.filter(alert => !alert.isRead).length
 };
 
-// Mobile Menu Controller
-class MobileMenu {
-    constructor() {
-        this.menuToggle = document.querySelector('.menu-toggle');
-        this.navItems = document.querySelector('.nav-items');
-        this.isOpen = false;
-        this.init();
-    }
-
-    init() {
-        if (this.menuToggle && this.navItems) {
-            this.menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggle();
-            });
-
-            this.setupClickOutsideHandler();
-        }
-    }
-
-    toggle() {
-        this.isOpen = !this.isOpen;
-        this.navItems.classList.toggle('show');
-        
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.toggle('active'));
-    }
-
-    close() {
-        this.isOpen = false;
-        this.navItems.classList.remove('show');
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-    }
-
-    setupClickOutsideHandler() {
-        document.addEventListener('click', (event) => {
-            if (this.isOpen && !event.target.closest('.navbar')) {
-                this.close();
-            }
-        });
-    }
-}
-
-// Notification Manager
-class NotificationManager {
-    static show(message, type = 'info') {
-        let notification = document.getElementById('alertNotification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'alertNotification';
-            notification.className = 'notification';
-            document.body.appendChild(notification);
-        }
-
-        const icons = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        };
-
-        notification.innerHTML = `
-            <div class="notification-content ${type}">
-                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
-                <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-
-        notification.classList.add('show');
-
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-}
 
 // Stats Manager
 class StatsManager {
@@ -1570,7 +1408,7 @@ class AlertModalManager {
     static open(alertId) {
         const alert = AppState.alerts.find(a => a.id === alertId);
         if (!alert) {
-            NotificationManager.show('Alert not found', 'error');
+            AlphaAnimations.showNotification('Alert not found', 'error');
             return;
         }
 
@@ -1740,7 +1578,7 @@ class FilterManager {
         if (this.searchInput) this.searchInput.value = '';
         
         this.applyFilters();
-        NotificationManager.show('Filters cleared', 'success');
+        AlphaAnimations.showNotification('Filters cleared', 'success');
     }
 
     debounce(func, wait) {
@@ -1832,7 +1670,7 @@ class AlertManager {
         if (updated) {
             StatsManager.update();
             AlertDisplayManager.loadAlertsGrid();
-            NotificationManager.show('All alerts marked as read', 'success');
+            AlphaAnimations.showNotification('All alerts marked as read', 'success');
         }
     }
 
@@ -1842,7 +1680,7 @@ class AlertManager {
             AppState.alerts[alertIndex].isDismissed = true;
             StatsManager.update();
             AlertManager.filterAlerts();
-            NotificationManager.show('Alert dismissed', 'success');
+            AlphaAnimations.showNotification('Alert dismissed', 'success');
             
             // Close modal if open
             if (AppState.currentAlert && AppState.currentAlert.id === alertId) {
@@ -1862,13 +1700,13 @@ class AlertManager {
             
             StatsManager.update();
             AlertManager.filterAlerts();
-            NotificationManager.show('All visible alerts dismissed', 'success');
+            AlphaAnimations.showNotification('All visible alerts dismissed', 'success');
         }
     }
 
     static viewStockDetails(symbol) {
         // In a real implementation, this would navigate to stock details
-        NotificationManager.show(`Opening stock details for ${symbol}`, 'info');
+        AlphaAnimations.showNotification(`Opening stock details for ${symbol}`, 'info');
         console.log(`Viewing stock details for ${symbol}`);
     }
 
@@ -1887,7 +1725,7 @@ class AlertManager {
             
             AppState.alerts.unshift(newAlert);
             AlertManager.filterAlerts();
-            NotificationManager.show('Alerts refreshed', 'success');
+            AlphaAnimations.showNotification('Alerts refreshed', 'success');
         }, CONFIG.LOAD_DELAY);
     }
 
@@ -1897,22 +1735,7 @@ class AlertManager {
     }
 }
 
-// Theme Manager
-class ThemeManager {
-    static toggle() {
-        document.body.classList.toggle('light');
-        const isLight = document.body.classList.contains('light');
-        localStorage.setItem('theme', isLight ? 'light' : 'dark');
-        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
-    }
 
-    static load() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light');
-        }
-    }
-}
 
 // Auto Refresh Manager
 class AutoRefreshManager {
@@ -1936,18 +1759,18 @@ class AutoRefreshManager {
     static toggle() {
         if (AppState.autoRefreshInterval) {
             this.stop();
-            NotificationManager.show('Auto-refresh disabled', 'info');
+            AlphaAnimations.showNotification('Auto-refresh disabled', 'info');
         } else {
             this.start();
-            NotificationManager.show('Auto-refresh enabled (30s)', 'success');
+            AlphaAnimations.showNotification('Auto-refresh enabled (30s)', 'success');
         }
     }
 }
 
 // Main Alert Application
+// Main Alert Application
 class AlertApp {
     constructor() {
-        this.mobileMenu = null;
         this.filterManager = null;
         this.instance = null;
         this.init();
@@ -1961,11 +1784,7 @@ class AlertApp {
         console.log('🚀 Initializing Alert Application...');
         AlertApp.instance = this;
         
-        // Load theme
-        ThemeManager.load();
-        
         // Initialize components
-        this.mobileMenu = new MobileMenu();
         this.filterManager = new FilterManager();
         AlertModalManager.setupEventListeners();
         
@@ -2000,8 +1819,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // Error boundary
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    NotificationManager.show('An unexpected error occurred', 'error');
+    if(window.AlphaAnimations) AlphaAnimations.showNotification('An unexpected error occurred', 'error');
 });
 </script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/animations.js"></script>
 </body>
 </html>

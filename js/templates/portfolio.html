@@ -5,9 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Portfolio - AlphaAnalytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
+/* ─── Page Specific Styles (Portfolio) ─── */
+
 /* Portfolio Overview */
+.portfolio-overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
@@ -283,74 +288,14 @@
   border-color: var(--active-color);
 }
 
-/* Shimmer Loading */
-.shimmer {
-  background: linear-gradient(90deg, var(--bg-dark) 25%, var(--bg-card) 50%, var(--bg-dark) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
 /* Responsive Design */
 @media (max-width: 1200px) {
-  .nav-items {
-    gap: 4px;
-  }
-  
-  .nav-item {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  
   .search-container {
     width: 300px;
   }
 }
 
 @media (max-width: 768px) {
-  .navbar {
-    padding: 0 16px;
-  }
-  
-  .nav-row {
-    flex-wrap: wrap;
-  }
-  
-  .menu-toggle {
-    display: flex;
-  }
-  
-  .nav-items {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .header-controls {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .search-container {
-    width: 100%;
-  }
-  
   .portfolio-overview {
     grid-template-columns: 1fr;
   }
@@ -375,14 +320,6 @@
 }
 
 @media (max-width: 480px) {
-  .main-content {
-    padding: 16px;
-  }
-  
-  .header h1 {
-    font-size: 24px;
-  }
-  
   .portfolio-card {
     padding: 20px;
   }
@@ -393,69 +330,7 @@
 }
 </style>
 </head>
-<  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link active">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
+<body>
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -479,7 +354,7 @@
             <button class="btn-action" onclick="exportPortfolio()" title="Export CSV">
               <i class="fas fa-download"></i>
             </button>
-            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -494,7 +369,7 @@
       </header>
 
       <!-- MAIN CONTENT -->
-      <main class="main-content">
+      <main class="main-content">in-content">
 
     <!-- Portfolio Sentiment -->
     <div class="portfolio-sentiment">
@@ -782,9 +657,7 @@ function exportPortfolio() {
   a.click();
 }
 
-function toggleTheme() {
-  document.body.classList.toggle('light');
-}
+
 
 function tradeStock(symbol, action) {
   alert(`${action.toUpperCase()} order placed for ${symbol}. This would connect to your trading platform.`);

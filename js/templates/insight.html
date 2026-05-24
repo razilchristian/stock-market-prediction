@@ -5,76 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Market Insights - AlphaAnalytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
+/* ─── Page Specific Styles (Market Insights) ─── */
+</style>
 </head>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link active">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
+<body>
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -98,7 +36,7 @@
             <button class="btn-action" onclick="exportInsights()" title="Export CSV">
               <i class="fas fa-download"></i>
             </button>
-            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -197,29 +135,7 @@ const sectorData = [
   { name: 'Industrials', performance: 0.3 }
 ];
 
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
-  
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-});
+
 
 // Show loading placeholders
 function showLoadingPlaceholders() {
@@ -421,11 +337,6 @@ function exportInsights() {
   URL.revokeObjectURL(url);
 }
 
-// Toggle theme
-function toggleTheme() {
-  document.body.classList.toggle('light');
-}
-
 // Update AI insight
 function updateAIInsight() {
   const insights = [
@@ -455,5 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateAIInsight, 15000); // Update AI insight every 15 seconds
 });
 </script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/animations.js"></script>
 </body>
 </html>

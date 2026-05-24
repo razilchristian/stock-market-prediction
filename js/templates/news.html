@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AlphaAnalytics - Market News</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
+/* ─── Page Specific Styles (Market News) ─── */
 
 /* Filters Section */
 .filters-section {
@@ -388,48 +391,6 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .navbar {
-    padding: 0 16px;
-  }
-  
-  .nav-row {
-    flex-wrap: wrap;
-  }
-  
-  .menu-toggle {
-    display: flex;
-  }
-  
-  .nav-items {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .header-controls {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .search-container {
-    width: 100%;
-  }
-  
   .news-grid {
     grid-template-columns: 1fr;
   }
@@ -458,91 +419,6 @@
   }
 }
 
-/* Notification Styles */
-.notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0;
-  min-width: 300px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateX(400px);
-  opacity: 0;
-  transition: all 0.3s ease;
-  z-index: 10000;
-  overflow: hidden;
-}
-
-.notification.show {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.notification-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-}
-
-.notification-content.success {
-  border-left: 4px solid var(--up-color);
-}
-
-.notification-content.error {
-  border-left: 4px solid var(--down-color);
-}
-
-.notification-content.warning {
-  border-left: 4px solid #ff9800;
-}
-
-.notification-content.info {
-  border-left: 4px solid #2196f3;
-}
-
-.notification-icon {
-  font-size: 1.2em;
-}
-
-.notification-content.success .notification-icon {
-  color: var(--up-color);
-}
-
-.notification-content.error .notification-icon {
-  color: var(--down-color);
-}
-
-.notification-content.warning .notification-icon {
-  color: #ff9800;
-}
-
-.notification-content.info .notification-icon {
-  color: #2196f3;
-}
-
-.notification-message {
-  flex: 1;
-  font-size: 14px;
-}
-
-.notification-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.notification-close:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
-}
-
 .error-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -569,6 +445,7 @@
 }
 </style>
 </head>
+<body>
   <!-- Animated Background Canvas -->
   <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
 
@@ -592,10 +469,6 @@
         <a href="/portfolio" class="nav-link">
           <i class="fas fa-briefcase"></i>
           <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
         </a>
         <a href="/news" class="nav-link active">
           <i class="fas fa-newspaper"></i>
@@ -659,7 +532,7 @@
             <button class="btn-action" onclick="refreshNews()" title="Refresh News">
               <i class="fas fa-sync-alt"></i>
             </button>
-            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -786,89 +659,7 @@ const MARKET_DATA = [
     { symbol: "DOW", price: 38790.43, change: -0.23 }
 ];
 
-// Mobile Menu Controller
-class MobileMenu {
-    constructor() {
-        this.menuToggle = document.querySelector('.menu-toggle');
-        this.navItems = document.querySelector('.nav-items');
-        this.isOpen = false;
-        this.init();
-    }
 
-    init() {
-        if (this.menuToggle && this.navItems) {
-            this.menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggle();
-            });
-
-            this.setupClickOutsideHandler();
-        }
-    }
-
-    toggle() {
-        this.isOpen = !this.isOpen;
-        this.navItems.classList.toggle('show');
-        
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.toggle('active'));
-    }
-
-    close() {
-        this.isOpen = false;
-        this.navItems.classList.remove('show');
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-    }
-
-    setupClickOutsideHandler() {
-        document.addEventListener('click', (event) => {
-            if (this.isOpen && !event.target.closest('.navbar')) {
-                this.close();
-            }
-        });
-    }
-}
-
-// Notification Manager
-class NotificationManager {
-    static show(message, type = 'info') {
-        // Create notification element if it doesn't exist
-        let notification = document.getElementById('newsNotification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'newsNotification';
-            notification.className = 'notification';
-            document.body.appendChild(notification);
-        }
-
-        const icons = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        };
-
-        notification.innerHTML = `
-            <div class="notification-content ${type}">
-                <i class="fas ${icons[type] || icons.info} notification-icon"></i>
-                <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-
-        notification.classList.add('show');
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-}
 
 // Cache Manager
 class CacheManager {
@@ -1301,12 +1092,12 @@ class NewsManager {
             NewsDisplayManager.displayFeaturedNews(AppState.featuredArticles);
             NewsDisplayManager.displayNewsGrid(articles.slice(4));
             
-            NotificationManager.show(`Loaded ${articles.length} news articles`, 'success');
+            AlphaAnimations.showNotification(`Loaded ${articles.length} news articles`, 'success');
 
         } catch (error) {
             console.error('Failed to load news:', error);
             NewsDisplayManager.showErrorState('Failed to load news. Please try again.');
-            NotificationManager.show('Failed to load news articles', 'error');
+            AlphaAnimations.showNotification('Failed to load news articles', 'error');
         } finally {
             if (loadingState) {
                 loadingState.style.display = 'none';
@@ -1356,27 +1147,9 @@ class FilterManager {
     }
 }
 
-// Theme Manager
-class ThemeManager {
-    static toggle() {
-        document.body.classList.toggle('light');
-        const isLight = document.body.classList.contains('light');
-        localStorage.setItem('theme', isLight ? 'light' : 'dark');
-        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
-    }
-
-    static load() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light');
-        }
-    }
-}
-
 // Main News Application
 class NewsApplication {
     constructor() {
-        this.mobileMenu = null;
         this.searchManager = null;
         this.filterManager = null;
         this.init();
@@ -1385,11 +1158,7 @@ class NewsApplication {
     async init() {
         console.log('🚀 Initializing News Application...');
         
-        // Load theme
-        ThemeManager.load();
-        
         // Initialize components
-        this.mobileMenu = new MobileMenu();
         this.searchManager = new SearchManager();
         this.filterManager = new FilterManager();
         
@@ -1404,10 +1173,6 @@ class NewsApplication {
 }
 
 // Global functions for HTML event handlers
-function toggleTheme() {
-    ThemeManager.toggle();
-}
-
 function refreshNews() {
     NewsManager.refreshNews();
 }
@@ -1420,8 +1185,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Error boundary
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    NotificationManager.show('An unexpected error occurred', 'error');
+    if(window.AlphaAnimations) AlphaAnimations.showNotification('An unexpected error occurred', 'error');
 });
 </script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/animations.js"></script>
 </body>
 </html>

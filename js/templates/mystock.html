@@ -5,44 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>My Stock - AlphaAnalytics</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
+/* ─── Page Specific Styles (Watchlist & Trading) ─── */
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .navbar {
-    padding: 0 16px;
-  }
-  
-  .nav-row {
-    flex-wrap: wrap;
-  }
-  
-  .menu-toggle {
-    display: flex;
-  }
-  
-  .nav-items {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .main-content {
-    padding: 16px;
-  }
-  
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
   .trading-section {
     grid-template-columns: 1fr;
   }
@@ -85,69 +55,7 @@
 }
 </style>
 </head>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link active">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
+<body>
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -171,7 +79,7 @@
             <button class="btn-action" onclick="window.location.reload()" title="Refresh Data">
               <i class="fas fa-sync-alt"></i>
             </button>
-            <button class="btn-action" onclick="ThemeManager.toggle()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -290,8 +198,6 @@
       </div>
     </div>
   </main>
-    </div>
-  </div>
 
   <script src="/static/js/layout.js"></script>
   <script>
@@ -311,90 +217,6 @@ const AppState = {
     currentSymbol: CONFIG.DEFAULT_SYMBOL,
     priceUpdateInterval: null
 };
-
-// Mobile Menu Controller
-class MobileMenu {
-    constructor() {
-        this.menuToggle = document.querySelector('.menu-toggle');
-        this.navItems = document.querySelector('.nav-items');
-        this.isOpen = false;
-        this.init();
-    }
-
-    init() {
-        if (this.menuToggle && this.navItems) {
-            this.menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggle();
-            });
-
-            this.setupClickOutsideHandler();
-        }
-    }
-
-    toggle() {
-        this.isOpen = !this.isOpen;
-        this.navItems.classList.toggle('show');
-        
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.toggle('active'));
-    }
-
-    close() {
-        this.isOpen = false;
-        this.navItems.classList.remove('show');
-        const spans = this.menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-    }
-
-    setupClickOutsideHandler() {
-        document.addEventListener('click', (event) => {
-            if (this.isOpen && !event.target.closest('.navbar')) {
-                this.close();
-            }
-        });
-    }
-}
-
-// Notification Manager
-class NotificationManager {
-    static show(message, type = 'info') {
-        // Create notification element if it doesn't exist
-        let notification = document.getElementById('tradingNotification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'tradingNotification';
-            notification.className = 'notification';
-            document.body.appendChild(notification);
-        }
-
-        const iconClass = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        }[type] || 'fa-info-circle';
-
-        notification.innerHTML = `
-            <div class="notification-content">
-                <i class="fas ${iconClass} notification-icon"></i>
-                <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-
-        notification.className = `notification ${type} show`;
-        
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-}
 
 // API Service
 class TradingAPIService {
@@ -472,7 +294,7 @@ class PriceManager {
                 priceChangeElem.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
                 
                 AppState.currentSymbol = symbol;
-                NotificationManager.show(`${symbol} price updated`, 'success');
+                AlphaAnimations.showNotification(`${symbol} price updated`, 'success');
             } else {
                 throw new Error('Invalid price data');
             }
@@ -480,7 +302,7 @@ class PriceManager {
             livePriceElem.textContent = "$--";
             priceChangeElem.textContent = "Data unavailable";
             priceChangeElem.className = 'price-change error';
-            NotificationManager.show(error.message, 'error');
+            AlphaAnimations.showNotification(error.message, 'error');
         }
     }
 
@@ -544,7 +366,7 @@ class OrderManager {
             AppState.orders[orderIndex].status = 'cancelled';
             this.saveOrders();
             this.renderOrders();
-            NotificationManager.show('Order cancelled', 'warning');
+            AlphaAnimations.showNotification('Order cancelled', 'warning');
             return true;
         }
         return false;
@@ -559,7 +381,7 @@ class OrderManager {
                     (Math.random() * 10 + AppState.orders[orderIndex].price) || 100;
                 this.saveOrders();
                 this.renderOrders();
-                NotificationManager.show(`Order ${orderId} executed`, 'success');
+                AlphaAnimations.showNotification(`Order ${orderId} executed`, 'success');
             }
         }, 2000 + Math.random() * 3000);
     }
@@ -654,7 +476,7 @@ class OrderManager {
         AppState.orders = [];
         this.saveOrders();
         this.renderOrders();
-        NotificationManager.show('All orders cleared', 'info');
+        AlphaAnimations.showNotification('All orders cleared', 'info');
     }
 }
 
@@ -674,7 +496,7 @@ class HistoricalDataManager {
         try {
             const historicalData = await TradingAPIService.fetchHistoricalData(symbol, fromDate, toDate);
             this.renderHistoricalData(historicalData, symbol);
-            NotificationManager.show(`Historical data loaded for ${symbol}`, 'success');
+            AlphaAnimations.showNotification(`Historical data loaded for ${symbol}`, 'success');
         } catch (error) {
             historyList.innerHTML = `
                 <div class="empty-state error">
@@ -683,7 +505,7 @@ class HistoricalDataManager {
                     <p>${error.message}</p>
                 </div>
             `;
-            NotificationManager.show(error.message, 'error');
+            AlphaAnimations.showNotification(error.message, 'error');
         }
     }
 
@@ -801,12 +623,12 @@ class TradeFormManager {
         const orderType = document.getElementById('orderType').value;
         
         if (!symbol) {
-            NotificationManager.show('Please enter a stock symbol', 'error');
+            AlphaAnimations.showNotification('Please enter a stock symbol', 'error');
             return;
         }
         
         if (!quantity || quantity <= 0) {
-            NotificationManager.show('Please enter a valid quantity', 'error');
+            AlphaAnimations.showNotification('Please enter a valid quantity', 'error');
             return;
         }
         
@@ -823,7 +645,7 @@ class TradeFormManager {
                 price: currentPrice
             });
             
-            NotificationManager.show(
+            AlphaAnimations.showNotification(
                 `${AppState.currentTradeType.toUpperCase()} order placed for ${quantity} shares of ${symbol}`,
                 'success'
             );
@@ -837,7 +659,7 @@ class TradeFormManager {
             this.tradeTypeButtons[0].click();
             
         } catch (error) {
-            NotificationManager.show(`Invalid symbol: ${symbol}`, 'error');
+            AlphaAnimations.showNotification(`Invalid symbol: ${symbol}`, 'error');
         }
     }
 
@@ -887,7 +709,7 @@ class SearchManager {
         const toDate = document.getElementById('histTo').value;
         
         if (!symbol) {
-            NotificationManager.show('Please enter a stock symbol', 'error');
+            AlphaAnimations.showNotification('Please enter a stock symbol', 'error');
             return;
         }
         
@@ -898,7 +720,6 @@ class SearchManager {
 // Main Trading Application
 class TradingApp {
     constructor() {
-        this.mobileMenu = null;
         this.tradeFormManager = null;
         this.searchManager = null;
         this.init();
@@ -908,7 +729,6 @@ class TradingApp {
         console.log('🚀 Initializing Trading Application...');
         
         // Initialize components
-        this.mobileMenu = new MobileMenu();
         this.tradeFormManager = new TradeFormManager();
         this.searchManager = new SearchManager();
         
@@ -966,8 +786,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Error boundary
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    NotificationManager.show('An unexpected error occurred', 'error');
+    if(window.AlphaAnimations) AlphaAnimations.showNotification('An unexpected error occurred', 'error');
 });
 </script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/animations.js"></script>
 </body>
 </html>

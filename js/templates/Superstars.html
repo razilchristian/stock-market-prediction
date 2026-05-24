@@ -977,73 +977,6 @@
 </style>
 </head>
 <body>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
-
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link active">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
     <!-- MAIN FRAME -->
     <div class="main-frame" id="mainFrame">
       <!-- STICKY GLASS NAVBAR -->
@@ -1067,7 +1000,7 @@
             <button class="btn-action" onclick="InvestorManager.refreshInvestors()" title="Refresh">
               <i class="fas fa-sync-alt"></i>
             </button>
-            <button class="btn-action" onclick="ThemeManager.toggle()" title="Toggle Theme">
+            <button class="btn-action" data-theme-toggle title="Toggle Theme">
               <i class="fas fa-palette"></i>
             </button>
           </div>
@@ -1086,20 +1019,6 @@
     <!-- Header -->
     <div class="header">
       <h1>Superstar Investors</h1>
-      <div class="header-controls">
-        <div class="search-container">
-          <i class="fas fa-search search-icon"></i>
-          <input type="text" class="search-bar" placeholder="Search investors..." id="searchInput">
-        </div>
-        <div class="action-buttons">
-          <button class="btn btn-primary" onclick="InvestorManager.refreshInvestors()">
-            <i class="fas fa-sync-alt"></i>Refresh
-          </button>
-          <button class="btn btn-secondary" onclick="ThemeManager.toggle()">
-            <i class="fas fa-palette"></i>Theme
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Filters -->
@@ -1647,7 +1566,7 @@ class InvestorModalManager {
     static open(investorId) {
         const investor = AppState.investors.find(i => i.id === investorId);
         if (!investor) {
-            NotificationManager.show('Investor not found', 'error');
+            AlphaAnimations.showNotification('Investor not found', 'error');
             return;
         }
 
@@ -1826,7 +1745,7 @@ class FilterManager {
         if (this.searchInput) this.searchInput.value = '';
         
         this.applyFilters();
-        NotificationManager.show('Filters cleared', 'success');
+        AlphaAnimations.showNotification('Filters cleared', 'success');
     }
 
     debounce(func, wait) {
@@ -1894,7 +1813,7 @@ class InvestorManager {
         if (investor) {
             InvestorModalManager.close();
             // In a real implementation, this would navigate to a detailed portfolio page
-            NotificationManager.show(`Opening detailed portfolio for ${investor.name}`, 'info');
+            AlphaAnimations.showNotification(`Opening detailed portfolio for ${investor.name}`, 'info');
             console.log(`Viewing portfolio for ${investor.name}`);
         }
     }
@@ -1902,7 +1821,7 @@ class InvestorManager {
     static viewTrendlyne(investorName) {
         // In a real implementation, this would open the actual Trendlyne page
         const trendlyneUrl = `https://trendlyne.com/portfolio/${encodeURIComponent(investorName.toLowerCase().replace(/\s+/g, '-'))}`;
-        NotificationManager.show(`Redirecting to Trendlyne for ${investorName}`, 'info');
+        AlphaAnimations.showNotification(`Redirecting to Trendlyne for ${investorName}`, 'info');
         console.log(`Opening Trendlyne: ${trendlyneUrl}`);
         // window.open(trendlyneUrl, '_blank'); // Uncomment in production
     }
@@ -1918,32 +1837,14 @@ class InvestorManager {
         setTimeout(() => {
             InvestorDisplayManager.loadTopPerformers();
             InvestorManager.filterInvestors();
-            NotificationManager.show('Investors data refreshed', 'success');
+            AlphaAnimations.showNotification('Investors data refreshed', 'success');
         }, CONFIG.LOAD_DELAY);
-    }
-}
-
-// Theme Manager
-class ThemeManager {
-    static toggle() {
-        document.body.classList.toggle('light');
-        const isLight = document.body.classList.contains('light');
-        localStorage.setItem('theme', isLight ? 'light' : 'dark');
-        NotificationManager.show(`Theme changed to ${isLight ? 'light' : 'dark'} mode`, 'info');
-    }
-
-    static load() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light');
-        }
     }
 }
 
 // Main Investor Application
 class InvestorApp {
     constructor() {
-        this.mobileMenu = null;
         this.filterManager = null;
         this.instance = null;
         this.init();
@@ -1957,11 +1858,7 @@ class InvestorApp {
         console.log('🚀 Initializing Investor Application...');
         InvestorApp.instance = this;
         
-        // Load theme
-        ThemeManager.load();
-        
         // Initialize components
-        this.mobileMenu = new MobileMenu();
         this.filterManager = new FilterManager();
         InvestorModalManager.setupEventListeners();
         
@@ -1991,8 +1888,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // Error boundary
 window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
-    NotificationManager.show('An unexpected error occurred', 'error');
+    if(window.AlphaAnimations) AlphaAnimations.showNotification('An unexpected error occurred', 'error');
 });
 </script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/animations.js"></script>
 </body>
 </html>
