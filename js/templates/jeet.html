@@ -6,385 +6,9 @@
   <title>AlphaAnalytics - Advanced Market Intelligence Dashboard</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.0.1/lightweight-charts.standalone.production.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
   <style>
-    :root {
-      --primary-white: #ffffff;
-      --bg-gradient: linear-gradient(135deg, #07070c 0%, #0f0f23 50%, #07070d 100%);
-      --bg-dark: #07070c;
-      --bg-card: rgba(22, 22, 38, 0.4);
-      --bg-card-hover: rgba(30, 30, 52, 0.6);
-      --text-primary: #ffffff;
-      --text-secondary: #a0a0c0;
-      --text-muted: #707090;
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-glow: rgba(0, 230, 255, 0.15);
-      --hover-color: rgba(0, 230, 255, 0.08);
-      --active-color: #00e6ff;
-      --up-color: #00ff9d;
-      --down-color: #ff4d7c;
-      --accent-blue: #00e6ff;
-      --accent-teal: #00ff9d;
-      --accent-purple: #8a2be2;
-      --accent-pink: #ff4d7c;
-      --shadow-glow: 0 0 25px rgba(0, 230, 255, 0.25);
-      --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.4);
-    }
 
-    body.light {
-      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-      --bg-dark: #ffffff;
-      --bg-card: rgba(255, 255, 255, 0.7);
-      --bg-card-hover: rgba(255, 255, 255, 0.9);
-      --text-primary: #1e293b;
-      --text-secondary: #475569;
-      --text-muted: #64748b;
-      --border-color: rgba(0, 0, 0, 0.06);
-      --hover-color: rgba(0, 119, 204, 0.08);
-      --active-color: #0077cc;
-      --shadow-glow: 0 0 20px rgba(0, 119, 204, 0.2);
-      --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.05);
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .font-space {
-      font-family: 'Space Grotesk', sans-serif;
-    }
-
-    body {
-      background: var(--bg-gradient);
-      color: var(--text-primary);
-      transition: background 0.4s ease, color 0.4s ease;
-      min-height: 100vh;
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--bg-dark);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--active-color);
-    }
-
-    /* Layout Frame */
-    .app-container {
-      display: flex;
-      min-height: 100vh;
-      position: relative;
-    }
-
-    /* Collapsible Left Sidebar */
-    .sidebar {
-      width: 280px;
-      background: rgba(15, 15, 30, 0.6);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
-      border-right: 1px solid var(--border-color);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 1001;
-      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease;
-    }
-
-    .sidebar.collapsed {
-      width: 80px;
-      padding: 24px 16px;
-    }
-
-    .sidebar-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-      padding-left: 6px;
-      overflow: hidden;
-      white-space: nowrap;
-      transition: all 0.3s;
-    }
-
-    .brand-icon {
-      font-size: 26px;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      min-width: 32px;
-    }
-
-    .brand-name {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      color: var(--text-primary);
-      transition: opacity 0.3s;
-    }
-
-    .sidebar.collapsed .brand-name {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .sidebar-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex: 1;
-      overflow-y: auto;
-      scrollbar-width: none;
-    }
-
-    .sidebar-nav::-webkit-scrollbar {
-      display: none;
-    }
-
-    .nav-link {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 14px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      white-space: nowrap;
-      border: 1px solid transparent;
-    }
-
-    .nav-link i {
-      font-size: 18px;
-      min-width: 20px;
-      transition: transform 0.3s ease;
-    }
-
-    .nav-link:hover {
-      background: var(--hover-color);
-      color: var(--active-color);
-      box-shadow: 0 0 15px var(--border-glow);
-    }
-
-    .nav-link:hover i {
-      transform: scale(1.15);
-    }
-
-    .nav-link.active {
-      background: linear-gradient(135deg, rgba(0, 230, 255, 0.12) 0%, rgba(138, 43, 226, 0.03) 100%);
-      color: var(--active-color);
-      border: 1px solid rgba(0, 230, 255, 0.2);
-      box-shadow: var(--shadow-glow);
-      font-weight: 600;
-    }
-
-    .sidebar.collapsed .nav-link span {
-      display: none;
-    }
-
-    .sidebar-toggle {
-      background: none;
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      position: absolute;
-      bottom: 24px;
-      right: -16px;
-      background: var(--bg-dark);
-      transition: all 0.3s;
-      z-index: 10;
-    }
-
-    .sidebar-toggle:hover {
-      color: var(--active-color);
-      border-color: var(--active-color);
-      box-shadow: var(--shadow-glow);
-    }
-
-    /* Main Frame */
-    .main-frame {
-      flex: 1;
-      margin-left: 280px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .sidebar.collapsed + .main-frame {
-      margin-left: 80px;
-    }
-
-    /* Glass Sticky Navbar */
-    .glass-navbar {
-      height: 80px;
-      background: rgba(15, 15, 30, 0.6);
-      backdrop-filter: blur(30px) saturate(180%);
-      -webkit-backdrop-filter: blur(30px) saturate(180%);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-
-    .navbar-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .mobile-toggle {
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 8px;
-      z-index: 1002;
-    }
-
-    .mobile-toggle span {
-      width: 20px;
-      height: 2px;
-      background: var(--text-primary);
-      border-radius: 2px;
-      transition: all 0.3s;
-    }
-
-    .navbar-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .navbar-right {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
-
-    .search-container {
-      position: relative;
-      width: 280px;
-    }
-
-    .search-bar {
-      width: 100%;
-      padding: 10px 16px 10px 40px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.3s;
-    }
-
-    .search-bar:focus {
-      outline: none;
-      border-color: var(--active-color);
-      box-shadow: var(--shadow-glow);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-      font-size: 14px;
-    }
-
-    .navbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-action {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-action:hover {
-      color: var(--active-color);
-      border-color: var(--active-color);
-      box-shadow: var(--shadow-glow);
-    }
-
-    .profile-badge {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 14px 6px 8px;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border-color);
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .profile-badge:hover {
-      border-color: var(--active-color);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .profile-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--bg-dark);
-      font-size: 12px;
-    }
-
-    .profile-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
 
     /* Main Content Section */
     .main-content {
@@ -495,7 +119,7 @@
     /* Bento Stat Cards */
     .bento-grid-stats {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 20px;
     }
 
@@ -1080,35 +704,13 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Responsive Grid & Sidebar Collapsing */
-    @media (max-width: 1200px) {
+    /* Stacking for Bento Grid on Laptop screens under 1366px */
+    @media (max-width: 1366px) {
       .bento-dashboard-grid {
         grid-template-columns: 1fr;
       }
       .bento-col-3, .bento-col-1 {
         grid-column: span 1 !important;
-      }
-    }
-
-    @media (max-width: 1024px) {
-      .sidebar {
-        transform: translateX(-100%);
-        width: 280px !important;
-      }
-      .sidebar.mobile-show {
-        transform: translateX(0);
-      }
-      .main-frame {
-        margin-left: 0 !important;
-      }
-      .sidebar-toggle {
-        display: none;
-      }
-      .mobile-toggle {
-        display: flex;
-      }
-      .search-container {
-        display: none;
       }
     }
 
@@ -1150,6 +752,10 @@
         <a href="/portfolio" class="nav-link">
           <i class="fas fa-briefcase"></i>
           <span>Portfolio</span>
+        </a>
+        <a href="/deposit" class="nav-link">
+          <i class="fas fa-wallet"></i>
+          <span>Deposit</span>
         </a>
         <a href="/news" class="nav-link">
           <i class="fas fa-newspaper"></i>
@@ -1467,6 +1073,7 @@
     </div>
   </div>
 
+  <script src="/static/js/layout.js"></script>
   <script>
     // Configuration
     const CONFIG = {
@@ -1640,103 +1247,7 @@
         }
     }
 
-    // Sidebar & UI Collapsible Manager
-    class SidebarManager {
-        static init() {
-            const sidebar = document.getElementById('sidebar');
-            const collapseBtn = document.getElementById('sidebarCollapseBtn');
-            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            
-            if (collapseBtn) {
-                collapseBtn.addEventListener('click', () => {
-                    sidebar.classList.toggle('collapsed');
-                    const isCollapsed = sidebar.classList.contains('collapsed');
-                    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
-                    
-                    const icon = collapseBtn.querySelector('i');
-                    if (icon) {
-                        icon.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
-                    }
-                });
-                
-                const savedState = localStorage.getItem('sidebarCollapsed');
-                if (savedState === 'true') {
-                    sidebar.classList.add('collapsed');
-                    const icon = collapseBtn.querySelector('i');
-                    if (icon) icon.className = 'fas fa-chevron-right';
-                }
-            }
-            
-            if (mobileMenuBtn) {
-                mobileMenuBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('mobile-show');
-                });
-            }
-            
-            document.addEventListener('click', (e) => {
-                if (sidebar.classList.contains('mobile-show') && 
-                    !sidebar.contains(e.target) && 
-                    !mobileMenuBtn.contains(e.target)) {
-                    sidebar.classList.remove('mobile-show');
-                }
-            });
-        }
-    }
 
-    // High Performance Floating Canvas Particles Background
-    class CanvasParticles {
-        static init() {
-            const canvas = document.getElementById('particlesCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            let particles = [];
-            
-            const resize = () => {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            };
-            window.addEventListener('resize', resize);
-            resize();
-            
-            class Particle {
-                constructor() {
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
-                    this.size = Math.random() * 2 + 1;
-                    this.speedX = Math.random() * 0.3 - 0.15;
-                    this.speedY = Math.random() * 0.3 - 0.15;
-                    this.color = Math.random() > 0.5 ? 'rgba(0, 230, 255, 0.15)' : 'rgba(138, 43, 226, 0.15)';
-                }
-                update() {
-                    this.x += this.speedX;
-                    this.y += this.speedY;
-                    if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
-                    if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
-                }
-                draw() {
-                    ctx.fillStyle = this.color;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-            
-            for (let i = 0; i < 40; i++) {
-                particles.push(new Particle());
-            }
-            
-            const animate = () => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                particles.forEach(p => {
-                    p.update();
-                    p.draw();
-                });
-                requestAnimationFrame(animate);
-            };
-            animate();
-        }
-    }
 
     // Notification Manager
     class NotificationManager {
@@ -1996,8 +1507,6 @@
     class Dashboard {
         static async initialize() {
             ThemeManager.load();
-            SidebarManager.init();
-            CanvasParticles.init();
             
             try {
                 const user = await AuthService.checkAuth();
