@@ -3,339 +3,562 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings - Admin Panel</title>
+  <title>Settings - AlphaAnalytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/layout.css">
   <style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
-    /* General styling for the whole dashboard */
-    body {
-      font-family: 'Poppins', sans-serif;
-      background-color: #f4f7fc;
-      margin: 0;
-      padding: 0;
+    /* Page Specific Styles */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
     }
 
-    /* Container for the whole dashboard */
-    .dashboard-container {
+    .settings-card {
+      background: var(--bg-card);
+      border-radius: 20px;
+      padding: 24px;
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
       display: flex;
+      flex-direction: column;
+      gap: 20px;
+      transition: all 0.3s ease;
     }
 
-    /* Sidebar Styles */
-    .sidebar {
-      background-color: #2c3e50;
-      color: white;
-      width: 250px;
-      height: 100vh;
-      padding: 20px;
+    .settings-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
     }
 
-    .sidebar-header {
-      text-align: center;
-      margin-bottom: 20px;
+    .settings-card:hover {
+      border-color: var(--active-color);
+      box-shadow: var(--shadow-card);
     }
 
-    .sidebar-header h2 {
-      font-size: 24px;
-      font-weight: 600;
-    }
-
-    .logout button {
-      background-color: #e74c3c;
-      color: white;
-      border: none;
-      padding: 10px;
-      width: 100%;
-      margin-top: 20px;
-      cursor: pointer;
-    }
-
-    .logout button:hover {
-      background-color: #c0392b;
-    }
-
-    .sidebar-menu {
-      list-style-type: none;
-      padding: 0;
-    }
-
-    .sidebar-menu li {
-      margin: 15px 0;
-    }
-
-    .sidebar-menu li a {
-      color: white;
-      text-decoration: none;
-      font-size: 18px;
+    .card-header {
       display: flex;
       align-items: center;
-      padding: 10px;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 14px;
     }
 
-    .sidebar-menu li a i {
-      margin-right: 10px;
-    }
-
-    .sidebar-menu li a:hover {
-      background-color: #34495e;
-      border-radius: 4px;
-    }
-
-    /* Main content area */
-    .main-content {
-      flex-grow: 1;
-      padding: 20px;
-    }
-
-    /* Header section */
-    header {
-      margin-bottom: 20px;
-    }
-
-    header h1 {
-      font-size: 32px;
-      color: #2c3e50;
-    }
-
-    /* Overview cards */
-    .overview {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 30px;
-    }
-
-    .card {
-      background-color: #ecf0f1;
-      border-radius: 8px;
-      padding: 20px;
-      width: 30%;
-      text-align: center;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .card h3 {
-      font-size: 22px;
-      color: #34495e;
-    }
-
-    .card p {
-      font-size: 24px;
-      font-weight: 600;
-      color: #16a085;
-    }
-
-    /* Predictions Section */
-    .predictions-summary {
-      margin-top: 40px;
-    }
-
-    .predictions-summary h2 {
-      font-size: 24px;
-      color: #2c3e50;
-      margin-bottom: 20px;
-    }
-
-    .prediction {
-      background-color: #ecf0f1;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .prediction h3 {
+    .card-header i {
       font-size: 20px;
-      color: #2c3e50;
+      color: var(--active-color);
     }
 
-    .prediction p {
+    .card-header h3 {
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 18px;
-      margin-bottom: 15px;
+      font-weight: 700;
     }
 
-    .status {
-      padding: 5px 10px;
-      border-radius: 4px;
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .form-input, .form-select {
+      padding: 12px 16px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--active-color);
+      box-shadow: var(--shadow-glow);
+    }
+
+    /* Custom Switch Toggle */
+    .switch-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .switch-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .switch-title {
+      font-size: 14px;
       font-weight: 600;
     }
 
-    .status.active {
-      background-color: #27ae60;
-      color: white;
+    .switch-desc {
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
-    .status.completed {
-      background-color: #95a5a6;
-      color: white;
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
     }
 
-    .status.upcoming {
-      background-color: #f39c12;
-      color: white;
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
 
-    button {
-      background-color: #2980b9;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
+    .slider {
+      position: absolute;
       cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border-color);
+      transition: .3s;
+      border-radius: 24px;
     }
 
-    button:hover {
-      background-color: #3498db;
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
     }
 
-    /* Table for latest users */
-    table {
+    input:checked + .slider {
+      background-color: var(--active-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    .btn-save-all {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+      color: var(--bg-dark);
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      box-shadow: var(--shadow-glow);
+      transition: all 0.3s ease;
       width: 100%;
-      margin-top: 20px;
-      border-collapse: collapse;
+      max-width: 300px;
+      margin: 0 auto;
     }
 
-    table th, table td {
-      padding: 12px;
-      text-align: left;
-      border: 1px solid #bdc3c7;
+    .btn-save-all:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(0, 230, 255, 0.6);
     }
 
-    table th {
-      background-color: #34495e;
-      color: white;
+    .btn-save-all:active {
+      transform: translateY(0);
     }
 
-    table tbody tr:hover {
-      background-color: #ecf0f1;
+    @media (max-width: 768px) {
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
-/* Mobile Menu Animation */
-.menu-toggle span {
-  transition: all 0.3s ease;
-}
-
-.menu-toggle span.active:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
-}
-
-.menu-toggle span.active:nth-child(2) {
-  opacity: 0;
-}
-
-.menu-toggle span.active:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Ensure mobile menu displays properly */
-@media (max-width: 768px) {
-  .nav-items {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-dark);
-    border-top: 1px solid var(--border-color);
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-  
-  .nav-items.show {
-    display: flex;
-  }
-  
-  .nav-item {
-    padding: 12px 16px;
-    border-radius: 8px;
-    justify-content: flex-start;
-  }
-}
-
 </head>
 <body>
-  <div class="dashboard-container">
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <h2>Admin Panel</h2>
+  <!-- Animated Background Canvas -->
+  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
+
+  <div class="app-container">
+    <!-- COLLAPSIBLE SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <i class="fas fa-chart-line brand-icon"></i>
+        <span class="brand-name font-space">AlphaAnalytics</span>
       </div>
-      <ul class="sidebar-menu">
-        <li><a href="admin.html">Dashboard</a></li>
-        <li><a href="users.html">Manage Users</a></li>
-        <li><a href="predictions.html">Market Predictions</a></li>
-        <li><a href="reports.html">Reports</a></li>
-        <li><a href="setting.html">Settings</a></li>
-      </ul>
-      <div class="logout">
-        <button>Logout</button>
-      </div>
-    </div>
-    <div class="main-content">
-      <header>
-        <h1>Settings</h1>
+      
+      <nav class="sidebar-nav">
+        <a href="/jeet" class="nav-link">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="/prediction" class="nav-link">
+          <i class="fas fa-crystal-ball"></i>
+          <span>Predictions</span>
+        </a>
+        <a href="/portfolio" class="nav-link">
+          <i class="fas fa-briefcase"></i>
+          <span>Portfolio</span>
+        </a>
+        <a href="/deposit" class="nav-link">
+          <i class="fas fa-wallet"></i>
+          <span>Deposit</span>
+        </a>
+        <a href="/news" class="nav-link">
+          <i class="fas fa-newspaper"></i>
+          <span>Market News</span>
+        </a>
+        <a href="/alerts" class="nav-link">
+          <i class="fas fa-bell"></i>
+          <span>Alerts</span>
+        </a>
+        <a href="/insight" class="nav-link">
+          <i class="fas fa-brain"></i>
+          <span>AI Insights</span>
+        </a>
+        <a href="/mystock" class="nav-link">
+          <i class="fas fa-star"></i>
+          <span>Watchlist</span>
+        </a>
+        <a href="/Superstars" class="nav-link">
+          <i class="fas fa-trophy"></i>
+          <span>Superstars</span>
+        </a>
+        <a href="/videos" class="nav-link">
+          <i class="fas fa-play-circle"></i>
+          <span>Videos</span>
+        </a>
+        <a href="/setting" class="nav-link active">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </a>
+        <a href="/profile" class="nav-link">
+          <i class="fas fa-user"></i>
+          <span>Profile</span>
+        </a>
+      </nav>
+      
+      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+    </aside>
+
+    <!-- MAIN FRAME -->
+    <div class="main-frame" id="mainFrame">
+      <!-- STICKY GLASS NAVBAR -->
+      <header class="glass-navbar">
+        <div class="navbar-left">
+          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="navbar-title font-space">System Settings</div>
+        </div>
+        
+        <div class="navbar-right">
+          <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-bar" placeholder="Search settings..." id="searchInput">
+          </div>
+          
+          <div class="navbar-actions">
+            <button class="btn-action" onclick="loadSettings()" title="Reset Settings">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="btn-action" onclick="toggleTheme()" title="Toggle Theme">
+              <i class="fas fa-palette"></i>
+            </button>
+          </div>
+          
+          <div class="profile-badge" id="profileBadge">
+            <div class="profile-avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <span class="profile-name">Guest User</span>
+          </div>
+        </div>
       </header>
-      <div class="form-group">
-        <label for="admin-email">Admin Email</label>
-        <input type="email" id="admin-email" placeholder="Enter admin email">
-      </div>
-      <div class="form-group">
-        <label for="password">Change Password</label>
-        <input type="password" id="password" placeholder="Enter new password">
-      </div>
-      <div class="form-group">
-        <label for="role">Change Role</label>
-        <select id="role">
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-        </select>
-      </div>
-      <button>Save Settings</button>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+        <!-- Settings Grid -->
+        <div class="settings-grid">
+          
+          <!-- API Configuration Card -->
+          <div class="settings-card">
+            <div class="card-header">
+              <i class="fas fa-key"></i>
+              <h3>API Configurations</h3>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="twelveDataKey">TwelveData API Key</label>
+              <input type="password" class="form-input" id="twelveDataKey" value="5f988a8aff6b4b58848dfcf67af727d9" placeholder="Enter TwelveData API Key">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="alphaVantageKey">AlphaVantage API Key</label>
+              <input type="password" class="form-input" id="alphaVantageKey" placeholder="Enter AlphaVantage Key (Optional)">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newsApiKey">NewsAPI Access Token</label>
+              <input type="password" class="form-input" id="newsApiKey" placeholder="Enter NewsAPI Key (Optional)">
+            </div>
+          </div>
+
+          <!-- Preferences Card -->
+          <div class="settings-card">
+            <div class="card-header">
+              <i class="fas fa-sliders-h"></i>
+              <h3>Platform Preferences</h3>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="baseCurrency">Base Currency</label>
+              <select class="form-select" id="baseCurrency">
+                <option value="INR">INR (₹)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="chartRefresh">Chart Refresh Interval</label>
+              <select class="form-select" id="chartRefresh">
+                <option value="30">Every 30 Seconds</option>
+                <option value="60">Every 1 Minute</option>
+                <option value="300">Every 5 Minutes</option>
+                <option value="manual">Manual Refresh</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="defaultStock">Default Dashboard Stock</label>
+              <input type="text" class="form-input" id="defaultStock" value="RELIANCE" placeholder="e.g. APPLE, INFY, RELIANCE">
+            </div>
+          </div>
+
+          <!-- Notification Settings -->
+          <div class="settings-card">
+            <div class="card-header">
+              <i class="fas fa-bell"></i>
+              <h3>Notifications & Alerts</h3>
+            </div>
+            
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">Price Spikes</span>
+                <span class="switch-desc">Alert when a watchlist stock moves > 3%</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="notifySpikes" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">AI Predictive Insights</span>
+                <span class="switch-desc">Receive weekly predictive summaries</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="notifyAI" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">Sound Alerts</span>
+                <span class="switch-desc">Play sleek chime on real-time transaction</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="notifySound">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Design & Performance Settings -->
+          <div class="settings-card">
+            <div class="card-header">
+              <i class="fas fa-palette"></i>
+              <h3>Aesthetics & Performance</h3>
+            </div>
+            
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">Background Particles</span>
+                <span class="switch-desc">Render dynamic floating dots on background</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="perfParticles" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">Glassmorphism Blur</span>
+                <span class="switch-desc">Enable smooth backdrop blurred filters</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="perfBlur" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="switch-group">
+              <div class="switch-info">
+                <span class="switch-title">High-FPS Mode</span>
+                <span class="switch-desc">Target 60fps animations for smoother glows</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="perfFps" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Action Button -->
+        <div style="text-align: center; margin-top: 16px;">
+          <button class="btn-save-all" onclick="saveSettings()">
+            <i class="fas fa-save"></i>
+            Save Configurations
+          </button>
+        </div>
+      </main>
     </div>
   </div>
+
+  <script src="/static/js/layout.js"></script>
+  <script>
+    // Load saved settings on load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+    });
+
+    function loadSettings() {
+      const keys = ['twelveDataKey', 'alphaVantageKey', 'newsApiKey', 'defaultStock'];
+      const selects = ['baseCurrency', 'chartRefresh'];
+      const toggles = ['notifySpikes', 'notifyAI', 'notifySound', 'perfParticles', 'perfBlur', 'perfFps'];
+
+      keys.forEach(k => {
+        const val = localStorage.getItem(k);
+        if (val !== null) document.getElementById(k).value = val;
+      });
+
+      selects.forEach(s => {
+        const val = localStorage.getItem(s);
+        if (val !== null) document.getElementById(s).value = val;
+      });
+
+      toggles.forEach(t => {
+        const val = localStorage.getItem(t);
+        if (val !== null) document.getElementById(t).checked = (val === 'true');
+      });
+
+      showToast('Settings loaded successfully!', 'info');
+    }
+
+    function saveSettings() {
+      const keys = ['twelveDataKey', 'alphaVantageKey', 'newsApiKey', 'defaultStock'];
+      const selects = ['baseCurrency', 'chartRefresh'];
+      const toggles = ['notifySpikes', 'notifyAI', 'notifySound', 'perfParticles', 'perfBlur', 'perfFps'];
+
+      keys.forEach(k => {
+        localStorage.setItem(k, document.getElementById(k).value);
+      });
+
+      selects.forEach(s => {
+        localStorage.setItem(s, document.getElementById(s).value);
+      });
+
+      toggles.forEach(t => {
+        localStorage.setItem(t, document.getElementById(t).checked);
+      });
+
+      // Update particles visibility based on performance setting
+      const particlesCanvas = document.getElementById('particlesCanvas');
+      if (particlesCanvas) {
+        particlesCanvas.style.display = document.getElementById('perfParticles').checked ? 'block' : 'none';
+      }
+
+      showToast('Configurations saved successfully!', 'success');
+    }
+
+    // Helper toast display logic
+    function showToast(message, type = 'success') {
+      let toast = document.getElementById('settingsToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'settingsToast';
+        toast.style.position = 'fixed';
+        toast.style.top = '24px';
+        toast.style.right = '24px';
+        toast.style.padding = '16px 24px';
+        toast.style.borderRadius = '12px';
+        toast.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        toast.style.fontSize = '14px';
+        toast.style.fontWeight = '600';
+        toast.style.zIndex = '9999';
+        toast.style.transition = 'all 0.3s ease';
+        toast.style.backdropFilter = 'blur(15px)';
+        toast.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+        document.body.appendChild(toast);
+      }
+
+      if (type === 'success') {
+        toast.style.background = 'rgba(0, 255, 157, 0.15)';
+        toast.style.borderColor = 'var(--up-color)';
+        toast.style.color = 'var(--up-color)';
+      } else if (type === 'error') {
+        toast.style.background = 'rgba(255, 77, 124, 0.15)';
+        toast.style.borderColor = 'var(--down-color)';
+        toast.style.color = 'var(--down-color)';
+      } else {
+        toast.style.background = 'rgba(0, 230, 255, 0.15)';
+        toast.style.borderColor = 'var(--active-color)';
+        toast.style.color = 'var(--active-color)';
+      }
+
+      toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}" style="margin-right: 8px;"></i> ${message}`;
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+
+      setTimeout(() => {
+        toast.style.transform = 'translateY(-20px)';
+        toast.style.opacity = '0';
+      }, 3000);
+    }
+  </script>
 </body>
 </html>
-
-
-
