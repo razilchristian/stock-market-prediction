@@ -1069,13 +1069,13 @@ def predict_stock():
         if not validate_stock_symbol(symbol):
             return jsonify({"error": f"Invalid symbol: {symbol}"}), 400
         
-        print(f"\n🚀 PREDICTION REQUEST FOR {symbol}")
+        print(f"\n[PREDICTION REQUEST FOR {symbol}]")
         
         historical_data, current_price, error = get_live_stock_data_enhanced(symbol)
         if error:
             return jsonify({"error": str(error)}), 400
         
-        print(f"💰 LIVE CURRENT PRICE: ${current_price:.2f}")
+        print(f"LIVE CURRENT PRICE: ${current_price:.2f}")
         
         clean_data, has_split, split_info = detect_and_handle_splits(historical_data, symbol)
         if has_split:
@@ -1084,11 +1084,11 @@ def predict_stock():
         models_loaded = predictor.load_models(symbol)
         
         if not models_loaded or not predictor.is_fitted:
-            print("🔨 Training new models...")
+            print("Training new models...")
             success, train_msg = predictor.train_all_models(clean_data if has_split else historical_data, symbol)
             if not success:
                 return provide_fallback_prediction(symbol, historical_data, current_price)
-            print("✅ Training complete")
+            print("Training complete")
         
         # Pass the LIVE CURRENT PRICE to the predictor
         prediction_result = predictor.get_reliable_predictions(
@@ -1125,7 +1125,7 @@ def predict_stock():
         return jsonify(response)
         
     except Exception as e:
-        print(f"❌ Prediction error: {e}")
+        print(f"Prediction error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e), "fallback": True}), 500

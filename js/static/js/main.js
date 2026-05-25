@@ -6,6 +6,10 @@ import { APIService } from './api.js';
 
 import { renderDashboard } from './pages/dashboard.js';
 import { renderPrediction } from './pages/prediction.js';
+import { renderPortfolio } from './pages/portfolio.js';
+import { renderWatchlist } from './pages/watchlist.js';
+
+import { renderNews, renderInsights, renderSettings, renderGenericPlaceholder } from './pages/generic.js';
 
 // 1. Initialize Layout Elements
 function initLayout(title) {
@@ -77,6 +81,42 @@ async function route() {
     else if (path.includes('prediction')) {
       initLayout('AI Predictions');
       await renderPrediction(contentMount);
+    }
+    else if (path.includes('portfolio')) {
+      initLayout('Portfolio');
+      await renderPortfolio(contentMount);
+    }
+    else if (path.includes('mystock')) {
+      initLayout('Live Watchlist');
+      await renderWatchlist(contentMount);
+    }
+    else if (path.includes('news')) {
+      initLayout('Market News');
+      await renderNews(contentMount);
+    }
+    else if (path.includes('insight')) {
+      initLayout('AI Insights');
+      await renderInsights(contentMount);
+    }
+    else if (path.includes('setting')) {
+      initLayout('Settings');
+      await renderSettings(contentMount);
+    }
+    else if (path.includes('Superstars')) {
+      initLayout('Superstars');
+      renderGenericPlaceholder(contentMount, 'Superstar Investors', 'fa-trophy');
+    }
+    else if (path.includes('videos')) {
+      initLayout('Market Videos');
+      renderGenericPlaceholder(contentMount, 'Video Library', 'fa-play-circle');
+    }
+    else if (path.includes('alerts')) {
+      initLayout('Alerts');
+      renderGenericPlaceholder(contentMount, 'Smart Alerts', 'fa-bell');
+    }
+    else if (path.includes('profile')) {
+      initLayout('Profile');
+      renderGenericPlaceholder(contentMount, 'User Profile', 'fa-user');
     }
     else {
       initLayout('AlphaAnalytics');
