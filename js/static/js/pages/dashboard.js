@@ -118,54 +118,33 @@ export async function renderDashboard(mountNode) {
       </div>
     `;
 
-    // Render Chart using ApexCharts
-    if (window.ApexCharts) {
-      const options = {
-        series: [{
-          name: 'Portfolio Value',
-          data: [115000, 116200, 118500, 117800, 120000, 122500, 124592]
-        }],
-        chart: {
-          type: 'area',
-          height: 300,
-          toolbar: { show: false },
-          background: 'transparent',
-          fontFamily: 'Inter, sans-serif'
-        },
-        colors: ['#00E6FF'],
-        fill: {
-          type: 'gradient',
-          gradient: {
-            shadeIntensity: 1,
-            opacityFrom: 0.4,
-            opacityTo: 0.05,
-            stops: [0, 90, 100]
-          }
-        },
-        dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2 },
-        xaxis: {
-          categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-          labels: { style: { colors: '#94A3B8' } },
-          axisBorder: { show: false },
-          axisTicks: { show: false }
-        },
-        yaxis: {
-          labels: {
-            style: { colors: '#94A3B8' },
-            formatter: (value) => { return "$" + (value / 1000) + "k" }
-          }
-        },
-        grid: {
-          borderColor: 'rgba(255,255,255,0.05)',
-          strokeDashArray: 4,
-          yaxis: { lines: { show: true } }
-        },
-        theme: { mode: 'dark' }
+    // Render Chart using TradingView Advanced Widget
+    const chartContainer = document.getElementById('main-chart');
+    if (chartContainer) {
+      chartContainer.innerHTML = '';
+      
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.onload = () => {
+        new TradingView.widget({
+          "autosize": true,
+          "symbol": topStock.symbol,
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "enable_publishing": false,
+          "backgroundColor": "transparent",
+          "gridColor": "rgba(255, 255, 255, 0.05)",
+          "hide_top_toolbar": false,
+          "hide_legend": true,
+          "save_image": false,
+          "container_id": "main-chart"
+        });
       };
-
-      const chart = new ApexCharts(document.querySelector("#main-chart"), options);
-      chart.render();
+      document.body.appendChild(script);
     }
 
   } catch (err) {

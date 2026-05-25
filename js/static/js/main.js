@@ -4,9 +4,8 @@ import { renderSidebar } from './components/sidebar.js';
 import { renderNavbar } from './components/navbar.js';
 import { APIService } from './api.js';
 
-// Import pages (we will create these next)
 import { renderDashboard } from './pages/dashboard.js';
-// We will add other pages here
+import { renderPrediction } from './pages/prediction.js';
 
 // 1. Initialize Layout Elements
 function initLayout(title) {
@@ -77,8 +76,7 @@ async function route() {
     } 
     else if (path.includes('prediction')) {
       initLayout('AI Predictions');
-      // await renderPrediction(contentMount);
-      contentMount.innerHTML = '<div class="bento-card"><h2 class="text-cyan">AI Predictions (Coming Soon)</h2></div>';
+      await renderPrediction(contentMount);
     }
     else {
       initLayout('AlphaAnalytics');
