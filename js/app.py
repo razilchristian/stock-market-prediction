@@ -733,8 +733,10 @@ class OCHLPredictor:
             
             predictions = {}
             confidence_scores = {}
+            detailed_predictions = {}
             
             for target in self.targets:
+                detailed_predictions[target] = {}
                 if target not in self.models or not self.models[target]:
                     predictions[target] = current_close
                     confidence_scores[target] = 50
@@ -774,6 +776,7 @@ class OCHLPredictor:
                         
                         if is_valid:
                             target_predictions.append(pred_actual)
+                            detailed_predictions[target][algo] = round(pred_actual, 2)
                             confidence = 55 - penalty
                             target_confidences.append(max(40, min(70, confidence)))
                             print(f"   [OK] {algo:15s}: ${pred_actual:.2f}")
@@ -854,7 +857,8 @@ class OCHLPredictor:
                     'low': float(data['Low'].iloc[-1]) if 'Low' in data.columns else current_close * 0.99,
                     'close': float(current_close)
                 },
-                'split_info': split_info if has_split else None
+                'split_info': split_info if has_split else None,
+                'detailed_predictions': detailed_predictions
             }
             
             print(f"\n FINAL PREDICTIONS (Live price: ${current_close:.2f}):")
@@ -1134,7 +1138,8 @@ def predict_stock():
                 "last_training_date": predictor.last_training_date,
                 "feature_count": len(predictor.feature_columns),
                 "fallback_mode": prediction_result.get('fallback', False),
-                "version": "12.2.0"
+                "version": "12.2.0",
+                "detailed_predictions": prediction_result.get('detailed_predictions', {})
             },
             "insight": f"AI predicts {((history_entry.get('predicted', {}).get('Close', current_price) - current_price) / current_price * 100):+.1f}% change"
         }

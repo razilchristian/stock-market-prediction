@@ -159,5 +159,28 @@ function renderResults(container, data) {
         `;
       }).join('')}
     </div>
+
+    <!-- Algorithm Breakdown -->
+    <h3 style="margin: var(--space-5) 0 var(--space-3) 0;">Algorithm Breakdown (Close Price)</h3>
+    <div class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+      ${Object.entries(model_info.detailed_predictions?.Close || {}).map(([algo, price], i) => {
+        const diff = price - currentPrice;
+        const diffColor = diff >= 0 ? 'var(--up-color)' : 'var(--down-color)';
+        const diffIcon = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
+        const pPct = (Math.abs(diff) / currentPrice) * 100;
+        return `
+          <div class="bento-card animate-fade-in" style="animation-delay: ${0.5 + (i*0.05)}s; padding: var(--space-3);">
+            <div class="flex-between">
+              <span style="font-weight: 600; font-size: 14px;">${algo}</span>
+              <i class="fas fa-microchip text-muted" style="font-size: 12px;"></i>
+            </div>
+            <h3 style="margin: 12px 0 4px 0; font-size: 20px;">$${price.toFixed(2)}</h3>
+            <p style="color: ${diffColor}; font-size: 12px;">
+              <i class="fas ${diffIcon}"></i> ${pPct.toFixed(2)}%
+            </p>
+          </div>
+        `;
+      }).join('') || '<p class="text-muted" style="grid-column: 1/-1;">Detailed algorithm predictions not available.</p>'}
+    </div>
   `;
 }

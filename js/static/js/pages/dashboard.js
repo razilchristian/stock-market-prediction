@@ -63,7 +63,14 @@ export async function renderDashboard(mountNode) {
         <!-- Chart Section -->
         <div class="bento-card animate-fade-in stagger-4" style="grid-column: span 2; min-height: 400px;">
           <div class="flex-between" style="margin-bottom: var(--space-3);">
-            <h3>Market Overview</h3>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <h3>Market Overview</h3>
+              <div class="search-box" style="width: 200px; padding: 4px 8px; min-height: 30px;">
+                <i class="fas fa-search text-cyan" style="font-size: 12px;"></i>
+                <input type="text" id="chart-symbol-input" placeholder="Search symbol..." autocomplete="off" style="font-size: 12px; height: 20px;" />
+                <button id="chart-search-btn" class="btn btn-primary" style="padding: 2px 8px; font-size: 10px; height: 20px; min-height: 20px;">GO</button>
+              </div>
+            </div>
             <div style="display: flex; gap: 8px;">
               <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">1D</button>
               <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;">1W</button>
@@ -119,32 +126,52 @@ export async function renderDashboard(mountNode) {
     `;
 
     // Render Chart using TradingView Advanced Widget
-    const chartContainer = document.getElementById('main-chart');
-    if (chartContainer) {
-      chartContainer.innerHTML = '';
-      
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = 'https://s3.tradingview.com/tv.js';
-      script.onload = () => {
-        new TradingView.widget({
-          "autosize": true,
-          "symbol": topStock.symbol,
-          "interval": "D",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "1",
-          "locale": "en",
-          "enable_publishing": false,
-          "backgroundColor": "transparent",
-          "gridColor": "rgba(255, 255, 255, 0.05)",
-          "hide_top_toolbar": false,
-          "hide_legend": true,
-          "save_image": false,
-          "container_id": "main-chart"
-        });
+    const renderChart = (symbol) => {
+      const chartContainer = document.getElementById('main-chart');
+      if (chartContainer) {
+        chartContainer.innerHTML = '';
+        
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.onload = () => {
+          new TradingView.widget({
+            "autosize": true,
+            "symbol": symbol,
+            "interval": "D",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "enable_publishing": false,
+            "backgroundColor": "transparent",
+            "gridColor": "rgba(255, 255, 255, 0.05)",
+            "hide_top_toolbar": false,
+            "hide_legend": true,
+            "save_image": false,
+            "container_id": "main-chart"
+          });
+        };
+        document.body.appendChild(script);
+      }
+    };
+    
+    renderChart(topStock.symbol);
+
+    const chartBtn = document.getElementById('chart-search-btn');
+    const chartInput = document.getElementById('chart-symbol-input');
+    if (chartBtn && chartInput) {
+      const updateChart = () => {
+        const sym = chartInput.value.trim().toUpperCase();
+        if (sym) {
+          renderChart(sym);
+          showToast('Updated chart for ' + sym, 'success');
+        }
       };
-      document.body.appendChild(script);
+      chartBtn.addEventListener('click', updateChart);
+      chartInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') updateChart();
+      });
     }
 
   } catch (err) {
