@@ -1,4 +1,4 @@
-# app.py — FIXED OVERFITTING VERSION - CORRECT LIVE PRICE HANDLING
+# app.py  FIXED OVERFITTING VERSION - CORRECT LIVE PRICE HANDLING
 import os
 import time
 import random
@@ -99,7 +99,7 @@ def detect_and_handle_splits(data, ticker):
                 data['Date'] = pd.to_datetime(data['Date'])
                 post_split_data = data[data['Date'] > split_date]
                 if len(post_split_data) > 100:
-                    print(f"   ✓ Using {len(post_split_data)} post-split days")
+                    print(f"    Using {len(post_split_data)} post-split days")
                     return post_split_data, True, split_info
         return data, False, None
     except Exception as e:
@@ -235,7 +235,7 @@ def create_advanced_features(data):
 @rate_limiter
 def get_live_stock_data_enhanced(ticker):
     try:
-        print(f"📊 Fetching historical data for {ticker}...")
+        print(f" Fetching historical data for {ticker}...")
         
         if not validate_stock_symbol(ticker):
             return generate_fallback_data(ticker, days=500)
@@ -248,7 +248,7 @@ def get_live_stock_data_enhanced(ticker):
             hist = ticker_obj.history(period="2y", interval="1d", timeout=30)
         
         if hist.empty:
-            print(f"⚠️ Using fallback data for {ticker}")
+            print(f" Using fallback data for {ticker}")
             return generate_fallback_data(ticker, days=500)
         
         hist = hist.reset_index()
@@ -273,13 +273,13 @@ def get_live_stock_data_enhanced(ticker):
         
         current_price = float(hist['Close'].iloc[-1]) if 'Close' in hist.columns else 100.0
         
-        print(f"✅ Successfully fetched {len(hist)} days of data for {ticker}")
+        print(f"[OK] Successfully fetched {len(hist)} days of data for {ticker}")
         print(f"   Current price: ${current_price:.2f}")
         
         return hist, current_price, None
         
     except Exception as e:
-        print(f"❌ Error fetching data for {ticker}: {e}")
+        print(f"[ERROR] Error fetching data for {ticker}: {e}")
         return generate_fallback_data(ticker, days=500)
 
 def generate_fallback_data(ticker, days=500):
@@ -320,7 +320,7 @@ def generate_fallback_data(ticker, days=500):
         'Volume': [random.randint(500000, 5000000) for _ in range(len(prices))]
     })
     
-    print(f"📊 Generated {len(df)} days of fallback data for {ticker}")
+    print(f" Generated {len(df)} days of fallback data for {ticker}")
     return df, prices[-1], None
 
 # ---------------- OCHL Multi-Algorithm Predictor ----------------
@@ -383,7 +383,7 @@ class OCHLPredictor:
             with open(self.get_history_path(symbol), 'w') as f:
                 json.dump(history_data, f, default=str, indent=2)
             
-            print(f"💾 Saved models for {symbol}")
+            print(f" Saved models for {symbol}")
             return True
         except Exception as e:
             print(f"Error saving models: {e}")
@@ -427,7 +427,7 @@ class OCHLPredictor:
                     self.last_training_date = history_data.get('last_training_date')
                     self.feature_columns = history_data.get('feature_columns', self.feature_columns)
                 
-                print(f"✅ Loaded existing models for {symbol}")
+                print(f"[OK] Loaded existing models for {symbol}")
                 return True
             
             return False
@@ -437,13 +437,13 @@ class OCHLPredictor:
     
     def prepare_training_data(self, data, symbol=None):
         try:
-            print(f"\n📋 Preparing training data...")
+            print(f"\n Preparing training data...")
             print(f"   Initial data: {len(data)} rows")
             
             data_with_features = create_advanced_features(data)
             
             if len(data_with_features) < 100:
-                print(f"❌ Insufficient data")
+                print(f"[ERROR] Insufficient data")
                 return None, None, None
             
             numeric_cols = [col for col in data_with_features.columns 
@@ -501,7 +501,7 @@ class OCHLPredictor:
             
             valid_targets = [t for t in self.targets if t in X_data and X_data[t] is not None]
             if len(valid_targets) == 0:
-                print("❌ No valid training data")
+                print("[ERROR] No valid training data")
                 return None, None, None
             
             all_features = np.vstack([X_data[t] for t in valid_targets if X_data[t] is not None])
@@ -610,12 +610,12 @@ class OCHLPredictor:
                 
             return None
         except Exception as e:
-            print(f"      ❌ {algorithm}: {str(e)[:50]}")
+            print(f"      [ERROR] {algorithm}: {str(e)[:50]}")
             return None
     
     def train_all_models(self, data, symbol):
         try:
-            print(f"\n🔨 TRAINING MODELS FOR {symbol}")
+            print(f"\n[BUILD] TRAINING MODELS FOR {symbol}")
             print(f"="*60)
             
             clean_data, has_split, split_info = detect_and_handle_splits(data, symbol)
@@ -632,22 +632,22 @@ class OCHLPredictor:
             algorithms = ['ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'xgboost', 'lightgbm']
             self.models = {target: {} for target in self.targets}
             
-            print(f"📊 Training {len(algorithms)} algorithms...")
+            print(f" Training {len(algorithms)} algorithms...")
             
             targets_trained = 0
             
             for target in self.targets:
-                print(f"\n   🎯 Training {target}...")
+                print(f"\n    Training {target}...")
                 
                 if target not in X_data or X_data[target] is None:
-                    print(f"   ❌ No data for {target}")
+                    print(f"   [ERROR] No data for {target}")
                     continue
                 
                 X = X_data[target]
                 y = y_data[target]
                 
                 if len(X) < 100:
-                    print(f"   ❌ Insufficient samples ({len(X)})")
+                    print(f"   [ERROR] Insufficient samples ({len(X)})")
                     continue
                 
                 successful = 0
@@ -662,14 +662,14 @@ class OCHLPredictor:
                         y_pred = y_pred_scaled * model.price_stats['y_std'] + model.price_stats['y_mean']
                         y_actual = y[-100:]
                         mae = mean_absolute_error(y_actual, y_pred)
-                        print(f"✅ (MAE: ${mae:.2f})")
+                        print(f"[OK] (MAE: ${mae:.2f})")
                         successful += 1
                     else:
-                        print(f"❌")
+                        print(f"[ERROR]")
                 
                 if successful > 0:
                     targets_trained += 1
-                    print(f"   ✅ Trained {successful}/{len(algorithms)} for {target}")
+                    print(f"   [OK] Trained {successful}/{len(algorithms)} for {target}")
             
             if targets_trained == 0:
                 return False, "Failed to train any models"
@@ -687,7 +687,7 @@ class OCHLPredictor:
             self.save_models(symbol)
             gc.collect()
             
-            print(f"\n✅ TRAINING COMPLETE - {targets_trained} targets trained")
+            print(f"\n[OK] TRAINING COMPLETE - {targets_trained} targets trained")
             return True, f"Trained {targets_trained} targets"
             
         except Exception as e:
@@ -700,7 +700,7 @@ class OCHLPredictor:
         """PREDICT WITH LIVE PRICE REFERENCE"""
         try:
             print(f"\n{'='*60}")
-            print(f"🤖 PREDICTING FOR {symbol}")
+            print(f" PREDICTING FOR {symbol}")
             print(f"{'='*60}")
             
             clean_data, has_split, split_info = detect_and_handle_splits(data, symbol)
@@ -708,7 +708,7 @@ class OCHLPredictor:
                 data = clean_data
             
             if not self.models or not self.is_fitted:
-                print(f"⚠️ No models available")
+                print(f" No models available")
                 return self.get_conservative_fallback(data, live_price)
             
             X_data, _, data_with_features = self.prepare_training_data(data, symbol)
@@ -719,10 +719,10 @@ class OCHLPredictor:
             # CRITICAL FIX: Use live price if provided
             if live_price is not None and live_price > 0:
                 current_close = live_price
-                print(f"📊 USING LIVE PRICE: ${current_close:.2f}")
+                print(f" USING LIVE PRICE: ${current_close:.2f}")
             else:
                 current_close = data_with_features['Close'].iloc[-1] if 'Close' in data_with_features.columns else 100.0
-                print(f"📊 Using historical price: ${current_close:.2f}")
+                print(f" Using historical price: ${current_close:.2f}")
             
             predictions = {}
             confidence_scores = {}
@@ -769,12 +769,12 @@ class OCHLPredictor:
                             target_predictions.append(pred_actual)
                             confidence = 55 - penalty
                             target_confidences.append(max(40, min(70, confidence)))
-                            print(f"   ✅ {algo:15s}: ${pred_actual:.2f}")
+                            print(f"   [OK] {algo:15s}: ${pred_actual:.2f}")
                         else:
-                            print(f"   ❌ {algo:15s}: REJECTED ({(abs(pred_actual-current_close)/current_close)*100:.1f}% move)")
+                            print(f"   [ERROR] {algo:15s}: REJECTED ({(abs(pred_actual-current_close)/current_close)*100:.1f}% move)")
                             
                     except Exception as e:
-                        print(f"   ❌ {algo:15s}: ERROR - {str(e)[:30]}")
+                        print(f"   [ERROR] {algo:15s}: ERROR - {str(e)[:30]}")
                 
                 if target_predictions:
                     predictions[target] = float(np.median(target_predictions))
@@ -784,7 +784,7 @@ class OCHLPredictor:
                     recent_returns = data_with_features['Return'].iloc[-5:].mean() if 'Return' in data_with_features.columns else 0
                     predictions[target] = current_close * (1 + np.clip(recent_returns, -0.015, 0.015))
                     confidence_scores[target] = 45
-                    print(f"   ⚠️ Using trend fallback for {target}: ${predictions[target]:.2f}")
+                    print(f"    Using trend fallback for {target}: ${predictions[target]:.2f}")
             
             # Ensure OHLC consistency
             pred_open = predictions.get("Open", current_close)
@@ -850,7 +850,7 @@ class OCHLPredictor:
                 'split_info': split_info if has_split else None
             }
             
-            print(f"\n🎯 FINAL PREDICTIONS (Live price: ${current_close:.2f}):")
+            print(f"\n FINAL PREDICTIONS (Live price: ${current_close:.2f}):")
             print(f"   Open : ${predictions.get('Open', current_close):.2f}")
             print(f"   High : ${predictions.get('High', current_close):.2f}")
             print(f"   Low  : ${predictions.get('Low', current_close):.2f}")
@@ -860,7 +860,7 @@ class OCHLPredictor:
             return result
             
         except Exception as e:
-            print(f"❌ Error predicting: {e}")
+            print(f"[ERROR] Error predicting: {e}")
             import traceback
             traceback.print_exc()
             return self.get_conservative_fallback(data, live_price)
@@ -900,7 +900,7 @@ class OCHLPredictor:
                     'confidence_color': 'warning'
                 },
                 'risk_alerts': [{
-                    'level': '🟡 MEDIUM',
+                    'level': ' MEDIUM',
                     'type': 'Conservative Mode',
                     'message': 'Using conservative predictions',
                     'details': 'Primary models unavailable'
@@ -924,7 +924,7 @@ class OCHLPredictor:
             'predictions': {'Open': 100.0, 'High': 101.0, 'Low': 99.0, 'Close': 100.0},
             'confidence_scores': {'Open': 50, 'High': 50, 'Low': 50, 'Close': 50},
             'confidence_metrics': {'overall_confidence': 50, 'confidence_level': 'LOW', 'confidence_color': 'danger'},
-            'risk_alerts': [{'level': '🔴 CRITICAL', 'type': 'Emergency Mode', 'message': 'Emergency fallback active', 'details': ''}],
+            'risk_alerts': [{'level': ' CRITICAL', 'type': 'Emergency Mode', 'message': 'Emergency fallback active', 'details': ''}],
             'current_prices': {'open': 99.5, 'high': 101.5, 'low': 98.5, 'close': 100.0},
             'fallback': True
         }
@@ -975,18 +975,18 @@ def get_market_status():
 
 def get_trading_recommendation(predictions, current_prices, confidence):
     if confidence < 45:
-        return "🚨 LOW CONFIDENCE - WAIT"
+        return " LOW CONFIDENCE - WAIT"
     expected_change = ((predictions.get('Close', current_prices['close']) - current_prices['close']) / current_prices['close']) * 100
     if expected_change > 2.5 and confidence >= 60:
-        return "✅ BUY"
+        return "[OK] BUY"
     elif expected_change > 1 and confidence >= 55:
-        return "📈 CONSIDER BUYING"
+        return " CONSIDER BUYING"
     elif expected_change < -2.5 and confidence >= 60:
-        return "📉 SELL"
+        return " SELL"
     elif expected_change < -1 and confidence >= 55:
-        return "💼 CONSIDER SELLING"
+        return " CONSIDER SELLING"
     else:
-        return "🔄 HOLD"
+        return " HOLD"
 
 # ---------------- Navigation Routes ----------------
 NAVIGATION_MAP = {
