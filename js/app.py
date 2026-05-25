@@ -1034,17 +1034,27 @@ def get_stocks_list():
         {"symbol":"META","name":"Meta Platforms Inc.","price":485.00,"change":0.0},
     ]
     
+    import requests
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     for stock in popular_stocks:
         try:
-            t = yf.Ticker(stock['symbol'])
-            h = t.history(period='1d', interval='1m', timeout=10)
-            if not h.empty:
-                current = h['Close'].iloc[-1]
-                prev_close = t.info.get('previousClose', current)
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{stock['symbol']}?interval=1d&range=2d"
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                meta = data['chart']['result'][0]['meta']
+                current = meta['regularMarketPrice']
+                prev_close = meta['chartPreviousClose']
                 change = ((current - prev_close) / prev_close) * 100 if prev_close != 0 else 0.0
+                
                 stock['price'] = round(current, 2)
                 stock['change'] = round(change, 2)
         except Exception as e:
+            print(f"Failed to fetch live data for {stock['symbol']}: {e}")
             continue
     
     return jsonify(popular_stocks)
