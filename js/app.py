@@ -537,30 +537,30 @@ class OCHLPredictor:
                 y_scaled = y
             
             if algorithm == 'ridge':
-                model = Ridge(alpha=5.0, random_state=42)
+                model = Ridge(alpha=0.1, random_state=42)
                 model.fit(X_scaled, y_scaled)
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
                 
             elif algorithm == 'lasso':
-                model = Lasso(alpha=0.5, random_state=42, max_iter=10000)
+                model = Lasso(alpha=0.01, random_state=42, max_iter=10000)
                 model.fit(X_scaled, y_scaled)
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
                 
             elif algorithm == 'svr':
-                model = SVR(kernel='rbf', C=0.5, epsilon=0.1, gamma='scale')
+                model = SVR(kernel='rbf', C=10.0, epsilon=0.05, gamma='scale')
                 model.fit(X_scaled, y_scaled)
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
                 
             elif algorithm == 'random_forest':
                 model = RandomForestRegressor(
-                    n_estimators=30,
-                    max_depth=3,
-                    min_samples_split=30,
-                    min_samples_leaf=15,
-                    max_features=0.5,
+                    n_estimators=100,
+                    max_depth=10,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    max_features=1.0,
                     random_state=42,
                     n_jobs=-1
                 )
@@ -570,12 +570,12 @@ class OCHLPredictor:
                 
             elif algorithm == 'gradient_boosting':
                 model = GradientBoostingRegressor(
-                    n_estimators=30,
-                    learning_rate=0.01,
-                    max_depth=2,
-                    min_samples_split=30,
-                    min_samples_leaf=20,
-                    subsample=0.5,
+                    n_estimators=100,
+                    learning_rate=0.1,
+                    max_depth=4,
+                    min_samples_split=5,
+                    min_samples_leaf=2,
+                    subsample=0.8,
                     random_state=42
                 )
                 model.fit(X_scaled, y_scaled)
@@ -584,13 +584,13 @@ class OCHLPredictor:
                 
             elif algorithm == 'xgboost':
                 model = XGBRegressor(
-                    n_estimators=30,
-                    max_depth=3,
-                    learning_rate=0.01,
-                    subsample=0.5,
-                    colsample_bytree=0.5,
-                    reg_alpha=2.0,
-                    reg_lambda=3.0,
+                    n_estimators=100,
+                    max_depth=4,
+                    learning_rate=0.1,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    reg_alpha=0.1,
+                    reg_lambda=1.0,
                     random_state=42,
                     n_jobs=-1
                 )
@@ -600,13 +600,13 @@ class OCHLPredictor:
                 
             elif algorithm == 'lightgbm':
                 model = LGBMRegressor(
-                    n_estimators=30,
-                    max_depth=3,
-                    learning_rate=0.01,
-                    subsample=0.5,
-                    colsample_bytree=0.5,
-                    reg_alpha=2.0,
-                    reg_lambda=3.0,
+                    n_estimators=100,
+                    max_depth=4,
+                    learning_rate=0.1,
+                    subsample=0.8,
+                    colsample_bytree=0.8,
+                    reg_alpha=0.1,
+                    reg_lambda=1.0,
                     random_state=42,
                     n_jobs=-1,
                     verbose=-1
