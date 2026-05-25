@@ -1,0 +1,67 @@
+/* animations.css - AlphaAnalytics v3.0 CSS Animations */
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 10px rgba(0, 230, 255, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(0, 230, 255, 0.6); }
+  100% { box-shadow: 0 0 10px rgba(0, 230, 255, 0.2); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-pulse {
+  animation: pulse-glow 2s infinite;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.shimmer-loading {
+  background: linear-gradient(90deg, 
+    var(--bg-card) 25%, 
+    rgba(255, 255, 255, 0.05) 50%, 
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Staggered children fade-in */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }

@@ -1,501 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deposit - AlphaAnalytics</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/css/layout.css">
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AlphaAnalytics v3.0 - AI Market Intelligence</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="/static/css/variables.css" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/components.css" />
+  <link rel="stylesheet" href="/static/css/animations.css" />
 </head>
-  <!-- Animated Background Canvas -->
-  <canvas id="particlesCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none;"></canvas>
+<body>
+  <!-- Animated Background -->
+  <canvas id="bg-canvas"></canvas>
 
-  <div class="app-container">
-    <!-- COLLAPSIBLE SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <i class="fas fa-chart-line brand-icon"></i>
-        <span class="brand-name font-space">AlphaAnalytics</span>
-      </div>
+  <div id="app-container">
+    <!-- Sidebar Component (Injected via JS) -->
+    <div id="sidebar-mount"></div>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Navbar Component (Injected via JS) -->
+      <div id="navbar-mount"></div>
       
-      <nav class="sidebar-nav">
-        <a href="/jeet" class="nav-link">
-          <i class="fas fa-chart-pie"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="/prediction" class="nav-link">
-          <i class="fas fa-crystal-ball"></i>
-          <span>Predictions</span>
-        </a>
-        <a href="/portfolio" class="nav-link">
-          <i class="fas fa-briefcase"></i>
-          <span>Portfolio</span>
-        </a>
-        <a href="/deposit" class="nav-link active">
-          <i class="fas fa-wallet"></i>
-          <span>Deposit</span>
-        </a>
-        <a href="/news" class="nav-link">
-          <i class="fas fa-newspaper"></i>
-          <span>Market News</span>
-        </a>
-        <a href="/alerts" class="nav-link">
-          <i class="fas fa-bell"></i>
-          <span>Alerts</span>
-        </a>
-        <a href="/insight" class="nav-link">
-          <i class="fas fa-brain"></i>
-          <span>AI Insights</span>
-        </a>
-        <a href="/mystock" class="nav-link">
-          <i class="fas fa-star"></i>
-          <span>Watchlist</span>
-        </a>
-        <a href="/Superstars" class="nav-link">
-          <i class="fas fa-trophy"></i>
-          <span>Superstars</span>
-        </a>
-        <a href="/videos" class="nav-link">
-          <i class="fas fa-play-circle"></i>
-          <span>Videos</span>
-        </a>
-        <a href="/setting" class="nav-link">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
-        </a>
-        <a href="/profile" class="nav-link">
-          <i class="fas fa-user"></i>
-          <span>Profile</span>
-        </a>
-      </nav>
-      
-      <button class="sidebar-toggle" id="sidebarCollapseBtn" aria-label="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-    </aside>
-
-    <!-- MAIN FRAME -->
-    <div class="main-frame" id="mainFrame">
-      <!-- STICKY GLASS NAVBAR -->
-      <header class="glass-navbar">
-        <div class="navbar-left">
-          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <div class="navbar-title font-space">Deposit Funds</div>
-        </div>
-        
-        <div class="navbar-right">
-          <div class="search-container">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" class="search-bar" placeholder="Search funding..." id="globalSearch">
+      <!-- Page Content (Injected via JS based on route) -->
+      <div id="page-content" class="animate-fade-in">
+        <div class="flex-center" style="height: 50vh;">
+          <div class="animate-spin text-cyan" style="font-size: 2rem;">
+            <i class="fas fa-circle-notch"></i>
           </div>
-          
-          <div class="navbar-actions">
-            <button class="btn-action" onclick="window.location.reload()" title="Refresh">
-              <i class="fas fa-sync-alt"></i>
-            </button>
-            <button class="btn-action" onclick="document.body.classList.toggle('light')" title="Toggle Theme">
-              <i class="fas fa-palette"></i>
-            </button>
-          </div>
-          
-          <div class="profile-badge" id="profileBadge">
-            <div class="profile-avatar">
-              <i class="fas fa-user"></i>
-            </div>
-            <span class="profile-name">Guest User</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- MAIN CONTENT -->
-      <main class="main-content">
-
-    <!-- Balance Overview -->
-    <div class="deposit-overview">
-      <div class="balance-card">
-        <h3>Available Balance</h3>
-        <div class="balance-amount">₹<span id="balanceAmount">5,000</span></div>
-        <div class="balance-change positive">
-          <i class="fas fa-arrow-up"></i> Ready for Investment
         </div>
       </div>
-      
-      <div class="balance-card">
-        <h3>This Month</h3>
-        <div class="balance-amount">₹<span id="monthlyDeposit">12,500</span></div>
-        <div class="balance-change positive">
-          <i class="fas fa-trending-up"></i> +150% from last month
-        </div>
-      </div>
-      
-      <div class="balance-card">
-        <h3>Total Deposits</h3>
-        <div class="balance-amount">₹<span id="totalDeposit">87,500</span></div>
-        <div class="balance-change positive">
-          <i class="fas fa-chart-line"></i> All-time deposits
-        </div>
-      </div>
-    </div>
-
-    <!-- Deposit Section -->
-    <div class="deposit-section">
-      <!-- Deposit Form -->
-      <div class="deposit-form-container">
-        <div class="deposit-form-header">
-          <i class="fas fa-money-bill-wave deposit-icon"></i>
-          <h2>Add Funds</h2>
-        </div>
-        
-        <form id="depositForm" autocomplete="off" novalidate>
-          <div class="form-group">
-            <label for="depositAmount">Amount (₹)</label>
-            <input type="number" id="depositAmount" class="form-control" placeholder="Enter amount" min="100" required>
-          </div>
-
-          <div class="form-group">
-            <label>Payment Method</label>
-            <div class="payment-methods">
-              <div class="payment-method active" data-method="upi">
-                <i class="fas fa-mobile-alt payment-icon"></i>
-                <div class="payment-name">UPI</div>
-              </div>
-              <div class="payment-method" data-method="netbanking">
-                <i class="fas fa-university payment-icon"></i>
-                <div class="payment-name">Net Banking</div>
-              </div>
-              <div class="payment-method" data-method="creditcard">
-                <i class="fas fa-credit-card payment-icon"></i>
-                <div class="payment-name">Credit Card</div>
-              </div>
-              <div class="payment-method" data-method="debitcard">
-                <i class="fas fa-credit-card payment-icon"></i>
-                <div class="payment-name">Debit Card</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="paymentDetails">Payment Details</label>
-            <input type="text" id="paymentDetails" class="form-control" placeholder="UPI ID / Card Number" required>
-          </div>
-
-          <button type="submit" class="btn btn-primary">
-            <i class="fas fa-lock"></i> Secure Deposit
-          </button>
-        </form>
-
-        <!-- Messages -->
-        <div class="message success" id="successMessage">
-          <i class="fas fa-check-circle"></i> Deposit successful! Funds will be available shortly.
-        </div>
-        
-        <div class="message error" id="errorMessage">
-          <i class="fas fa-exclamation-circle"></i> Deposit failed. Please check your details.
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="quick-actions">
-        <h3>Quick Actions</h3>
-        <div class="action-buttons">
-          <div class="action-btn" onclick="quickDeposit(1000)">
-            <i class="fas fa-bolt action-icon"></i>
-            <div class="action-text">₹1,000</div>
-          </div>
-          <div class="action-btn" onclick="quickDeposit(5000)">
-            <i class="fas fa-bolt action-icon"></i>
-            <div class="action-text">₹5,000</div>
-          </div>
-          <div class="action-btn" onclick="quickDeposit(10000)">
-            <i class="fas fa-bolt action-icon"></i>
-            <div class="action-text">₹10,000</div>
-          </div>
-          <div class="action-btn" onclick="quickDeposit(25000)">
-            <i class="fas fa-bolt action-icon"></i>
-            <div class="action-text">₹25,000</div>
-          </div>
-        </div>
-        
-        <div style="margin-top: 20px;">
-          <button class="btn btn-secondary" onclick="toggleTheme()">
-            <i class="fas fa-palette"></i> Toggle Theme
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- AI Insight -->
-    <div class="ai-insight">
-      <div class="ai-insight-header">
-        <i class="fas fa-robot ai-icon"></i>
-        <h3>AI Financial Insight</h3>
-      </div>
-      <div class="ai-content" id="aiInsightText">
-        Analyzing your deposit patterns and providing personalized recommendations...
-      </div>
-    </div>
-
-    <!-- Transaction History -->
-    <div class="transaction-section">
-      <div class="section-header">
-        <h2>Transaction History</h2>
-        <div class="transaction-controls">
-          <button class="control-btn" onclick="exportHistory()">
-            <i class="fas fa-download"></i> Export CSV
-          </button>
-          <button class="control-btn" onclick="refreshHistory()">
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
-      </div>
-      
-      <div class="transaction-list" id="transactionList">
-        <!-- Transactions will be populated by JavaScript -->
-      </div>
-    </div>
-  </main>
-    </div>
+    </main>
   </div>
 
-  <script src="/static/js/layout.js"></script>
-  <script>
-// Application State
-let balance = 5000;
-let monthlyDeposit = 12500;
-let totalDeposit = 87500;
-let transactions = [];
-let selectedPaymentMethod = 'upi';
+  <!-- Toast Notifications Mount -->
+  <div id="toast-mount"></div>
 
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navItems = document.querySelector('.nav-items');
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   
-  if (menuToggle && navItems) {
-    menuToggle.addEventListener('click', function() {
-      navItems.classList.toggle('show');
-      // Animate hamburger to X
-      const spans = menuToggle.querySelectorAll('span');
-      spans.forEach(span => span.classList.toggle('active'));
-    });
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function(event) {
-      if (!event.target.closest('.navbar') && navItems.classList.contains('show')) {
-        navItems.classList.remove('show');
-        const spans = menuToggle.querySelectorAll('span');
-        spans.forEach(span => span.classList.remove('active'));
-      }
-    });
-  }
-
-  // Initialize payment method selection
-  document.querySelectorAll('.payment-method').forEach(method => {
-    method.addEventListener('click', () => {
-      document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
-      method.classList.add('active');
-      selectedPaymentMethod = method.dataset.method;
-    });
-  });
-
-  // Load saved data
-  const savedTransactions = localStorage.getItem('depositTransactions');
-  const savedBalance = localStorage.getItem('userBalance');
-  const savedMonthly = localStorage.getItem('monthlyDeposit');
-  const savedTotal = localStorage.getItem('totalDeposit');
-  
-  if (savedTransactions) {
-    transactions = JSON.parse(savedTransactions);
-  }
-  
-  if (savedBalance) balance = parseInt(savedBalance);
-  if (savedMonthly) monthlyDeposit = parseInt(savedMonthly);
-  if (savedTotal) totalDeposit = parseInt(savedTotal);
-  
-  // Initial render
-  updateBalanceDisplay();
-  renderTransactionHistory();
-  updateAIInsight();
-  
-  // Update AI insights periodically
-  setInterval(updateAIInsight, 10000);
-});
-
-// Update balance display
-function updateBalanceDisplay() {
-  document.getElementById('balanceAmount').textContent = balance.toLocaleString();
-  document.getElementById('monthlyDeposit').textContent = monthlyDeposit.toLocaleString();
-  document.getElementById('totalDeposit').textContent = totalDeposit.toLocaleString();
-}
-
-// Render transaction history
-function renderTransactionHistory() {
-  const transactionList = document.getElementById('transactionList');
-  
-  if (transactions.length === 0) {
-    transactionList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-receipt"></i>
-        <h3>No Transactions Yet</h3>
-        <p>Your deposit history will appear here</p>
-      </div>
-    `;
-    return;
-  }
-  
-  transactionList.innerHTML = transactions.map(transaction => `
-    <div class="transaction-item">
-      <div class="transaction-icon ${transaction.type}">
-        <i class="fas fa-${transaction.type === 'deposit' ? 'arrow-down' : 'arrow-up'}"></i>
-      </div>
-      <div class="transaction-info">
-        <div class="transaction-method">${transaction.method.toUpperCase()} • ${transaction.details}</div>
-        <div class="transaction-date">${transaction.date}</div>
-      </div>
-      <div class="transaction-amount ${transaction.type}">
-        ${transaction.type === 'deposit' ? '+' : '-'}₹${transaction.amount.toLocaleString()}
-      </div>
-      <div class="transaction-status ${transaction.status}">
-        ${transaction.status}
-      </div>
-    </div>
-  `).join('');
-}
-
-// Add transaction
-function addTransaction(amount, method, details) {
-  const newTransaction = {
-    id: Date.now(),
-    type: 'deposit',
-    amount: amount,
-    method: method,
-    details: details,
-    date: new Date().toLocaleString(),
-    status: 'completed'
-  };
-  
-  transactions.unshift(newTransaction);
-  
-  // Update balances
-  balance += amount;
-  monthlyDeposit += amount;
-  totalDeposit += amount;
-  
-  updateBalanceDisplay();
-  renderTransactionHistory();
-  
-  // Save to localStorage
-  localStorage.setItem('depositTransactions', JSON.stringify(transactions));
-  localStorage.setItem('userBalance', balance.toString());
-  localStorage.setItem('monthlyDeposit', monthlyDeposit.toString());
-  localStorage.setItem('totalDeposit', totalDeposit.toString());
-}
-
-// Handle deposit form submission
-document.getElementById('depositForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  
-  const amount = parseInt(document.getElementById('depositAmount').value);
-  const details = document.getElementById('paymentDetails').value.trim();
-  
-  if (!amount || amount < 100) {
-    showMessage('error', 'Minimum deposit amount is ₹100');
-    return;
-  }
-  
-  if (!details) {
-    showMessage('error', 'Please enter payment details');
-    return;
-  }
-  
-  // Simulate processing
-  showMessage('success', 'Processing your deposit...');
-  
-  setTimeout(() => {
-    addTransaction(amount, selectedPaymentMethod, details);
-    showMessage('success', `Successfully deposited ₹${amount.toLocaleString()}`);
-    
-    // Reset form
-    document.getElementById('depositForm').reset();
-    document.querySelector('.payment-method[data-method="upi"]').click(); // Reset to UPI
-  }, 2000);
-});
-
-// Quick deposit function
-function quickDeposit(amount) {
-  document.getElementById('depositAmount').value = amount;
-  showMessage('success', `Quick deposit of ₹${amount.toLocaleString()} ready! Click "Secure Deposit" to proceed.`);
-}
-
-// Show message
-function showMessage(type, text) {
-  const successMsg = document.getElementById('successMessage');
-  const errorMsg = document.getElementById('errorMessage');
-  
-  successMsg.style.display = 'none';
-  errorMsg.style.display = 'none';
-  
-  if (type === 'success') {
-    successMsg.innerHTML = `<i class="fas fa-check-circle"></i> ${text}`;
-    successMsg.style.display = 'block';
-  } else {
-    errorMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${text}`;
-    errorMsg.style.display = 'block';
-  }
-  
-  // Auto-hide messages
-  setTimeout(() => {
-    successMsg.style.display = 'none';
-    errorMsg.style.display = 'none';
-  }, 5000);
-}
-
-// Export history
-function exportHistory() {
-  const csv = "Type,Amount,Method,Details,Date,Status\n" + 
-    transactions.map(t => 
-      `${t.type},${t.amount},${t.method},${t.details},${t.date},${t.status}`
-    ).join("\n");
-  
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'deposit_history.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  
-  showMessage('success', 'Transaction history exported successfully');
-}
-
-// Refresh history
-function refreshHistory() {
-  renderTransactionHistory();
-  showMessage('success', 'Transaction history refreshed');
-}
-
-// Toggle theme
-function toggleTheme() {
-  document.body.classList.toggle('light');
-}
-
-// Update AI insight
-function updateAIInsight() {
-  const insights = [
-    "Based on your deposit pattern, consider setting up auto-investments for better portfolio growth.",
-    "Your consistent deposits show strong financial discipline. Keep it up!",
-    "AI recommends diversifying your investment across different sectors for optimal returns.",
-    "Consider increasing your deposit frequency to take advantage of dollar-cost averaging."
-  ];
-  
-  const randomInsight = insights[Math.floor(Math.random() * insights.length)];
-  document.getElementById('aiInsightText').textContent = randomInsight;
-}
-</script>
+  <!-- Core Application -->
+  <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

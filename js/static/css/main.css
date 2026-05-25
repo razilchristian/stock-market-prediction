@@ -1,0 +1,124 @@
+/* main.css - AlphaAnalytics v3.0 Base Styles */
+@import url('./variables.css');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* Layout App Shell */
+#app-container {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  z-index: var(--z-normal);
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--space-4);
+  padding-top: calc(var(--space-8) + var(--space-4)); /* Account for sticky navbar */
+  margin-left: 260px; /* Sidebar width */
+  transition: margin-left var(--transition-normal);
+  max-width: 100%;
+}
+
+/* Background Canvas */
+#bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-background);
+  pointer-events: none;
+}
+
+/* Responsive Main Content */
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 80px; /* Collapsed sidebar width */
+  }
+}
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: var(--space-3);
+    padding-top: calc(var(--space-8) + var(--space-3));
+  }
+}
+
+/* Utility Classes */
+.text-gradient {
+  background: var(--grad-cyan-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-cyan { color: var(--accent-cyan); }
+.text-green { color: var(--accent-green); }
+.text-purple { color: var(--accent-purple); }
+.text-up { color: var(--up-color); }
+.text-down { color: var(--down-color); }
+.text-muted { color: var(--text-muted); }
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

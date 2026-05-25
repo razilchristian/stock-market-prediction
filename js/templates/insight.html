@@ -1,372 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Market Insights - AlphaAnalytics</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-<link rel="stylesheet" href="/static/css/layout.css">
-<link rel="stylesheet" href="/static/css/theme.css">
-<style>
-/* ─── Page Specific Styles (Market Insights) ─── */
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AlphaAnalytics v3.0 - AI Market Intelligence</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="/static/css/variables.css" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/components.css" />
+  <link rel="stylesheet" href="/static/css/animations.css" />
 </head>
 <body>
-    <!-- MAIN FRAME -->
-    <div class="main-frame" id="mainFrame">
-      <!-- STICKY GLASS NAVBAR -->
-      <header class="glass-navbar">
-        <div class="navbar-left">
-          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <div class="navbar-title font-space">AI Market Insights</div>
-        </div>
-        
-        <div class="navbar-right">
-          <div class="search-container">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" class="search-bar" placeholder="Search stocks, sectors..." id="searchInput">
-          </div>
-          
-          <div class="navbar-actions">
-            <button class="btn-action" onclick="exportInsights()" title="Export CSV">
-              <i class="fas fa-download"></i>
-            </button>
-            <button class="btn-action" data-theme-toggle title="Toggle Theme">
-              <i class="fas fa-palette"></i>
-            </button>
-          </div>
-          
-          <div class="profile-badge" id="profileBadge">
-            <div class="profile-avatar">
-              <i class="fas fa-user"></i>
-            </div>
-            <span class="profile-name">Guest User</span>
-          </div>
-        </div>
-      </header>
+  <!-- Animated Background -->
+  <canvas id="bg-canvas"></canvas>
 
-      <!-- MAIN CONTENT -->
-      <main class="main-content">
-
-    <!-- AI Insight -->
-    <div class="ai-insight">
-      <div class="ai-insight-header">
-        <i class="fas fa-robot ai-icon"></i>
-        <h3>AI Market Intelligence</h3>
-      </div>
-      <div class="ai-content" id="aiInsightText">
-        Analyzing market patterns and generating real-time insights...
-      </div>
-    </div>
-
-    <!-- Market Overview -->
-    <div class="market-overview">
-      <div class="market-card">
-        <div class="market-header">
-          <div class="market-title">S&P 500</div>
-          <div class="market-change positive">
-            <i class="fas fa-arrow-up"></i>+1.25%
-          </div>
-        </div>
-        <div class="market-value">4,890.23</div>
-        <div class="market-details">+59.67 points today</div>
-      </div>
+  <div id="app-container">
+    <!-- Sidebar Component (Injected via JS) -->
+    <div id="sidebar-mount"></div>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Navbar Component (Injected via JS) -->
+      <div id="navbar-mount"></div>
       
-      <div class="market-card">
-        <div class="market-header">
-          <div class="market-title">NASDAQ</div>
-          <div class="market-change positive">
-            <i class="fas fa-arrow-up"></i>+2.15%
+      <!-- Page Content (Injected via JS based on route) -->
+      <div id="page-content" class="animate-fade-in">
+        <div class="flex-center" style="height: 50vh;">
+          <div class="animate-spin text-cyan" style="font-size: 2rem;">
+            <i class="fas fa-circle-notch"></i>
           </div>
         </div>
-        <div class="market-value">16,842.57</div>
-        <div class="market-details">Tech leads rally</div>
       </div>
-      
-      <div class="market-card">
-        <div class="market-header">
-          <div class="market-title">DOW JONES</div>
-          <div class="market-change negative">
-            <i class="fas fa-arrow-down"></i>-0.45%
-          </div>
-        </div>
-        <div class="market-value">39,512.34</div>
-        <div class="market-details">-178.23 points</div>
-      </div>
-    </div>
-
-    <!-- Stock Insights -->
-    <div class="insights-grid" id="insightsGrid">
-      <!-- Insights will be populated by JavaScript -->
-    </div>
-
-    <!-- Sector Performance -->
-    <div class="sector-section">
-      <div class="section-header">
-        <i class="fas fa-chart-pie"></i>
-        <h2>Sector Performance</h2>
-      </div>
-      <div class="sector-grid" id="sectorGrid">
-        <!-- Sector performance will be populated by JavaScript -->
-      </div>
-    </div>
-  </main>
-    </div>
+    </main>
   </div>
 
-  <script src="/static/js/layout.js"></script>
-  <script>
-// Configuration
-const TWELVEDATA_API_KEY = '5f988a8aff6b4b58848dfcf67af727d9';
-let allInsights = [];
+  <!-- Toast Notifications Mount -->
+  <div id="toast-mount"></div>
 
-// Sample sector data
-const sectorData = [
-  { name: 'Technology', performance: 2.8 },
-  { name: 'Healthcare', performance: 1.2 },
-  { name: 'Financials', performance: -0.5 },
-  { name: 'Energy', performance: -1.8 },
-  { name: 'Consumer', performance: 0.9 },
-  { name: 'Industrials', performance: 0.3 }
-];
-
-
-
-// Show loading placeholders
-function showLoadingPlaceholders() {
-  const insightsGrid = document.getElementById('insightsGrid');
-  insightsGrid.innerHTML = '';
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   
-  // Create 6 loading cards
-  for (let i = 0; i < 6; i++) {
-    const card = document.createElement('div');
-    card.className = 'insight-card';
-    card.innerHTML = `
-      <div class="insight-header">
-        <div>
-          <div class="shimmer" style="width: 120px; height: 20px; margin-bottom: 8px;"></div>
-          <div class="shimmer" style="width: 80px; height: 16px;"></div>
-        </div>
-        <div class="shimmer" style="width: 60px; height: 24px;"></div>
-      </div>
-      <div class="shimmer" style="width: 100px; height: 32px; margin-bottom: 16px;"></div>
-      <div class="insight-details">
-        <div class="shimmer" style="width: 80px; height: 24px;"></div>
-        <div class="shimmer" style="width: 60px; height: 16px;"></div>
-      </div>
-    `;
-    insightsGrid.appendChild(card);
-  }
-}
-
-// Fetch live market data
-async function fetchLiveData() {
-  showLoadingPlaceholders();
-  
-  const symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'META', 'NVDA', 'JPM', 'JNJ', 'V'];
-  
-  try {
-    const response = await fetch(
-      `https://api.twelvedata.com/quote?symbol=${symbols.join(',')}&apikey=${TWELVEDATA_API_KEY}`
-    );
-    const data = await response.json();
-    
-    allInsights = [];
-    
-    // Process each stock
-    Object.values(data).forEach(stock => {
-      if (stock.symbol && stock.close && stock.percent_change) {
-        allInsights.push({
-          symbol: stock.symbol,
-          name: stock.name || getCompanyName(stock.symbol),
-          price: parseFloat(stock.close),
-          change: parseFloat(stock.percent_change),
-          changeRaw: parseFloat(stock.change),
-          volume: stock.volume ? parseInt(stock.volume).toLocaleString() : 'N/A',
-          timestamp: stock.datetime || new Date().toISOString()
-        });
-      }
-    });
-    
-    renderInsights(allInsights);
-    renderSectorPerformance();
-    
-  } catch (error) {
-    console.error('Error fetching market data:', error);
-    showErrorState();
-  }
-}
-
-// Get company name from symbol
-function getCompanyName(symbol) {
-  const companyNames = {
-    'AAPL': 'Apple Inc.',
-    'GOOGL': 'Alphabet Inc.',
-    'MSFT': 'Microsoft Corporation',
-    'TSLA': 'Tesla Inc.',
-    'AMZN': 'Amazon.com Inc.',
-    'META': 'Meta Platforms Inc.',
-    'NVDA': 'NVIDIA Corporation',
-    'JPM': 'JPMorgan Chase & Co.',
-    'JNJ': 'Johnson & Johnson',
-    'V': 'Visa Inc.'
-  };
-  return companyNames[symbol] || symbol;
-}
-
-// Render stock insights
-function renderInsights(insights) {
-  const insightsGrid = document.getElementById('insightsGrid');
-  insightsGrid.innerHTML = '';
-  
-  if (insights.length === 0) {
-    insightsGrid.innerHTML = `
-      <div class="loading">
-        <i class="fas fa-chart-line"></i>
-        <h3>No Data Available</h3>
-        <p>Unable to load market insights at this time</p>
-      </div>
-    `;
-    return;
-  }
-  
-  insights.forEach(insight => {
-    const changeClass = insight.change >= 0 ? 'positive' : 'negative';
-    const changeIcon = insight.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-    
-    const card = document.createElement('div');
-    card.className = 'insight-card';
-    card.innerHTML = `
-      <div class="insight-header">
-        <div>
-          <div class="insight-title">${insight.name}</div>
-          <div class="insight-symbol">${insight.symbol}</div>
-        </div>
-        <div class="insight-change ${changeClass}">
-          <i class="fas ${changeIcon}"></i>${Math.abs(insight.change)}%
-        </div>
-      </div>
-      <div class="insight-price">$${insight.price.toFixed(2)}</div>
-      <div class="insight-details">
-        <div class="insight-change ${changeClass}">
-          ${insight.changeRaw >= 0 ? '+' : ''}${insight.changeRaw.toFixed(2)}
-        </div>
-        <div class="insight-volume">Vol: ${insight.volume}</div>
-      </div>
-    `;
-    insightsGrid.appendChild(card);
-  });
-}
-
-// Render sector performance
-function renderSectorPerformance() {
-  const sectorGrid = document.getElementById('sectorGrid');
-  sectorGrid.innerHTML = '';
-  
-  sectorData.forEach(sector => {
-    const performanceClass = sector.performance >= 0 ? 'positive' : 'negative';
-    const performanceIcon = sector.performance >= 0 ? '+' : '';
-    
-    const sectorItem = document.createElement('div');
-    sectorItem.className = 'sector-item';
-    sectorItem.innerHTML = `
-      <div class="sector-name">${sector.name}</div>
-      <div class="sector-performance ${performanceClass}">
-        ${performanceIcon}${sector.performance}%
-      </div>
-    `;
-    sectorGrid.appendChild(sectorItem);
-  });
-}
-
-// Show error state
-function showErrorState() {
-  const insightsGrid = document.getElementById('insightsGrid');
-  insightsGrid.innerHTML = `
-    <div class="loading">
-      <i class="fas fa-exclamation-triangle"></i>
-      <h3>Connection Error</h3>
-      <p>Unable to fetch live market data. Please try again later.</p>
-    </div>
-  `;
-}
-
-// Search functionality
-function setupSearch() {
-  const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    
-    if (!query) {
-      renderInsights(allInsights);
-      return;
-    }
-    
-    const filtered = allInsights.filter(insight => 
-      insight.symbol.toLowerCase().includes(query) ||
-      insight.name.toLowerCase().includes(query)
-    );
-    
-    renderInsights(filtered);
-  });
-}
-
-// Export insights
-function exportInsights() {
-  if (allInsights.length === 0) {
-    alert('No data available to export');
-    return;
-  }
-  
-  const csv = "Symbol,Name,Price,Change%,Change,Volume\n" + 
-    allInsights.map(insight => 
-      `${insight.symbol},${insight.name},${insight.price},${insight.change},${insight.changeRaw},${insight.volume}`
-    ).join("\n");
-  
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'market_insights.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Update AI insight
-function updateAIInsight() {
-  const insights = [
-    "AI detects strong momentum in technology sector with institutional buying pressure. Consider quality tech stocks for short-term gains.",
-    "Market volatility expected to increase next week. Technical indicators show potential breakout above key resistance levels.",
-    "Healthcare sector showing signs of consolidation. AI predicts 3-5% upside in pharmaceutical stocks over next 2 weeks.",
-    "Foreign institutional investors increasing exposure to emerging markets. Pattern similar to 2020 bull market inception detected.",
-    "Energy sector facing headwinds amid geopolitical tensions. AI recommends cautious approach to oil and gas investments.",
-    "Consumer discretionary stocks showing resilience. Retail sector poised for recovery as consumer sentiment improves."
-  ];
-  
-  const randomInsight = insights[Math.floor(Math.random() * insights.length)];
-  document.getElementById('aiInsightText').textContent = randomInsight;
-}
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-  // Setup search functionality
-  setupSearch();
-  
-  // Load initial data
-  fetchLiveData();
-  updateAIInsight();
-  
-  // Set up periodic updates
-  setInterval(fetchLiveData, 60000); // Update every minute
-  setInterval(updateAIInsight, 15000); // Update AI insight every 15 seconds
-});
-</script>
-<script src="/static/js/layout.js"></script>
-<script src="/static/js/animations.js"></script>
+  <!-- Core Application -->
+  <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

@@ -1,451 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings - AlphaAnalytics</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/layout.css">
-  <style>
-    /* Page Specific Styles */
-    .settings-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 24px;
-      margin-bottom: 32px;
-    }
-
-    .settings-card {
-      background: var(--bg-card);
-      border-radius: 20px;
-      padding: 24px;
-      border: 1px solid var(--border-color);
-      backdrop-filter: blur(10px);
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      transition: all 0.3s ease;
-    }
-
-    .settings-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
-    }
-
-    .settings-card:hover {
-      border-color: var(--active-color);
-      box-shadow: var(--shadow-card);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 14px;
-    }
-
-    .card-header i {
-      font-size: 20px;
-      color: var(--active-color);
-    }
-
-    .card-header h3 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .form-label {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .form-input, .form-select {
-      padding: 12px 16px;
-      background: var(--bg-dark);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-    }
-
-    .form-input:focus, .form-select:focus {
-      outline: none;
-      border-color: var(--active-color);
-      box-shadow: var(--shadow-glow);
-    }
-
-    /* Custom Switch Toggle */
-    .switch-group {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .switch-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .switch-title {
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .switch-desc {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 48px;
-      height: 24px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: var(--border-color);
-      transition: .3s;
-      border-radius: 24px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .3s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: var(--active-color);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(24px);
-    }
-
-    .btn-save-all {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 14px 28px;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
-      color: var(--bg-dark);
-      border: none;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
-      box-shadow: var(--shadow-glow);
-      transition: all 0.3s ease;
-      width: 100%;
-      max-width: 300px;
-      margin: 0 auto;
-    }
-
-    .btn-save-all:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 30px rgba(0, 230, 255, 0.6);
-    }
-
-    .btn-save-all:active {
-      transform: translateY(0);
-    }
-
-    @media (max-width: 768px) {
-      .settings-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AlphaAnalytics v3.0 - AI Market Intelligence</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="/static/css/variables.css" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/components.css" />
+  <link rel="stylesheet" href="/static/css/animations.css" />
 </head>
 <body>
-    <!-- MAIN FRAME -->
-    <div class="main-frame" id="mainFrame">
-      <!-- STICKY GLASS NAVBAR -->
-      <header class="glass-navbar">
-        <div class="navbar-left">
-          <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle Mobile Menu">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <div class="navbar-title font-space">Settings</div>
-        </div>
-        
-        <div class="navbar-right">
-          <div class="search-container">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" class="search-bar" placeholder="Search settings..." id="searchInput">
-          </div>
-          
-          <div class="navbar-actions">
-            <button class="btn-action" data-theme-toggle title="Toggle Theme">
-              <i class="fas fa-palette"></i>
-            </button>
-          </div>
-          
-          <div class="profile-badge" id="profileBadge">
-            <div class="profile-avatar">
-              <i class="fas fa-user"></i>
-            </div>
-            <span class="profile-name">Guest User</span>
+  <!-- Animated Background -->
+  <canvas id="bg-canvas"></canvas>
+
+  <div id="app-container">
+    <!-- Sidebar Component (Injected via JS) -->
+    <div id="sidebar-mount"></div>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Navbar Component (Injected via JS) -->
+      <div id="navbar-mount"></div>
+      
+      <!-- Page Content (Injected via JS based on route) -->
+      <div id="page-content" class="animate-fade-in">
+        <div class="flex-center" style="height: 50vh;">
+          <div class="animate-spin text-cyan" style="font-size: 2rem;">
+            <i class="fas fa-circle-notch"></i>
           </div>
         </div>
-      </header>
-
-      <!-- MAIN CONTENT -->
-      <main class="main-content">
-        <!-- Settings Grid -->
-        <div class="settings-grid">
-          
-          <!-- API Configuration Card -->
-          <div class="settings-card">
-            <div class="card-header">
-              <i class="fas fa-key"></i>
-              <h3>API Configurations</h3>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label" for="twelveDataKey">TwelveData API Key</label>
-              <input type="password" class="form-input" id="twelveDataKey" value="5f988a8aff6b4b58848dfcf67af727d9" placeholder="Enter TwelveData API Key">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="alphaVantageKey">AlphaVantage API Key</label>
-              <input type="password" class="form-input" id="alphaVantageKey" placeholder="Enter AlphaVantage Key (Optional)">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="newsApiKey">NewsAPI Access Token</label>
-              <input type="password" class="form-input" id="newsApiKey" placeholder="Enter NewsAPI Key (Optional)">
-            </div>
-          </div>
-
-          <!-- Preferences Card -->
-          <div class="settings-card">
-            <div class="card-header">
-              <i class="fas fa-sliders-h"></i>
-              <h3>Platform Preferences</h3>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label" for="baseCurrency">Base Currency</label>
-              <select class="form-select" id="baseCurrency">
-                <option value="INR">INR (₹)</option>
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="chartRefresh">Chart Refresh Interval</label>
-              <select class="form-select" id="chartRefresh">
-                <option value="30">Every 30 Seconds</option>
-                <option value="60">Every 1 Minute</option>
-                <option value="300">Every 5 Minutes</option>
-                <option value="manual">Manual Refresh</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="defaultStock">Default Dashboard Stock</label>
-              <input type="text" class="form-input" id="defaultStock" value="RELIANCE" placeholder="e.g. APPLE, INFY, RELIANCE">
-            </div>
-          </div>
-
-          <!-- Notification Settings -->
-          <div class="settings-card">
-            <div class="card-header">
-              <i class="fas fa-bell"></i>
-              <h3>Notifications & Alerts</h3>
-            </div>
-            
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">Price Spikes</span>
-                <span class="switch-desc">Alert when a watchlist stock moves > 3%</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="notifySpikes" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">AI Predictive Insights</span>
-                <span class="switch-desc">Receive weekly predictive summaries</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="notifyAI" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">Sound Alerts</span>
-                <span class="switch-desc">Play sleek chime on real-time transaction</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="notifySound">
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Design & Performance Settings -->
-          <div class="settings-card">
-            <div class="card-header">
-              <i class="fas fa-palette"></i>
-              <h3>Aesthetics & Performance</h3>
-            </div>
-            
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">Background Particles</span>
-                <span class="switch-desc">Render dynamic floating dots on background</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="perfParticles" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">Glassmorphism Blur</span>
-                <span class="switch-desc">Enable smooth backdrop blurred filters</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="perfBlur" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-
-            <div class="switch-group">
-              <div class="switch-info">
-                <span class="switch-title">High-FPS Mode</span>
-                <span class="switch-desc">Target 60fps animations for smoother glows</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="perfFps" checked>
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Action Button -->
-        <div style="text-align: center; margin-top: 16px;">
-          <button class="btn-save-all" onclick="saveSettings()">
-            <i class="fas fa-save"></i>
-            Save Configurations
-          </button>
-        </div>
-      </main>
-    </div>
+      </div>
+    </main>
   </div>
 
-  <script src="/static/js/layout.js"></script>
-  <script>
-    // Load saved settings on load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSettings();
-    });
+  <!-- Toast Notifications Mount -->
+  <div id="toast-mount"></div>
 
-    function loadSettings() {
-      const keys = ['twelveDataKey', 'alphaVantageKey', 'newsApiKey', 'defaultStock'];
-      const selects = ['baseCurrency', 'chartRefresh'];
-      const toggles = ['notifySpikes', 'notifyAI', 'notifySound', 'perfParticles', 'perfBlur', 'perfFps'];
-
-      keys.forEach(k => {
-        const val = localStorage.getItem(k);
-        if (val !== null) document.getElementById(k).value = val;
-      });
-
-      selects.forEach(s => {
-        const val = localStorage.getItem(s);
-        if (val !== null) document.getElementById(s).value = val;
-      });
-
-      toggles.forEach(t => {
-        const val = localStorage.getItem(t);
-        if (val !== null) document.getElementById(t).checked = (val === 'true');
-      });
-
-      if(window.AlphaAnimations) AlphaAnimations.showNotification('Settings loaded successfully!', 'info');
-    }
-
-    function saveSettings() {
-      const keys = ['twelveDataKey', 'alphaVantageKey', 'newsApiKey', 'defaultStock'];
-      const selects = ['baseCurrency', 'chartRefresh'];
-      const toggles = ['notifySpikes', 'notifyAI', 'notifySound', 'perfParticles', 'perfBlur', 'perfFps'];
-
-      keys.forEach(k => {
-        localStorage.setItem(k, document.getElementById(k).value);
-      });
-
-      selects.forEach(s => {
-        localStorage.setItem(s, document.getElementById(s).value);
-      });
-
-      toggles.forEach(t => {
-        localStorage.setItem(t, document.getElementById(t).checked);
-      });
-
-      // Update particles visibility based on performance setting
-      const particlesCanvas = document.getElementById('particlesCanvas');
-      if (particlesCanvas) {
-        particlesCanvas.style.display = document.getElementById('perfParticles').checked ? 'block' : 'none';
-      }
-
-      if(window.AlphaAnimations) AlphaAnimations.showNotification('Configurations saved successfully!', 'success');
-    }
-
-  </script>
-  <script src="/static/js/animations.js"></script>
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  
+  <!-- Core Application -->
+  <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
