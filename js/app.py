@@ -240,24 +240,31 @@ def get_live_stock_data_enhanced(ticker):
         if not validate_stock_symbol(ticker):
             return generate_fallback_data(ticker, days=500)
         
-        # Get data with period parameter to ensure we have current data
-        hist = yf.download(ticker, period="2y", interval="1d", progress=False, timeout=30)
+        # Get data directly from Yahoo Finance API to bypass yfinance 429 errors
+        import requests, datetime
+        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2y"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        res = requests.get(url, headers=headers, timeout=10)
         
-        if hist.empty:
-            ticker_obj = yf.Ticker(ticker)
-            hist = ticker_obj.history(period="2y", interval="1d", timeout=30)
+        hist = pd.DataFrame()
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('chart', {}).get('result'):
+                result = data['chart']['result'][0]
+                timestamps = result.get('timestamp', [])
+                quote = result['indicators']['quote'][0]
+                hist = pd.DataFrame({
+                    'Date': [datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d') for t in timestamps],
+                    'Open': quote.get('open', []),
+                    'High': quote.get('high', []),
+                    'Low': quote.get('low', []),
+                    'Close': quote.get('close', []),
+                    'Volume': quote.get('volume', [])
+                })
         
         if hist.empty:
             print(f" Using fallback data for {ticker}")
             return generate_fallback_data(ticker, days=500)
-        
-        hist = hist.reset_index()
-        
-        if 'Date' in hist.columns:
-            hist['Date'] = pd.to_datetime(hist['Date']).dt.strftime('%Y-%m-%d')
-        elif 'Datetime' in hist.columns:
-            hist['Date'] = pd.to_datetime(hist['Datetime']).dt.strftime('%Y-%m-%d')
-            hist = hist.drop(columns=['Datetime'])
         
         required = ['Open', 'High', 'Low', 'Close', 'Volume']
         for col in required:
