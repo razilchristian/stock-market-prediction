@@ -160,27 +160,71 @@ function renderResults(container, data) {
       }).join('')}
     </div>
 
-    <!-- Algorithm Breakdown -->
-    <h3 style="margin: var(--space-5) 0 var(--space-3) 0;">Algorithm Breakdown (Close Price)</h3>
-    <div class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
-      ${Object.entries(model_info.detailed_predictions?.Close || {}).map(([algo, price], i) => {
-        const diff = price - currentPrice;
-        const diffColor = diff >= 0 ? 'var(--up-color)' : 'var(--down-color)';
-        const diffIcon = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
-        const pPct = (Math.abs(diff) / currentPrice) * 100;
-        return `
-          <div class="bento-card animate-fade-in" style="animation-delay: ${0.5 + (i*0.05)}s; padding: var(--space-3);">
-            <div class="flex-between">
-              <span style="font-weight: 600; font-size: 14px;">${algo}</span>
-              <i class="fas fa-microchip text-muted" style="font-size: 12px;"></i>
-            </div>
-            <h3 style="margin: 12px 0 4px 0; font-size: 20px;">$${price.toFixed(2)}</h3>
-            <p style="color: ${diffColor}; font-size: 12px;">
-              <i class="fas ${diffIcon}"></i> ${pPct.toFixed(2)}%
-            </p>
-          </div>
-        `;
-      }).join('') || '<p class="text-muted" style="grid-column: 1/-1;">Detailed algorithm predictions not available.</p>'}
+    <!-- Algorithm Breakdown with OHLC Selector -->
+    <div class="flex-between" style="margin: var(--space-5) 0 var(--space-3) 0; flex-wrap: wrap; gap: 12px;">
+      <h3>Algorithm Breakdown</h3>
+      <div class="ohlc-tabs" style="display: flex; gap: 8px;">
+        ${['Close', 'Open', 'High', 'Low'].map(metric => `
+          <button class="btn ${metric === 'Close' ? 'btn-primary' : 'btn-secondary'} ohlc-tab" 
+                  data-metric="${metric}" 
+                  style="padding: 4px 16px; font-size: 13px; border-radius: var(--radius-sm);">
+            ${metric}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    
+    <div id="algo-breakdown-grid" class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
     </div>
   `;
+
+  // Attach OHLC Tab Switcher logic
+  const tabs = container.querySelectorAll('.ohlc-tab');
+  const gridElement = container.querySelector('#algo-breakdown-grid');
+  const detailedPredictions = model_info.detailed_predictions || {};
+
+  const renderAlgoBreakdown = (targetMetric) => {
+    const predictions = detailedPredictions[targetMetric] || {};
+    const entries = Object.entries(predictions);
+
+    if (entries.length === 0) {
+      gridElement.innerHTML = `<p class="text-muted" style="grid-column: 1/-1; padding: 16px;">Detailed algorithm predictions not available for ${targetMetric}.</p>`;
+      return;
+    }
+
+    gridElement.innerHTML = entries.map(([algo, price], i) => {
+      const diff = price - currentPrice;
+      const diffColor = diff >= 0 ? 'var(--up-color)' : 'var(--down-color)';
+      const diffIcon = diff >= 0 ? 'fa-caret-up' : 'fa-caret-down';
+      const pPct = currentPrice > 0 ? (Math.abs(diff) / currentPrice) * 100 : 0;
+      return `
+        <div class="bento-card animate-fade-in" style="animation-delay: ${i * 0.03}s; padding: var(--space-3);">
+          <div class="flex-between">
+            <span style="font-weight: 600; font-size: 14px;">${algo}</span>
+            <i class="fas fa-microchip text-cyan" style="font-size: 12px;"></i>
+          </div>
+          <h3 style="margin: 12px 0 4px 0; font-size: 20px;">$${price.toFixed(2)}</h3>
+          <p style="color: ${diffColor}; font-size: 12px;">
+            <i class="fas ${diffIcon}"></i> ${pPct.toFixed(2)}% vs Current
+          </p>
+        </div>
+      `;
+    }).join('');
+  };
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.classList.remove('btn-primary');
+        t.classList.add('btn-secondary');
+      });
+      tab.classList.remove('btn-secondary');
+      tab.classList.add('btn-primary');
+      renderAlgoBreakdown(tab.getAttribute('data-metric'));
+    });
+  });
+
+  // Default display: Close breakdown
+  renderAlgoBreakdown('Close');
 }
+
