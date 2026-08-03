@@ -31,6 +31,28 @@ import pmdarima as pm
 
 warnings.filterwarnings('ignore')
 
+# ---------------- ARIMA Wrapper Class ----------------
+class ARIMAModel:
+    """Wrapper class to standardise pmdarima model for sklearn-like predict interface."""
+    def __init__(self, arima_fit, y_mean, y_std):
+        self.arima_fit = arima_fit
+        self.price_stats = {'y_mean': y_mean, 'y_std': y_std}
+
+    def predict(self, X_scaled):
+        try:
+            n_samples = len(X_scaled) if (X_scaled is not None and hasattr(X_scaled, '__len__')) else 1
+            forecast = self.arima_fit.predict(n_periods=n_samples)
+            if hasattr(forecast, 'to_numpy'):
+                vals = forecast.to_numpy()
+            elif hasattr(forecast, 'values'):
+                vals = forecast.values
+            else:
+                vals = np.array(forecast)
+            return np.array(vals, dtype=float)
+        except Exception:
+            return np.zeros(len(X_scaled) if X_scaled is not None else 1)
+
+
 # ---------------- Config ----------------
 MODELS_DIR = 'models'
 HISTORY_DIR = 'history'
@@ -615,6 +637,21 @@ class OCHLPredictor:
                 model.price_stats = {'y_mean': y_mean, 'y_std': y_std}
                 return model
                 
+            elif algorithm == 'arima':
+                arima_fit = pm.auto_arima(
+                    y_scaled,
+                    seasonal=False,
+                    stationary=False,
+                    max_p=3,
+                    max_q=3,
+                    max_d=2,
+                    stepwise=True,
+                    suppress_warnings=True,
+                    error_action='ignore'
+                )
+                model = ARIMAModel(arima_fit, y_mean, y_std)
+                return model
+                
             return None
         except Exception as e:
             print(f"      [ERROR] {algorithm}: {str(e)[:50]}")
@@ -636,7 +673,7 @@ class OCHLPredictor:
             if X_data is None:
                 return False, "Insufficient data"
             
-            algorithms = ['ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'xgboost', 'lightgbm']
+            algorithms = ['ridge', 'lasso', 'svr', 'random_forest', 'gradient_boosting', 'xgboost', 'lightgbm', 'arima']
             self.models = {target: {} for target in self.targets}
             
             print(f" Training {len(algorithms)} algorithms...")
