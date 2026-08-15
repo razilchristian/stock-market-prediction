@@ -876,6 +876,9 @@ class OCHLPredictor:
                 self.prediction_history[symbol] = []
             self.prediction_history[symbol].append(history_entry)
             
+            # Save real vs predicted entry to disk
+            self.save_prediction_to_disk(symbol, history_entry, current_close)
+            
             expected_change = ((predictions['Close'] - current_close) / current_close) * 100
             
             result = {
@@ -906,12 +909,39 @@ class OCHLPredictor:
             print(f"   Confidence: {overall_confidence:.1f}%")
             
             return result
-            
+
         except Exception as e:
             print(f"[ERROR] Error predicting: {e}")
             import traceback
             traceback.print_exc()
             return self.get_conservative_fallback(data, live_price)
+
+    def save_prediction_to_disk(self, symbol, history_entry, current_close):
+        try:
+            filepath = os.path.join(HISTORY_DIR, f"{symbol}_history.json")
+            history = []
+            if os.path.exists(filepath):
+                with open(filepath, 'r') as f:
+                    history = json.load(f)
+            
+            record = {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'symbol': symbol,
+                'real_live_price': round(current_close, 2),
+                'predicted_open': history_entry['predicted']['Open'],
+                'predicted_high': history_entry['predicted']['High'],
+                'predicted_low': history_entry['predicted']['Low'],
+                'predicted_close': history_entry['predicted']['Close'],
+                'confidence': history_entry['overall_confidence'],
+                'predicted_change_pct': round(((history_entry['predicted']['Close'] - current_close) / current_close) * 100, 2)
+            }
+            history.insert(0, record)
+            with open(filepath, 'w') as f:
+                json.dump(history[:50], f, indent=2)
+            print(f" [OK] Saved prediction record for {symbol} to {filepath}")
+        except Exception as e:
+            print(f"Failed to save prediction record: {e}")
+
     
     def get_conservative_fallback(self, data, live_price=None):
         """Conservative fallback predictions using live price"""
@@ -1188,6 +1218,17 @@ def predict_stock():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e), "fallback": True}), 500
+
+@server.route('/api/history/<symbol>', methods=['GET'])
+def get_symbol_prediction_history(symbol):
+    symbol = symbol.upper().strip()
+    filepath = os.path.join(HISTORY_DIR, f"{symbol}_history.json")
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            return jsonify({'symbol': symbol, 'history': data})
+    return jsonify({'symbol': symbol, 'history': []})
+
 
 def provide_fallback_prediction(symbol, historical_data, current_price):
     try:
