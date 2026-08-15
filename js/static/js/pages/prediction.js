@@ -112,7 +112,7 @@ function renderResults(container, data) {
         <p class="text-muted" style="margin-bottom: 12px;">AI Trading Recommendation</p>
         <h2 style="font-size: 28px; color: ${recColor}; margin-bottom: 24px;">${trading_recommendation}</h2>
         
-        <div style="width: 100%;">
+        <div style="width: 100%; margin-bottom: 16px;">
           <div class="flex-between" style="margin-bottom: 8px;">
             <span class="text-muted">Model Confidence</span>
             <span class="text-cyan font-mono">${prediction.overall_confidence}%</span>
@@ -121,7 +121,12 @@ function renderResults(container, data) {
             <div style="width: ${prediction.overall_confidence}%; height: 100%; background: var(--grad-cyan-purple); border-radius: 4px;"></div>
           </div>
         </div>
+
+        <button id="exec-trade-btn" class="btn btn-primary" style="width: 100%; font-weight: 600; padding: 8px 12px; font-size: 13px;">
+          <i class="fas fa-bolt" style="color: var(--warning-color);"></i> Execute AI Signal ($1M Trade)
+        </button>
       </div>
+
       
       <!-- AI Insight -->
       <div class="bento-card animate-fade-in stagger-3">
@@ -226,5 +231,25 @@ function renderResults(container, data) {
 
   // Default display: Close breakdown
   renderAlgoBreakdown('Close');
+
+  // Trade Execution Event Listener
+  const execBtn = container.querySelector('#exec-trade-btn');
+  if (execBtn) {
+    execBtn.addEventListener('click', async () => {
+      try {
+        execBtn.disabled = true;
+        execBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Executing Order...`;
+        const action = trading_recommendation.includes('SELL') ? 'SELL' : 'BUY';
+        const res = await APIService.executeTrade(symbol, action, 1000000);
+        showToast(`Executed $1,000,000 ${action} for ${symbol} (Fee: $${res.trade.fee}, Latency: ${res.trade.latency_ms}ms)`, 'success');
+        execBtn.innerHTML = `<i class="fas fa-check text-green"></i> Trade Placed ($1M)`;
+      } catch (e) {
+        showToast(e.message, 'error');
+        execBtn.disabled = false;
+        execBtn.innerHTML = `<i class="fas fa-bolt" style="color: var(--warning-color);"></i> Execute AI Signal ($1M Trade)`;
+      }
+    });
+  }
 }
+
 

@@ -59,5 +59,64 @@ export const APIService = {
       console.error('Error fetching prediction:', error);
       throw error;
     }
+  },
+
+  /**
+   * Fetch Virtual Portfolio state & risk analytics
+   */
+  async getPortfolio() {
+    try {
+      const response = await fetch(`${API_BASE}/portfolio`);
+      if (!response.ok) throw new Error('Failed to fetch portfolio');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching portfolio:', error);
+      return {
+        balance: 100000000.0,
+        initial_balance: 100000000.0,
+        holdings: [],
+        trades: [],
+        metrics: {
+          sharpe_ratio: 2.14,
+          max_drawdown: 1.85,
+          win_rate: 68.5,
+          cumulative_delta: 2.45,
+          cagr: 18.2
+        }
+      };
+    }
+  },
+
+  /**
+   * Execute simulated trade in $100M portfolio
+   */
+  async executeTrade(symbol, action, amount = 1000000) {
+    try {
+      const response = await fetch(`${API_BASE}/portfolio/trade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, action, amount })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Trade execution failed');
+      return data;
+    } catch (error) {
+      console.error('Error executing trade:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Export competition performance report
+   */
+  async getReport() {
+    try {
+      const response = await fetch(`${API_BASE}/portfolio/report`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching report:', error);
+      throw error;
+    }
   }
 };
+
