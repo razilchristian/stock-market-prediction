@@ -54,17 +54,18 @@ class ARIMAModel:
 
 
 # ---------------- Config ----------------
-MODELS_DIR = 'models'
-HISTORY_DIR = 'history'
-CACHE_DIR = 'cache'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(current_dir, 'models')
+HISTORY_DIR = os.path.join(current_dir, 'history')
+CACHE_DIR = os.path.join(current_dir, 'cache')
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(HISTORY_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # ---------------- Flask ----------------
-current_dir = os.path.dirname(os.path.abspath(__file__))
 server = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(server)
+
 
 # ---------------- Security Validation ----------------
 def validate_stock_symbol(symbol):
