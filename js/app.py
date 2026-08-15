@@ -1225,6 +1225,34 @@ class VirtualPortfolioManager:
         self.holdings = {}
         self.trades = []
         self.fee_rate = 0.0005  # 0.05% transaction fee
+        self.file_path = os.path.join(CACHE_DIR, 'virtual_portfolio.json')
+        self.load_state()
+
+    def save_state(self):
+        try:
+            state = {
+                'initial_capital': self.initial_capital,
+                'cash': self.cash,
+                'holdings': self.holdings,
+                'trades': self.trades
+            }
+            with open(self.file_path, 'w') as f:
+                json.dump(state, f, indent=2)
+        except Exception as e:
+            print(f"Failed to save portfolio state: {e}")
+
+    def load_state(self):
+        try:
+            if os.path.exists(self.file_path):
+                with open(self.file_path, 'r') as f:
+                    state = json.load(f)
+                    self.initial_capital = state.get('initial_capital', 100000000.0)
+                    self.cash = state.get('cash', 100000000.0)
+                    self.holdings = state.get('holdings', {})
+                    self.trades = state.get('trades', [])
+                print("[OK] Virtual Portfolio state loaded from disk")
+        except Exception as e:
+            print(f"Failed to load portfolio state: {e}")
         
     def execute_trade(self, symbol, action, amount=1000000.0):
         try:
@@ -1266,6 +1294,7 @@ class VirtualPortfolioManager:
                 'latency_ms': latency_ms
             }
             self.trades.insert(0, trade_entry)
+            self.save_state()
             return True, trade_entry
             
         elif action.upper() == 'SELL':
@@ -1296,9 +1325,11 @@ class VirtualPortfolioManager:
                 'latency_ms': latency_ms
             }
             self.trades.insert(0, trade_entry)
+            self.save_state()
             return True, trade_entry
             
         return False, "Invalid action"
+
 
     def get_summary(self):
         total_holdings_val = 0.0
