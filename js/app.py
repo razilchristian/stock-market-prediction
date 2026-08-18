@@ -922,8 +922,16 @@ class OCHLPredictor:
             filepath = os.path.join(HISTORY_DIR, f"{symbol}_history.json")
             history = []
             if os.path.exists(filepath):
-                with open(filepath, 'r') as f:
-                    history = json.load(f)
+                try:
+                    with open(filepath, 'r') as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            history = data
+                        elif isinstance(data, dict):
+                            history = [data]
+                except Exception:
+                    history = []
+
             
             record = {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
