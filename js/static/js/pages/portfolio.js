@@ -106,7 +106,7 @@ export async function renderPortfolio(mountNode) {
       document.getElementById('cagr-val').textContent = `${data.metrics.cagr}%`;
     }
 
-    // Render Holdings List
+    // Render Holdings List with Direct 1-Click SELL Button
     const holdingsNode = document.getElementById('holdings-list');
     if (data.holdings && data.holdings.length > 0) {
       holdingsNode.innerHTML = data.holdings.map(h => `
@@ -115,14 +115,42 @@ export async function renderPortfolio(mountNode) {
             <h4 style="font-size: 15px; font-weight: 600;">${h.symbol}</h4>
             <p class="text-muted" style="font-size: 12px;">${h.shares.toLocaleString()} Shares @ $${h.avg_price.toFixed(2)}</p>
           </div>
-          <div style="text-align: right;">
-            <h4 style="font-size: 15px;">$${h.total_value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h4>
-            <p class="${h.pnl >= 0 ? 'text-up' : 'text-down'}" style="font-size: 12px;">
-              ${h.pnl >= 0 ? '+' : ''}$${h.pnl.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${h.pnl_pct.toFixed(2)}%)
-            </p>
+          <div style="display: flex; align-items: center; gap: 14px; text-align: right;">
+            <div>
+              <h4 style="font-size: 15px;">$${h.total_value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h4>
+              <p class="${h.pnl >= 0 ? 'text-up' : 'text-down'}" style="font-size: 12px;">
+                ${h.pnl >= 0 ? '+' : ''}$${h.pnl.toLocaleString('en-US', { minimumFractionDigits: 2 })} (${h.pnl_pct.toFixed(2)}%)
+              </p>
+            </div>
+            <button class="btn btn-secondary sell-holding-btn" 
+                    data-symbol="${h.symbol}" 
+                    data-amount="${h.total_value}"
+                    style="padding: 6px 12px; font-size: 12px; font-weight: 600; border-color: var(--down-color); color: var(--down-color);">
+              <i class="fas fa-dollar-sign"></i> SELL
+            </button>
           </div>
         </div>
       `).join('');
+
+      // Add Sell Event Listeners
+      holdingsNode.querySelectorAll('.sell-holding-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const sym = btn.getAttribute('data-symbol');
+          const amt = parseFloat(btn.getAttribute('data-amount')) || 1000000;
+          try {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+            const res = await APIService.executeTrade(sym, 'SELL', amt);
+            showToast(`SOLD ${sym} position for $${amt.toLocaleString()}! (Fee: $${res.trade.fee})`, 'success');
+            renderPortfolio(mountNode); // Refresh portfolio view
+          } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-dollar-sign"></i> SELL`;
+          }
+        });
+      });
+
     } else {
       holdingsNode.innerHTML = `<p class="text-muted" style="padding: 16px 0;">No active stock holdings. Execute trades to allocate capital.</p>`;
     }
