@@ -125,54 +125,63 @@ export async function renderDashboard(mountNode) {
       </div>
     `;
 
-    // Render Chart using TradingView Advanced Widget
+    // Render Chart using TradingView Embed Widget (Iframe-based, robust, no script blocker issues)
     const renderChart = (symbol) => {
       const chartContainer = document.getElementById('main-chart');
       if (chartContainer) {
-        chartContainer.innerHTML = '';
-        
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.src = 'https://s3.tradingview.com/tv.js';
-        script.onload = () => {
-          new TradingView.widget({
-            "autosize": true,
-            "symbol": symbol,
-            "interval": "D",
-            "timezone": "Etc/UTC",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "enable_publishing": false,
-            "backgroundColor": "transparent",
-            "gridColor": "rgba(255, 255, 255, 0.05)",
-            "hide_top_toolbar": false,
-            "hide_legend": true,
-            "save_image": false,
-            "container_id": "main-chart"
-          });
-        };
-        document.body.appendChild(script);
+        chartContainer.innerHTML = `
+          <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
+            <iframe 
+              id="tradingview-iframe"
+              src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview-iframe&symbol=${encodeURIComponent(symbol)}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=en&utm_source=localhost" 
+              style="width: 100%; height: 320px; border: none; border-radius: 8px;"
+              allowtransparency="true" 
+              scrolling="no" 
+              allowfullscreen>
+            </iframe>
+          </div>
+        `;
       }
     };
     
-    renderChart(topStock.symbol);
+    renderChart(topStock.symbol || 'AAPL');
+
 
     const chartBtn = document.getElementById('chart-search-btn');
     const chartInput = document.getElementById('chart-symbol-input');
+    const globalSearch = document.getElementById('global-search');
+
+    const updateChartSymbol = (sym) => {
+      if (!sym) return;
+      const cleanSym = sym.trim().toUpperCase();
+      renderChart(cleanSym);
+      if (chartInput) chartInput.value = cleanSym;
+      showToast('Loaded live chart for ' + cleanSym, 'success');
+    };
+
     if (chartBtn && chartInput) {
-      const updateChart = () => {
-        const sym = chartInput.value.trim().toUpperCase();
-        if (sym) {
-          renderChart(sym);
-          showToast('Updated chart for ' + sym, 'success');
-        }
-      };
-      chartBtn.addEventListener('click', updateChart);
+      chartBtn.addEventListener('click', () => updateChartSymbol(chartInput.value));
       chartInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') updateChart();
+        if (e.key === 'Enter') updateChartSymbol(chartInput.value);
       });
     }
+
+    if (globalSearch) {
+      globalSearch.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') updateChartSymbol(globalSearch.value);
+      });
+    }
+
+    // Also clicking any watchlist item updates the chart
+    const watchlistCards = document.querySelectorAll('#watchlist-grid .bento-card');
+    watchlistCards.forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const symbolElem = card.querySelector('h4');
+        if (symbolElem) updateChartSymbol(symbolElem.textContent);
+      });
+    });
+
 
   } catch (err) {
     showToast('Failed to load dashboard data', 'error');
