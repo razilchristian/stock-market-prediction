@@ -1166,8 +1166,42 @@ def get_stocks_list():
     
     return jsonify(popular_stocks)
 
+@server.route('/api/chart/<symbol>')
+@rate_limiter
+def get_chart_data(symbol):
+    sym = (symbol or 'AAPL').upper().strip()
+    try:
+        hist, current_price, _ = get_live_stock_data_enhanced(sym)
+        if hist is not None and not hist.empty:
+            # Last 90 trading days for clean chart
+            tail_df = hist.tail(90)
+            candles = []
+            for _, row in tail_df.iterrows():
+                try:
+                    ts = int(datetime.strptime(str(row['Date']), '%Y-%m-%d').timestamp() * 1000)
+                except Exception:
+                    ts = int(time.time() * 1000)
+                candles.append({
+                    'x': ts,
+                    'y': [
+                        round(float(row['Open']), 2),
+                        round(float(row['High']), 2),
+                        round(float(row['Low']), 2),
+                        round(float(row['Close']), 2)
+                    ]
+                })
+            return jsonify({
+                'symbol': sym,
+                'current_price': round(float(current_price), 2),
+                'candles': candles
+            })
+    except Exception as e:
+        print(f"Error serving chart for {sym}: {e}")
+    return jsonify({'symbol': sym, 'current_price': 100.0, 'candles': []})
+
 @server.route('/api/health')
 def health_check():
+
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),

@@ -37,10 +37,26 @@ export const APIService = {
   },
 
   /**
+   * Fetch historical candlestick chart data
+   * @param {string} symbol - Stock ticker (e.g. 'AAPL')
+   */
+  async getChart(symbol) {
+    try {
+      const response = await fetch(`${API_BASE}/chart/${encodeURIComponent(symbol.toUpperCase())}`);
+      if (!response.ok) throw new Error('Failed to fetch chart data');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
+      return { symbol, current_price: 100.0, candles: [] };
+    }
+  },
+
+  /**
    * Fetch ML prediction for a specific stock
    * @param {string} symbol - Stock ticker (e.g. 'AAPL')
    */
   async getPrediction(symbol) {
+
     try {
       const response = await fetch(`${API_BASE}/predict`, {
         method: 'POST',

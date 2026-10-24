@@ -125,27 +125,154 @@ export async function renderDashboard(mountNode) {
       </div>
     `;
 
-    // Render Chart using TradingView Embed Widget (Iframe-based, robust, no script blocker issues)
-    const renderChart = (symbol) => {
+    let currentChartInstance = null;
+
+    // Render interactive Candlestick chart via ApexCharts (Instant, reliable, dark neon cyber styled)
+    const renderChart = async (symbol, range = '1W') => {
       const chartContainer = document.getElementById('main-chart');
-      if (chartContainer) {
+      if (!chartContainer) return;
+
+      chartContainer.innerHTML = `
+        <div class="flex-center" style="height: 320px; flex-direction: column; gap: 12px;">
+          <div class="animate-spin text-cyan" style="font-size: 28px;"><i class="fas fa-circle-notch"></i></div>
+          <p class="text-muted" style="font-size: 13px;">Loading market data for ${symbol}...</p>
+        </div>
+      `;
+
+      try {
+        const chartData = await APIService.getChart(symbol);
+        let seriesData = chartData.candles || [];
+
+        // Apply Timeframe slicing
+        if (range === '1D') {
+          seriesData = seriesData.slice(-5);
+        } else if (range === '1W') {
+          seriesData = seriesData.slice(-25);
+        } else if (range === '1M') {
+          seriesData = seriesData.slice(-60);
+        }
+
+        chartContainer.innerHTML = '';
+
+        if (!seriesData || seriesData.length === 0) {
+          chartContainer.innerHTML = `
+            <div class="flex-center" style="height: 320px; flex-direction: column; gap: 8px;">
+              <i class="fas fa-chart-line text-muted" style="font-size: 36px;"></i>
+              <p class="text-muted">No price candle history found for ${symbol}</p>
+            </div>
+          `;
+          return;
+        }
+
+        if (currentChartInstance) {
+          try { currentChartInstance.destroy(); } catch (e) {}
+        }
+
+        const options = {
+          series: [{
+            name: `${symbol} Price`,
+            data: seriesData
+          }],
+          chart: {
+            type: 'candlestick',
+            height: 320,
+            background: 'transparent',
+            toolbar: {
+              show: true,
+              tools: {
+                download: false,
+                selection: true,
+                zoom: true,
+                zoomin: true,
+                zoomout: true,
+                pan: true,
+                reset: true
+              }
+            },
+            animations: {
+              enabled: true,
+              easing: 'easeinout',
+              speed: 400
+            }
+          },
+          theme: { mode: 'dark' },
+          plotOptions: {
+            candlestick: {
+              colors: {
+                upward: '#00FF9D',
+                downward: '#FF3366'
+              },
+              wick: {
+                useFillColor: true
+              }
+            }
+          },
+          grid: {
+            borderColor: 'rgba(255, 255, 255, 0.05)',
+            strokeDashArray: 4
+          },
+          xaxis: {
+            type: 'datetime',
+            labels: {
+              style: { colors: '#94a3b8', fontSize: '11px', fontFamily: 'JetBrains Mono' },
+              datetimeUTC: false
+            },
+            axisBorder: { color: 'rgba(255, 255, 255, 0.1)' }
+          },
+          yaxis: {
+            tooltip: { enabled: true },
+            labels: {
+              style: { colors: '#94a3b8', fontSize: '11px', fontFamily: 'JetBrains Mono' },
+              formatter: (val) => '$' + val.toFixed(2)
+            }
+          },
+          tooltip: {
+            theme: 'dark',
+            x: { format: 'dd MMM yyyy' },
+            style: { fontSize: '12px', fontFamily: 'JetBrains Mono' }
+          }
+        };
+
+        currentChartInstance = new ApexCharts(chartContainer, options);
+        await currentChartInstance.render();
+
+      } catch (err) {
+        console.error('Failed to render chart:', err);
         chartContainer.innerHTML = `
-          <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
-            <iframe 
-              id="tradingview-iframe"
-              src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview-iframe&symbol=${encodeURIComponent(symbol)}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=en&utm_source=localhost" 
-              style="width: 100%; height: 320px; border: none; border-radius: 8px;"
-              allowtransparency="true" 
-              scrolling="no" 
-              allowfullscreen>
-            </iframe>
+          <div class="flex-center" style="height: 320px; flex-direction: column; gap: 8px;">
+            <i class="fas fa-exclamation-triangle text-down" style="font-size: 32px;"></i>
+            <p class="text-down">Failed to load chart for ${symbol}</p>
           </div>
         `;
       }
     };
-    
-    renderChart(topStock.symbol || 'AAPL');
 
+    let activeSymbol = topStock.symbol || 'AAPL';
+    let activeRange = '1W';
+    renderChart(activeSymbol, activeRange);
+
+    // Timeframe Buttons (1D, 1W, 1M)
+    const tfButtons = document.querySelectorAll('.bento-card [data-tf]');
+    const headerBtnBox = document.querySelector('.bento-card .flex-between div:last-child');
+    if (headerBtnBox) {
+      headerBtnBox.innerHTML = `
+        <button class="btn btn-secondary tf-btn" data-tf="1D" style="padding: 4px 12px; font-size: 12px;">1D</button>
+        <button class="btn btn-primary tf-btn" data-tf="1W" style="padding: 4px 12px; font-size: 12px;">1W</button>
+        <button class="btn btn-secondary tf-btn" data-tf="1M" style="padding: 4px 12px; font-size: 12px;">1M</button>
+      `;
+      headerBtnBox.querySelectorAll('.tf-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          headerBtnBox.querySelectorAll('.tf-btn').forEach(b => {
+            b.classList.remove('btn-primary');
+            b.classList.add('btn-secondary');
+          });
+          btn.classList.remove('btn-secondary');
+          btn.classList.add('btn-primary');
+          activeRange = btn.getAttribute('data-tf');
+          renderChart(activeSymbol, activeRange);
+        });
+      });
+    }
 
     const chartBtn = document.getElementById('chart-search-btn');
     const chartInput = document.getElementById('chart-symbol-input');
@@ -154,7 +281,8 @@ export async function renderDashboard(mountNode) {
     const updateChartSymbol = (sym) => {
       if (!sym) return;
       const cleanSym = sym.trim().toUpperCase();
-      renderChart(cleanSym);
+      activeSymbol = cleanSym;
+      renderChart(cleanSym, activeRange);
       if (chartInput) chartInput.value = cleanSym;
       showToast('Loaded live chart for ' + cleanSym, 'success');
     };
@@ -181,6 +309,7 @@ export async function renderDashboard(mountNode) {
         if (symbolElem) updateChartSymbol(symbolElem.textContent);
       });
     });
+
 
 
   } catch (err) {
